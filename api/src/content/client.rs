@@ -164,7 +164,7 @@ impl JsonClient {
                 concat!(
                     "kuro-api/",
                     env!("CARGO_PKG_VERSION"),
-                    " (github.com/Nihilop/kuro)"
+                    " (github.com/kuroctl/kuro)"
                 ),
             )
             .header(ACCEPT, "application/json")

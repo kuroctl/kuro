@@ -21,7 +21,7 @@ set -euo pipefail
 # Rôle pré-choisi par les raccourcis get.kuroctl.com/api et /node (réécrit à la publication).
 DEFAULT_ROLES=""
 
-KURO_REPO="${KURO_REPO:-Nihilop/kuro}"
+KURO_REPO="${KURO_REPO:-kuroctl/kuro}"
 # Releases de ce dépôt ; un miroir peut la remplacer (la signature est vérifiée quand même).
 KURO_RELEASE_URL="${KURO_RELEASE_URL:-https://github.com/$KURO_REPO/releases/download}"
 # Clé publique minisign des releases (la clé privée est un secret GitHub, ADR-0016). Un fork qui
