@@ -52,14 +52,14 @@ EOF
 chmod +x /usr/local/bin/systemctl /usr/local/bin/docker
 
 export KURO_RELEASE_URL=http://127.0.0.1:8000
-API=(/src/scripts/install.sh api --public-host api.example.test --database-url "$KURO_TEST_DATABASE_URL" --version "$VERSION")
-DAEMON=(/src/scripts/install.sh node --version "$VERSION")
+API=(bash /src/scripts/install.sh api --public-host api.example.test --database-url "$KURO_TEST_DATABASE_URL" --version "$VERSION")
+DAEMON=(bash /src/scripts/install.sh node --version "$VERSION")
 
 # --- Plan, rôles et raccourcis ----------------------------------------------------------------------
-expect_failure "a role is required" "choose a role" /src/scripts/install.sh --version "$VERSION"
-expect_failure "unknown option refused" "unknown option" /src/scripts/install.sh api --nope
-expect_failure "bad port range refused" "expects a port" /src/scripts/install.sh node --ports 25565:25600
-out="$(/src/scripts/install.sh api node --public-host localhost --ports 25565-25600 --full --plan)"
+expect_failure "a role is required" "choose a role" bash /src/scripts/install.sh --version "$VERSION"
+expect_failure "unknown option refused" "unknown option" bash /src/scripts/install.sh api --nope
+expect_failure "bad port range refused" "expects a port" bash /src/scripts/install.sh node --ports 25565:25600
+out="$(bash /src/scripts/install.sh api node --public-host localhost --ports 25565-25600 --full --plan)"
 for line in "ufw: deny incoming, allow SSH on port 22" "allow 80/tcp, 443/tcp (Caddy) and 8443/tcp" \
   "allow game ports 25565-25600" "ssh      unchanged: no authorized key" "caddy    install" \
   "add this machine as a node of the local API"; do
