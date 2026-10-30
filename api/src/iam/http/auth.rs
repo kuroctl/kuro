@@ -1,7 +1,12 @@
 //! `/auth/*` : connexion, mot de passe temporaire à remplacer, TOTP, rafraîchissement, déconnexion.
 //!
-//! Le jeton de rafraîchissement ne circule que dans un cookie `HttpOnly; SameSite=Strict`
-//! limité au chemin `/api/admin/v1/auth` ; le jeton d'accès est renvoyé dans le corps.
+//! Le jeton de rafraîchissement ne circule que dans un cookie `__Host-` (`HttpOnly`, `Secure`,
+//! `SameSite=Strict`, chemin `/`, sans `Domain`) ; le jeton d'accès est renvoyé dans le corps.
+//! Le préfixe `__Host-` interdit à un autre sous-domaine (un site web hébergé, ADR-0038) de poser
+//! un cookie homonyme ; en échange, le cookie part avec toutes les requêtes vers l'API, où seules
+//! ces routes le lisent. Toute route qui pose ou lit le cookie vérifie aussi l'en-tête `Origin`
+//! ([`BrowserOrigin`]) : un site « même site » ne peut ni ouvrir, ni faire tourner, ni fermer la
+//! session de l'admin.
 
 use crate::http::extract::Json;
 use axum::extract::State;
@@ -15,10 +20,12 @@ use utoipa::ToSchema;
 use super::AdminSession;
 use crate::http::context::RequestContext;
 use crate::http::error::Problem;
+use crate::http::origin::BrowserOrigin;
 use crate::iam::application::{self, IamError, IamState, LoginOutcome, Refreshed, SessionTokens};
 
-pub(super) const REFRESH_COOKIE: &str = "kuro_admin_refresh";
-const REFRESH_COOKIE_PATH: &str = "/api/admin/v1/auth";
+pub(super) const REFRESH_COOKIE: &str = "__Host-kuro_admin_refresh";
+/// Imposé par le préfixe `__Host-`.
+const REFRESH_COOKIE_PATH: &str = "/";
 
 #[derive(Deserialize, ToSchema)]
 pub struct LoginRequest {
@@ -94,9 +101,11 @@ pub struct AccessTokenResponse {
     responses(
         (status = 200, body = LoginResponse),
         (status = 401, description = "Identifiants invalides (compte inconnu, désactivé ou verrouillé inclus)", body = Problem),
+        (status = 403, description = "Origine de la page non autorisée", body = Problem),
     ))]
 pub async fn login(
     State(state): State<IamState>,
+    _origin: BrowserOrigin,
     RequestContext(context): RequestContext,
     jar: CookieJar,
     Json(request): Json<LoginRequest>,
@@ -112,10 +121,12 @@ pub async fn login(
     responses(
         (status = 200, body = LoginResponse),
         (status = 401, description = "Challenge invalide ou expiré", body = Problem),
+        (status = 403, description = "Origine de la page non autorisée", body = Problem),
         (status = 422, description = "Mot de passe trop faible ou inchangé", body = Problem),
     ))]
 pub async fn change_required_password(
     State(state): State<IamState>,
+    _origin: BrowserOrigin,
     RequestContext(context): RequestContext,
     jar: CookieJar,
     Json(request): Json<RequiredPasswordRequest>,
@@ -159,9 +170,11 @@ fn login_response(state: &IamState, jar: CookieJar, outcome: LoginOutcome) -> Re
     responses(
         (status = 200, body = AccessTokenResponse),
         (status = 401, description = "Challenge ou code invalide", body = Problem),
+        (status = 403, description = "Origine de la page non autorisée", body = Problem),
     ))]
 pub async fn verify_totp(
     State(state): State<IamState>,
+    _origin: BrowserOrigin,
     RequestContext(context): RequestContext,
     jar: CookieJar,
     Json(request): Json<TotpCodeRequest>,
@@ -197,10 +210,12 @@ pub async fn start_totp_setup(
     responses(
         (status = 200, body = AccessTokenResponse),
         (status = 401, body = Problem),
+        (status = 403, description = "Origine de la page non autorisée", body = Problem),
         (status = 409, body = Problem),
     ))]
 pub async fn confirm_totp(
     State(state): State<IamState>,
+    _origin: BrowserOrigin,
     RequestContext(context): RequestContext,
     jar: CookieJar,
     Json(request): Json<TotpCodeRequest>,
@@ -216,9 +231,11 @@ pub async fn confirm_totp(
     responses(
         (status = 200, body = AccessTokenResponse),
         (status = 401, description = "Cookie absent, expiré, révoqué ou rejoué", body = Problem),
+        (status = 403, description = "Origine de la page non autorisée", body = Problem),
     ))]
 pub async fn refresh(
     State(state): State<IamState>,
+    _origin: BrowserOrigin,
     RequestContext(context): RequestContext,
     jar: CookieJar,
 ) -> Result<Response, IamError> {
@@ -243,9 +260,11 @@ pub async fn refresh(
 /// Ferme la session courante (tous ses jetons de rafraîchissement).
 #[utoipa::path(post, path = "/api/admin/v1/auth/logout", tag = "admin-auth",
     security(("bearer" = [])),
-    responses((status = 204), (status = 401, body = Problem)))]
+    responses((status = 204), (status = 401, body = Problem),
+        (status = 403, description = "Origine de la page non autorisée", body = Problem)))]
 pub async fn logout(
     State(state): State<IamState>,
+    _origin: BrowserOrigin,
     session: AdminSession,
     jar: CookieJar,
 ) -> Result<Response, IamError> {
@@ -256,7 +275,8 @@ pub async fn logout(
 fn authenticated(state: &IamState, jar: CookieJar, tokens: SessionTokens, login: bool) -> Response {
     let cookie = Cookie::build((REFRESH_COOKIE, tokens.refresh_token))
         .http_only(true)
-        // Toujours `Secure`, même en dev : les navigateurs l'acceptent sur `http://localhost`.
+        // Toujours `Secure` (exigé par `__Host-`), même en dev : les navigateurs l'acceptent sur
+        // `http://localhost`.
         .secure(true)
         .same_site(SameSite::Strict)
         .path(REFRESH_COOKIE_PATH)

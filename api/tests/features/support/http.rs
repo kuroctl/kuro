@@ -43,12 +43,19 @@ impl TestResponse {
     }
 }
 
-/// Origine autorisée en plus de celle de l'API, et durée d'une console avant reconnexion.
+/// Durée d'une console avant reconnexion.
 pub fn console_access() -> kuro_api::servers::application::ConsoleAccess {
     kuro_api::servers::application::ConsoleAccess {
-        allowed_origins: vec![PANEL_ORIGIN.to_owned()],
         max_session: std::time::Duration::from_secs(900),
     }
+}
+
+/// Politique HTTP des tests : `PANEL_ORIGIN` autorisée en plus de l'origine de l'API.
+pub fn http_policy() -> kuro_api::http::policy::HttpPolicy {
+    kuro_api::http::policy::HttpPolicy::from_config(&kuro_api::config::HttpConfig {
+        allowed_origins: vec![PANEL_ORIGIN.to_owned()],
+        ..kuro_api::config::HttpConfig::default()
+    })
 }
 
 /// Origine du panel déclarée dans `http.allowed_origins` des tests.
@@ -101,7 +108,7 @@ pub async fn get_with_panel(panel: Option<&std::path::Path>, path: &str) -> Test
         oauth: None,
         dns,
         content_sources,
-        http: kuro_api::http::policy::HttpPolicy::default(),
+        http: http_policy(),
         readiness: kuro_api::system::Readiness::default(),
     };
     call(&http::router(state), Method::GET, path, None, None, None).await

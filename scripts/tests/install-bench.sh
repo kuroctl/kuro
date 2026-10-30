@@ -65,7 +65,7 @@ for line in "ufw: deny incoming, allow SSH on port 22" "allow 80/tcp, 443/tcp (C
   "add this machine as a node of the local API"; do
   grep -qF -- "$line" <<<"$out" || { echo "$out"; fail "plan misses: $line"; }
 done
-[ ! -e /etc/kuro ] && [ ! -e /usr/local/bin/kuro-api ] || fail "--plan changed the system"
+if [ -e /etc/kuro ] || [ -e /usr/local/bin/kuro-api ]; then fail "--plan changed the system"; fi
 pass "--plan shows the full preparation and changes nothing"
 # Raccourci get.kuroctl.com/node : rôle pré-choisi, réécrit à la publication.
 sed 's/^DEFAULT_ROLES=""/DEFAULT_ROLES="node"/' /src/scripts/install.sh >/work/node.sh

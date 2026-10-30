@@ -56,6 +56,9 @@ pub fn routes<S>() -> Router<S>
 where
     S: Clone + Send + Sync + 'static,
     IamState: FromRef<S>,
+    // Vérification d'`Origin` sur les routes d'authentification (ADR-0038).
+    crate::http::policy::HttpPolicy: FromRef<S>,
+    sqlx::PgPool: FromRef<S>,
 {
     // Ouvertes sans session (mot de passe, défi ou jeton de rafraîchissement) : débit limité
     // par adresse cliente.

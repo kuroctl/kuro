@@ -47,6 +47,9 @@ where
     S: Clone + Send + Sync + 'static,
     IamState: FromRef<S>,
     ServersState: FromRef<S>,
+    // Vérification d'`Origin` (console, téléchargements) : politique HTTP et journal d'audit.
+    crate::http::policy::HttpPolicy: FromRef<S>,
+    sqlx::PgPool: FromRef<S>,
 {
     Router::new()
         .route("/servers", get(servers::list).post(servers::create))

@@ -1,7 +1,7 @@
 {
   "prefab": {
-    "name": "FiveM",
-    "description": "GTA V multiplayer server (Cfx.re), or Red Dead Redemption 2 with RedM."
+    "name": "RedM",
+    "description": "Red Dead Redemption 2 multiplayer server (Cfx.re RedM)."
   },
   "groups": {
     "server": { "title": "Server" },

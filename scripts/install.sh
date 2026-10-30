@@ -610,7 +610,9 @@ enroll_local_node() {
   [ -n "${ticket:-}" ] || fail "cannot add node $name: kuro-api-admin node add --name $name"
   token="$(awk 'found { print $1; exit } /^enrollment token/ { found = 1 }' <<<"$ticket")"
   fp="$(grep -o 'sha256:[0-9a-fA-F:]*' <<<"$ticket" | head -n 1)"
-  [ -n "$token" ] && [ -n "$fp" ] || fail "cannot read the enrollment ticket of node $name"
+  if [ -z "$token" ] || [ -z "$fp" ]; then
+    fail "cannot read the enrollment ticket of node $name"
+  fi
   KURO_ENROLL_TOKEN="$token" "$BIN_DIR/kuro-daemonctl" --config "$DAEMON_CONFIG" enroll \
     --api "https://$public_host:$daemon_port" --ca-fingerprint "$fp"
 }

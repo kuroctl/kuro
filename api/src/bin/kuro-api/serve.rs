@@ -100,7 +100,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         secrets_key: *iam.keys.server_secrets(),
         console,
         console_access: ConsoleAccess {
-            allowed_origins: config.http.allowed_origins.clone(),
             max_session: std::time::Duration::from_secs(config.auth.access_ttl_secs),
         },
         content: kuro_api::content::ContentSources {

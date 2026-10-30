@@ -34,6 +34,7 @@ struct Inner {
     trusted_proxies: Vec<IpAddr>,
     limiter: Option<RateLimiter>,
     request_timeout: Option<Duration>,
+    allowed_origins: Vec<String>,
 }
 
 impl HttpPolicy {
@@ -42,18 +43,20 @@ impl HttpPolicy {
             config.trusted_proxies.clone(),
             config.rate_limit_per_minute,
             config.request_timeout(),
+            config.allowed_origins.clone(),
         )
     }
 
     /// Pairs joints directement, sans proxy : seul le pair TCP compte (listener des daemons).
     pub fn direct(rate_limit_per_minute: u32) -> Self {
-        Self::new(Vec::new(), rate_limit_per_minute, None)
+        Self::new(Vec::new(), rate_limit_per_minute, None, Vec::new())
     }
 
     fn new(
         trusted_proxies: Vec<IpAddr>,
         rate_limit_per_minute: u32,
         request_timeout: Option<Duration>,
+        allowed_origins: Vec<String>,
     ) -> Self {
         Self {
             inner: Arc::new(Inner {
@@ -61,12 +64,19 @@ impl HttpPolicy {
                 limiter: (rate_limit_per_minute > 0)
                     .then(|| RateLimiter::new(rate_limit_per_minute, Duration::from_secs(60))),
                 request_timeout,
+                allowed_origins,
             }),
         }
     }
 
     pub fn request_timeout(&self) -> Option<Duration> {
         self.inner.request_timeout
+    }
+
+    /// Origines de page acceptées en plus de celle de l'API (`http.allowed_origins`), pour le
+    /// WebSocket de console, les téléchargements et l'authentification (`http::origin`).
+    pub fn allowed_origins(&self) -> &[String] {
+        &self.inner.allowed_origins
     }
 
     pub(super) fn limiter(&self) -> Option<&RateLimiter> {

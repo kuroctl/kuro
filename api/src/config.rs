@@ -108,8 +108,9 @@ fn default_prefabs_dir() -> PathBuf {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpConfig {
     pub bind: SocketAddr,
-    /// Origines autorisées à ouvrir le WebSocket de console, en plus de celle de l'API
-    /// (`https://panel.example.com`). Vide par défaut : panel servi par l'API ou par un proxy.
+    /// Origines de page autorisées, en plus de celle de l'API (`https://panel.example.com`) :
+    /// WebSocket de console, téléchargements et routes d'authentification vérifient `Origin`.
+    /// Vide par défaut : panel servi par l'API ou par un proxy.
     #[serde(default)]
     pub allowed_origins: Vec<String>,
     /// Panel compilé à servir (`panel/dist`), par exemple `/usr/share/kuro/panel`. Absent : l'API

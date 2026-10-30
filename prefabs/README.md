@@ -15,6 +15,7 @@ Modèles de serveurs livrés avec Kuro. Format : [ADR-0011](../docs/decisions/AD
 | `enshrouded` | 1 | serveur Windows sous Proton GE, journal redirigé vers la console (brouillon : `steamcmd` doit pouvoir forcer la plateforme Windows) |
 | `arma-3` | 1 | `steamcmd` avec le compte Steam de l'installation (`login: account`, ADR-0033), `server.cfg` en `template` regénéré à chaque démarrage, `basic.cfg` libre (brouillon : pas encore essayé sur un vrai nœud) |
 | `fivem` | 1 | build épinglé en `download` + `extract` d'un `.tar.xz` (liens internes recopiés), port `tcp+udp` sur une allocation, `kuro.cfg` en `template` chargé par un `server.cfg` libre, ressources de base à un commit fixé (brouillon : pas encore essayé avec une vraie licence) |
+| `redm` | 1 | variante RedM (Red Dead Redemption 2) du prefab `fivem`, même installation, jeu `rdr3` (brouillon : pas encore essayé avec une vraie licence) |
 
 Chaque prefab est un dossier :
 

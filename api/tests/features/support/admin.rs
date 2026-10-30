@@ -12,10 +12,10 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::db;
-use super::http::{TestResponse, auth_config, call, enrollment_settings};
+use super::http::{TestResponse, auth_config, call, call_raw, enrollment_settings};
 
 pub const PASSWORD: &str = "correct horse battery staple";
-pub const REFRESH_COOKIE: &str = "kuro_admin_refresh";
+pub const REFRESH_COOKIE: &str = "__Host-kuro_admin_refresh";
 
 pub struct TestAdmin {
     pub pool: PgPool,
@@ -122,7 +122,7 @@ impl TestAdmin {
             oauth: Some(super::oauth::oauth_state(&pool, metadata.clone())),
             dns: dns.clone(),
             content_sources,
-            http: kuro_api::http::policy::HttpPolicy::default(),
+            http: super::http::http_policy(),
             readiness: readiness.clone(),
         });
         Self {
@@ -172,6 +172,24 @@ impl TestAdmin {
             None,
             Some(&cookie),
             None,
+        )
+        .await
+    }
+
+    /// Requête aux en-têtes libres (`Origin`, `Cookie`…), corps JSON facultatif.
+    pub async fn call_with_headers(
+        &self,
+        method: Method,
+        path: &str,
+        headers: &[(&str, &str)],
+        body: Option<Value>,
+    ) -> TestResponse {
+        call_raw(
+            &self.router,
+            method,
+            &format!("/api/admin/v1{path}"),
+            headers,
+            body.map(|body| ("application/json", body.to_string())),
         )
         .await
     }

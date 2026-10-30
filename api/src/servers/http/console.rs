@@ -4,9 +4,8 @@ use std::time::Duration;
 
 use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{FromRequestParts, State};
-use axum::http::header::{HOST, ORIGIN};
+use axum::http::StatusCode;
 use axum::http::request::Parts;
-use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -17,8 +16,9 @@ use uuid::Uuid;
 
 use crate::audit::domain::{AuditAction, AuditContext, AuditEvent};
 use crate::http::context::request_context;
-use crate::http::error::{ApiError, ErrorCode, Problem, error_response};
+use crate::http::error::{ApiError, Problem};
 use crate::http::extract::{Json, Path};
+use crate::http::origin::CheckedOrigin;
 use crate::iam::application::IamState;
 use crate::iam::domain::Permission;
 use crate::iam::http::AdminSession;
@@ -93,68 +93,6 @@ pub async fn command(
         .await?;
     servers::command(&state, &session.context, id, &request.line).await?;
     Ok(StatusCode::ACCEPTED)
-}
-
-/// Origine de la page qui ouvre le WebSocket : même hôte que l'API, ou origine autorisée par la
-/// configuration (`http.allowed_origins`).
-pub struct CheckedOrigin;
-
-impl<S> FromRequestParts<S> for CheckedOrigin
-where
-    ServersState: axum::extract::FromRef<S>,
-    S: Send + Sync,
-{
-    type Rejection = Response;
-
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let servers = <ServersState as axum::extract::FromRef<S>>::from_ref(state);
-        let origin = parts.headers.get(ORIGIN).and_then(|v| v.to_str().ok());
-        if let Some(origin) = origin
-            && origin_allowed(
-                origin,
-                &parts.headers,
-                &servers.console_access.allowed_origins,
-            )
-        {
-            return Ok(Self);
-        }
-        let context = request_context(parts);
-        let origin: Option<String> = origin.map(|o| o.chars().take(200).collect());
-        denied(
-            &servers,
-            &context,
-            json!({ "reason": "origin", "origin": origin }),
-        )
-        .await;
-        Err(error_response(StatusCode::FORBIDDEN, ErrorCode::Forbidden))
-    }
-}
-
-/// Origine du panel : une origine déclarée, ou l'hôte de l'API lui-même, en `https://` (en
-/// `http://` pour une adresse locale seulement : développement). Le schéma compte, sinon une
-/// page `http://` servie sur le même nom passerait.
-fn origin_allowed(origin: &str, headers: &HeaderMap, allowed: &[String]) -> bool {
-    if allowed.iter().any(|a| a.eq_ignore_ascii_case(origin)) {
-        return true;
-    }
-    let Some(host) = headers.get(HOST).and_then(|v| v.to_str().ok()) else {
-        return false;
-    };
-    let same_host = |scheme: &str| {
-        origin
-            .strip_prefix(scheme)
-            .is_some_and(|o| o.eq_ignore_ascii_case(host))
-    };
-    same_host("https://") || (is_local_host(host) && same_host("http://"))
-}
-
-/// `localhost`, `127.0.0.1`, `[::1]`, avec ou sans port.
-fn is_local_host(host: &str) -> bool {
-    let name = host.strip_prefix('[').map_or_else(
-        || host.rsplit_once(':').map_or(host, |(h, _)| h),
-        |v6| v6.split(']').next().unwrap_or(v6),
-    );
-    matches!(name, "localhost" | "127.0.0.1" | "::1")
 }
 
 pub(super) async fn denied(
@@ -310,54 +248,4 @@ async fn close(socket: &mut WebSocket, code: u16, reason: &'static str) {
             reason: reason.into(),
         })))
         .await;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn headers(host: &str) -> HeaderMap {
-        let mut headers = HeaderMap::new();
-        headers.insert(HOST, host.parse().unwrap());
-        headers
-    }
-
-    #[test]
-    fn the_apis_own_origin_counts_with_its_scheme() {
-        let allowed = vec!["https://panel.example.com".to_owned()];
-        let api = headers("api.example.com");
-        assert!(origin_allowed("https://panel.example.com", &api, &allowed));
-        assert!(origin_allowed("https://api.example.com", &api, &allowed));
-        // Le schéma est comparé tel quel (un navigateur l'écrit en minuscules), l'hôte sans casse.
-        assert!(origin_allowed("https://API.EXAMPLE.COM", &api, &allowed));
-        // Même hôte en clair : une page `http://` ne doit pas ouvrir la console.
-        assert!(!origin_allowed("http://api.example.com", &api, &allowed));
-        assert!(!origin_allowed("https://evil.example.com", &api, &allowed));
-        assert!(!origin_allowed(
-            "https://api.example.com.evil.net",
-            &api,
-            &allowed
-        ));
-        // Développement : adresse locale en `http://`, avec son port.
-        assert!(origin_allowed(
-            "http://localhost:5173",
-            &headers("localhost:5173"),
-            &[]
-        ));
-        assert!(origin_allowed(
-            "http://127.0.0.1:8080",
-            &headers("127.0.0.1:8080"),
-            &[]
-        ));
-        assert!(origin_allowed(
-            "http://[::1]:8080",
-            &headers("[::1]:8080"),
-            &[]
-        ));
-        assert!(!origin_allowed(
-            "http://localhost:5173",
-            &headers("localhost:5174"),
-            &[]
-        ));
-    }
 }

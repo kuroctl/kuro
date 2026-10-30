@@ -3819,6 +3819,15 @@ export interface operations {
                     "application/json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Origine de la page non autorisée */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     logout: {
@@ -3837,6 +3846,15 @@ export interface operations {
                 content?: never;
             };
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Origine de la page non autorisée */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3869,6 +3887,15 @@ export interface operations {
             };
             /** @description Challenge invalide ou expiré */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Origine de la page non autorisée */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3913,6 +3940,15 @@ export interface operations {
                     "application/json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Origine de la page non autorisée */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     confirm_totp: {
@@ -3937,6 +3973,15 @@ export interface operations {
                 };
             };
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Origine de la page non autorisée */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4017,6 +4062,15 @@ export interface operations {
             };
             /** @description Challenge ou code invalide */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Origine de la page non autorisée */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

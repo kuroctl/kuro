@@ -17,14 +17,14 @@ async fn official_prefabs_are_imported_once() {
 
     assert!(again.imported.is_empty());
     // minecraft-java, minecraft-bedrock, wordpress, ark-survival-ascended, terraria, valheim,
-    // project-zomboid, rust, enshrouded, arma-3, fivem.
-    assert_eq!(again.unchanged.len(), 11);
+    // project-zomboid, rust, enshrouded, arma-3, fivem, redm.
+    assert_eq!(again.unchanged.len(), 12);
     let events = platform.admin.audit().await;
     let imports = events
         .iter()
         .filter(|e| e.action == "prefab.imported")
         .count();
-    assert_eq!(imports, 11);
+    assert_eq!(imports, 12);
 }
 
 #[tokio::test]

@@ -2,8 +2,10 @@
 
 use axum::http::{Method, StatusCode};
 use kuro_api::iam::domain::Permission;
+use serde_json::json;
 
 use crate::support::admin::{PASSWORD, REFRESH_COOKIE, TestAdmin};
+use crate::support::http::PANEL_ORIGIN;
 
 #[tokio::test]
 async fn login_opens_a_session_with_a_hardened_refresh_cookie() {
@@ -16,17 +18,19 @@ async fn login_opens_a_session_with_a_hardened_refresh_cookie() {
     assert_eq!(response.json["status"], "authenticated");
     assert_eq!(response.json["token_type"], "Bearer");
     let cookie = response.set_cookie_header(REFRESH_COOKIE).unwrap();
-    for attribute in [
-        "HttpOnly",
-        "Secure",
-        "SameSite=Strict",
-        "Path=/api/admin/v1/auth",
-    ] {
+    // Préfixe `__Host-` : `Secure`, chemin `/`, sans `Domain` (un autre sous-domaine ne peut pas
+    // poser un cookie homonyme).
+    let attributes: Vec<&str> = cookie.split("; ").skip(1).collect();
+    for attribute in ["HttpOnly", "Secure", "SameSite=Strict", "Path=/"] {
         assert!(
-            cookie.contains(attribute),
+            attributes.contains(&attribute),
             "{attribute} missing in {cookie}"
         );
     }
+    assert!(
+        !attributes.iter().any(|a| a.starts_with("Domain=")),
+        "Domain forbidden by __Host-: {cookie}"
+    );
     let event = admin.last_audit("auth.login.succeeded").await;
     assert_eq!(event.actor_id, Some(account.id));
 }
@@ -373,4 +377,128 @@ async fn a_session_older_than_its_maximum_age_cannot_be_refreshed() {
     let refused = admin.last_audit("auth.session.refreshed").await;
     assert_eq!(refused.outcome, "failure");
     assert_eq!(refused.details["reason"], "max_age");
+}
+#[tokio::test]
+async fn a_refresh_cookie_without_the_host_prefix_is_ignored() {
+    // Côté navigateur, `__Host-` empêche un sous-domaine (site web hébergé, ADR-0038) de poser
+    // un cookie homonyme ; côté API, seul le nom préfixé est lu : un cookie sous l'ancien nom,
+    // ou un nom voisin, n'ouvre rien.
+    let admin = TestAdmin::start().await;
+    let account = admin.account("alice@example.com", &[]).await;
+    let session = admin.login(&account).await;
+
+    let cookie = format!("kuro_admin_refresh={}", session.refresh_cookie);
+    let response = admin
+        .call_with_headers(Method::POST, "/auth/refresh", &[("cookie", &cookie)], None)
+        .await;
+    assert_eq!(response.status, StatusCode::UNAUTHORIZED);
+
+    // Le vrai cookie, lui, fonctionne toujours : rien n'a été consommé.
+    let refreshed = admin
+        .call_with_cookie(Method::POST, "/auth/refresh", &session.refresh_cookie)
+        .await;
+    assert_eq!(refreshed.status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn auth_routes_refuse_a_foreign_origin() {
+    // Un site sous le même domaine que le panel est « même site » : le navigateur joint le
+    // cookie malgré `SameSite=Strict`. L'en-tête `Origin`, qu'il ne peut pas falsifier, le
+    // trahit : ni connexion, ni rotation, ni déconnexion depuis une autre origine.
+    let admin = TestAdmin::start().await;
+    let account = admin.account("alice@example.com", &[]).await;
+    let session = admin.login(&account).await;
+
+    let login = admin
+        .call_with_headers(
+            Method::POST,
+            "/auth/login",
+            &[("origin", "https://evil.example.com")],
+            Some(json!({ "email": account.email, "password": PASSWORD })),
+        )
+        .await;
+    assert_eq!(login.status, StatusCode::FORBIDDEN);
+    assert_eq!(login.json["code"], "forbidden");
+    let denied = admin.last_audit("access.denied").await;
+    assert_eq!(denied.details["reason"], "origin");
+    assert_eq!(denied.details["origin"], "https://evil.example.com");
+
+    let cookie = format!("{REFRESH_COOKIE}={}", session.refresh_cookie);
+    let refresh = admin
+        .call_with_headers(
+            Method::POST,
+            "/auth/refresh",
+            &[("origin", "https://evil.example.com"), ("cookie", &cookie)],
+            None,
+        )
+        .await;
+    assert_eq!(refresh.status, StatusCode::FORBIDDEN);
+    assert!(
+        refresh.cookie(REFRESH_COOKIE).is_none(),
+        "no cookie rotated"
+    );
+
+    let bearer = format!("Bearer {}", session.access_token);
+    let logout = admin
+        .call_with_headers(
+            Method::POST,
+            "/auth/logout",
+            &[
+                ("origin", "https://evil.example.com"),
+                ("authorization", &bearer),
+            ],
+            None,
+        )
+        .await;
+    assert_eq!(logout.status, StatusCode::FORBIDDEN);
+
+    // La session est intacte : le cookie tourne normalement depuis le panel.
+    let refreshed = admin
+        .call_with_headers(
+            Method::POST,
+            "/auth/refresh",
+            &[("origin", PANEL_ORIGIN), ("cookie", &cookie)],
+            None,
+        )
+        .await;
+    assert_eq!(refreshed.status, StatusCode::OK);
+    assert!(refreshed.cookie(REFRESH_COOKIE).is_some());
+}
+
+#[tokio::test]
+async fn auth_routes_accept_the_panel_and_clients_without_origin() {
+    let admin = TestAdmin::start().await;
+    let account = admin.account("alice@example.com", &[]).await;
+    let credentials = json!({ "email": account.email, "password": PASSWORD });
+
+    // Origine déclarée dans `http.allowed_origins`.
+    let declared = admin
+        .call_with_headers(
+            Method::POST,
+            "/auth/login",
+            &[("origin", PANEL_ORIGIN)],
+            Some(credentials.clone()),
+        )
+        .await;
+    assert_eq!(declared.status, StatusCode::OK);
+
+    // Même hôte que l'API, en `https://`.
+    let same_host = admin
+        .call_with_headers(
+            Method::POST,
+            "/auth/login",
+            &[
+                ("origin", "https://api.example.com"),
+                ("host", "api.example.com"),
+            ],
+            Some(credentials.clone()),
+        )
+        .await;
+    assert_eq!(same_host.status, StatusCode::OK);
+
+    // Sans `Origin` : client hors navigateur (CLI, script), accepté.
+    let script = admin
+        .call_with_headers(Method::POST, "/auth/login", &[], Some(credentials))
+        .await;
+    assert_eq!(script.status, StatusCode::OK);
 }

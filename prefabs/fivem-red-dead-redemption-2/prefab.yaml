@@ -1,15 +1,15 @@
 # yaml-language-server: $schema=../schema/prefab.v1.schema.json
-# FiveM (GTA V multijoueur, Cfx.re) : serveur Linux `FXServer`, livré avec sa propre bibliothèque
-# musl (`alpine/`). Installé par Kuro sans script : build épinglé (sha256) puis extraction du
-# `.tar.xz` ; les ressources de base (`cfx-server-data`) viennent d'un commit fixé.
+# RedM (Red Dead Redemption 2 multijoueur, Cfx.re) : serveur Linux `FXServer`, livré avec sa
+# propre bibliothèque musl (`alpine/`). Installé par Kuro sans script : build épinglé (sha256)
+# puis extraction du `.tar.xz` ; les ressources de base (`cfx-server-data`) viennent d'un commit fixé.
 # Image d'exécution : celle des eggs Pterodactyl (Debian), dont le point d'entrée lit la ligne de
 # lancement dans `STARTUP`. Ce point d'entrée découpe la ligne sur les espaces : ce qui peut en
 # contenir (nom du serveur) passe par `kuro.cfg`, regénéré à chaque démarrage.
 schema: kuro.prefab/v1
-id: fivem
+id: redm
 version: 0.1.0
 category: game
-tags: [fivem, gta-v, redm, roleplay]
+tags: [redm, rdr2, roleplay]
 authors:
   - name: Kuro
 requires:
@@ -18,7 +18,7 @@ requires:
     memory_mb: { min: 2048, recommended: 4096 }
     disk_mb: { min: 2048, recommended: 10240 }
 assets:
-  icon: assets/icon.jpg
+  icon: assets/icon.png
   cover: assets/banner.jpg
   thumbnail: assets/thumbnail.jpg
 x-status: "draft: not yet tried on a real node with a Cfx.re licence"

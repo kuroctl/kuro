@@ -34,8 +34,6 @@ const AUDITED_COMMAND_CHARS: usize = 256;
 /// Règles d'ouverture du WebSocket navigateur.
 #[derive(Debug, Clone)]
 pub struct ConsoleAccess {
-    /// Origines acceptées en plus de celle de l'API (`http.allowed_origins`).
-    pub allowed_origins: Vec<String>,
     /// Au-delà, la connexion est fermée ; le panel en rouvre une avec un nouveau ticket, ce qui
     /// revérifie les droits. Égale à la durée d'un jeton d'accès.
     pub max_session: Duration,

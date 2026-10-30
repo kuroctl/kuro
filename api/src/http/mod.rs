@@ -7,6 +7,7 @@ pub mod context;
 pub mod error;
 pub mod extract;
 pub mod openapi;
+pub mod origin;
 pub mod outbound;
 pub mod panel;
 pub mod patch;
