@@ -2,7 +2,7 @@
   <a href="https://kuroctl.com">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="site/public/assets/dark.png">
-      <img src="site/public/assets/light.png" alt="Kuroctl" height="72">
+      <img src="site/public/assets/dark-bg.png" alt="Kuroctl" height="150">
     </picture>
   </a>
 </p>
