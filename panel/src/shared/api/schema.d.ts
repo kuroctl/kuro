@@ -628,6 +628,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/prefabs/{id}/{version}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Archive `.kprefab` d'une version (ADR-0042) : un zip avec un dossier de tête `<id>/`, prêt
+         *     à être importé ailleurs ou déposé dans le dépôt des prefabs. Une version officielle dont le
+         *     dossier est présent garde ses fichiers d'origine ; une version importée a son manifest
+         *     régénéré (sans commentaires). Permission : `prefabs.read`.
+         */
+        get: operations["export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/prefabs/{id}/{version}/locales/{lang}": {
         parameters: {
             query?: never;
@@ -1875,6 +1897,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/studio/drafts/{id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Archive `.kprefab` du brouillon (ADR-0042) : ses fichiers enregistrés et ses images, prête à
+         *     être déposée dans le dépôt des prefabs ou importée ailleurs. Permission : `prefabs.manage`.
+         */
+        get: operations["export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/studio/drafts/{id}/publish": {
         parameters: {
             query?: never;
@@ -1885,8 +1927,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Publie le brouillon en version importée (même validation qu'une archive `.kprefab`), puis le
-         *     supprime.
+         * Publie le brouillon (même validation qu'une archive `.kprefab`), puis le supprime. Avec
+         *     `prefabs.publish_to_dir`, ses fichiers sont écrits dans le dossier des prefabs officiels et la
+         *     version entre en `official` ; sinon en `uploaded` (ADR-0042).
          */
         post: operations["publish"];
         delete?: never;
@@ -5272,6 +5315,45 @@ export interface operations {
                 };
                 content: {
                     "image/*": unknown;
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archive zip `<id>-<version>.kprefab` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": unknown;
                 };
             };
             403: {
@@ -9702,6 +9784,44 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archive zip `<id>-<version>.kprefab` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": unknown;
+                };
             };
             403: {
                 headers: {

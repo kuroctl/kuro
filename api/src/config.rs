@@ -98,6 +98,12 @@ pub struct PrefabsConfig {
     /// « Recharger » du panel ou un redémarrage suffisent.
     #[serde(default)]
     pub watch: bool,
+    /// « Publier » dans le Studio écrit le brouillon dans `dir` (le dossier qui porte déjà cet
+    /// identifiant, sinon `<id>/`) et l'importe en `official`, prêt à être commité dans le dépôt
+    /// des prefabs (ADR-0042). Développement seulement : en production, `dir` est remplacé à
+    /// chaque mise à jour ; publier importe alors en `uploaded`, exporter donne l'archive.
+    #[serde(default)]
+    pub publish_to_dir: bool,
 }
 
 impl Default for PrefabsConfig {
@@ -105,6 +111,7 @@ impl Default for PrefabsConfig {
         Self {
             dir: default_prefabs_dir(),
             watch: false,
+            publish_to_dir: false,
         }
     }
 }

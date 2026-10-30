@@ -20,6 +20,8 @@ pub struct TestResponse {
     pub json: Value,
     /// Corps brut : l'ordre des clés y est celui de la réponse (`Value` les trie).
     pub body: String,
+    /// Corps tel quel (archive, image).
+    pub bytes: Vec<u8>,
 }
 
 impl TestResponse {
@@ -104,9 +106,10 @@ pub async fn get_with_panel(panel: Option<&std::path::Path>, path: &str) -> Test
         servers,
         pool,
         panel: panel.map(kuro_api::http::panel::Panel::new),
-        prefabs_dir: kuro_api::prefabs::application::PrefabsDir(
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs"),
-        ),
+        prefabs_dir: kuro_api::prefabs::application::PrefabsDir {
+            dir: std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs"),
+            publish_to_dir: false,
+        },
         oauth: None,
         dns,
         content_sources,
@@ -154,6 +157,7 @@ pub async fn call(
         headers,
         json,
         body: String::from_utf8_lossy(&bytes).into_owned(),
+        bytes: bytes.to_vec(),
     }
 }
 
@@ -189,6 +193,7 @@ pub async fn call_raw(
         json: serde_json::from_slice(&bytes).unwrap_or(Value::Null),
         headers,
         body: String::from_utf8_lossy(&bytes).into_owned(),
+        bytes: bytes.to_vec(),
     }
 }
 
@@ -226,6 +231,7 @@ pub async fn call_bytes(
         headers,
         json: serde_json::from_slice(&bytes).unwrap_or(Value::Null),
         body: String::from_utf8_lossy(&bytes).into_owned(),
+        bytes: bytes.to_vec(),
     }
 }
 

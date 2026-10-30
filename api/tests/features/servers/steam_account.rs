@@ -18,7 +18,10 @@ const PASSWORD: &str = "Pa ss!word-42";
 /// Valheim, dont l'étape `steamcmd` exige le compte de l'installation (comme Arma 3).
 fn account_prefab() -> Vec<u8> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs/valheim");
-    let manifest = std::fs::read_to_string(dir.join("prefab.yaml")).unwrap();
+    // Fins de ligne normalisées : un checkout Windows du sous-module peut être en CRLF.
+    let manifest = std::fs::read_to_string(dir.join("prefab.yaml"))
+        .unwrap()
+        .replace("\r\n", "\n");
     let start = manifest.find("assets:\n").unwrap();
     let end = manifest.find("services:\n").unwrap();
     let manifest = format!("{}{}", &manifest[..start], &manifest[end..])

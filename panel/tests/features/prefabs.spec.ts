@@ -2,7 +2,7 @@
 // origine ; recherche, filtres, vue en liste), import d'une archive et refus détaillé, détail et suppression d'une version.
 import { screen, waitFor, within } from '@testing-library/vue'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { Schemas } from '@/shared/api/types'
 
@@ -162,6 +162,29 @@ describe('prefabs', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Supprimer cette version' }))
 
     await waitFor(() => expect(deleted).toBe('1.1.0'))
+  })
+
+  it('exports a version as a .kprefab archive', async () => {
+    setup()
+    let exported: string | undefined
+    server.use(
+      http.get(`${API}/prefabs/minecraft-java/:version/export`, ({ params }) => {
+        exported = String(params.version)
+        return new HttpResponse(new Blob(['PK']), { headers: { 'Content-Type': 'application/zip' } })
+      }),
+    )
+    let downloaded: string | undefined
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      downloaded = this.download
+    })
+    const { user } = await renderApp('/prefabs/minecraft-java?version=1.1.0')
+    await screen.findByText('docker.io/itzg/minecraft-server:2026.10.1-java25')
+
+    await user.click(screen.getByRole('button', { name: 'Exporter' }))
+
+    await waitFor(() => expect(downloaded).toBe('minecraft-java-1.1.0.kprefab'))
+    expect(exported).toBe('1.1.0')
+    click.mockRestore()
   })
 
   it('optimizes the images of a version and warns about the ones too small', async () => {

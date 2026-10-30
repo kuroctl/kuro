@@ -41,6 +41,13 @@ require_totp = false
 # token_ttl_secs = 900
 # certificate_validity_days = 365
 
+# Prefabs officiels, importés au démarrage (ADR-0011, ADR-0041).
+[prefabs]
+# dir = "prefabs"
+# Développement : « Publier » dans le Studio écrit le prefab dans `dir` et l'importe en `official`
+# (ADR-0042). En production, `dir` est remplacé à chaque mise à jour : laisser false.
+# publish_to_dir = false
+
 [log]
 format = "pretty"   # "pretty" ou "json"
 filter = "info"

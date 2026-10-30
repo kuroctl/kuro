@@ -10,6 +10,7 @@ use kuro_api::content::steam_store::StoreGame;
 use kuro_api::content::steamgriddb::GridImage;
 use kuro_api::iam::domain::Permission;
 use kuro_prefab::assets::AssetKind;
+use kuro_prefab::files::PrefabFiles;
 use serde_json::{Value, json};
 
 use crate::support::content::GRID_KEY;
@@ -705,4 +706,184 @@ async fn a_steamgriddb_outage_falls_back_to_steam() {
         imported.json["sources"],
         json!({ "icon": "steam", "thumbnail": "steam" })
     );
+}
+
+#[tokio::test]
+async fn a_draft_is_exported_as_an_archive_with_its_images_declared() {
+    let platform = Platform::start().await;
+    let draft = blank(&platform).await;
+    platform
+        .admin
+        .call_bytes(
+            Method::PUT,
+            &format!("{}/assets/icon", path(&draft)),
+            &platform.token,
+            PNG.to_vec(),
+            true,
+        )
+        .await;
+
+    let exported = platform
+        .call(Method::GET, &format!("{}/export", path(&draft)), None)
+        .await;
+    assert_eq!(exported.status, StatusCode::OK);
+    assert_eq!(exported.content_type.as_deref(), Some("application/zip"));
+    assert_eq!(
+        exported.headers["content-disposition"],
+        "attachment; filename=\"my-prefab-0.1.0.kprefab\""
+    );
+    // Un dossier de tête `my-prefab/`, retiré à la lecture ; l'icône, non déclarée par l'exemple,
+    // l'est devenue : le dossier s'importe avec elle.
+    let files = kuro_prefab::files::ArchiveFiles::from_zip(&exported.bytes).unwrap();
+    let package = kuro_prefab::Package::load(&files).unwrap();
+    assert_eq!(package.manifest.id, "my-prefab");
+    assert_eq!(
+        package.manifest.assets.icon.as_deref(),
+        Some("assets/icon.png")
+    );
+    let assets = kuro_prefab::assets::load_assets_from(&files, &package.manifest).unwrap();
+    assert_eq!(assets.len(), 1);
+    assert_eq!(assets[0].kind, AssetKind::Icon);
+    // Le brouillon n'a pas bougé : l'export est une lecture.
+    let kept = platform.call(Method::GET, &path(&draft), None).await;
+    assert_eq!(kept.json["files"], draft["files"]);
+
+    // Réimportable telle quelle.
+    let imported = platform
+        .admin
+        .call_bytes(
+            Method::POST,
+            "/prefabs/import",
+            &platform.token,
+            exported.bytes.clone(),
+            true,
+        )
+        .await;
+    assert_eq!(imported.status, StatusCode::CREATED, "{}", imported.json);
+    assert_eq!(imported.json["assets"], json!(["icon"]));
+}
+
+#[tokio::test]
+async fn a_catalog_version_is_exported_with_its_original_files_or_regenerated() {
+    let platform = Platform::start().await;
+    // Version officielle dont le dossier est là : ses fichiers d'origine, commentaires compris.
+    let folder = Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs/minecraft-java");
+    let original = std::fs::read_to_string(folder.join("prefab.yaml")).unwrap();
+    let version = kuro_prefab::package::parse_manifest(&original)
+        .unwrap()
+        .version
+        .to_string();
+    let exported = platform
+        .call(
+            Method::GET,
+            &format!("/prefabs/minecraft-java/{version}/export"),
+            None,
+        )
+        .await;
+    assert_eq!(exported.status, StatusCode::OK, "{}", exported.json);
+    assert_eq!(
+        exported.headers["content-disposition"],
+        format!("attachment; filename=\"minecraft-java-{version}.kprefab\"")
+    );
+    let files = kuro_prefab::files::ArchiveFiles::from_zip(&exported.bytes).unwrap();
+    let manifest = files.read("prefab.yaml", 1 << 20).unwrap().unwrap();
+    assert_eq!(String::from_utf8(manifest).unwrap(), original);
+    assert!(files.read("locales/fr.json", 1 << 20).unwrap().is_some());
+
+    // Version importée : ses fichiers d'origine ne sont pas conservés, le manifest est régénéré.
+    let draft = blank(&platform).await;
+    let published = platform
+        .call(Method::POST, &format!("{}/publish", path(&draft)), None)
+        .await;
+    assert_eq!(published.status, StatusCode::CREATED, "{}", published.json);
+    let exported = platform
+        .call(Method::GET, "/prefabs/my-prefab/0.1.0/export", None)
+        .await;
+    assert_eq!(exported.status, StatusCode::OK);
+    let files = kuro_prefab::files::ArchiveFiles::from_zip(&exported.bytes).unwrap();
+    let package = kuro_prefab::Package::load(&files).unwrap();
+    assert_eq!(package.manifest.id, "my-prefab");
+    assert_eq!(package.manifest.version.to_string(), "0.1.0");
+
+    let unknown = platform
+        .call(Method::GET, "/prefabs/my-prefab/9.9.9/export", None)
+        .await;
+    assert_eq!(unknown.status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn publishing_to_the_prefabs_directory_writes_the_folder_and_imports_it_as_official() {
+    use kuro_api::audit::domain::AuditContext;
+    use kuro_api::prefabs::application::{PrefabsDir, PrefabsError};
+
+    let platform = Platform::start().await;
+    let draft = blank(&platform).await;
+    platform
+        .admin
+        .call_bytes(
+            Method::PUT,
+            &format!("{}/assets/icon", path(&draft)),
+            &platform.token,
+            PNG.to_vec(),
+            true,
+        )
+        .await;
+    let draft_id = uuid::Uuid::parse_str(draft["id"].as_str().unwrap()).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let prefabs_dir = PrefabsDir {
+        dir: dir.path().to_path_buf(),
+        publish_to_dir: true,
+    };
+
+    let imported = kuro_api::studio::application::publish(
+        &platform.admin.pool,
+        &AuditContext::cli("test"),
+        &prefabs_dir,
+        draft_id,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        (imported.id.as_str(), imported.version.as_str()),
+        ("my-prefab", "0.1.0")
+    );
+
+    // Le dossier `<id>/` porte les fichiers du brouillon et l'icône, déclarée.
+    let folder = dir.path().join("my-prefab");
+    let manifest = std::fs::read_to_string(folder.join("prefab.yaml")).unwrap();
+    assert!(
+        manifest.contains("\nassets:\n  icon: assets/icon.png\n"),
+        "{manifest}"
+    );
+    assert!(folder.join("locales/en.json").is_file());
+    assert!(folder.join("assets/icon.png").is_file());
+    // Au catalogue en `official`, comme au démarrage ; le brouillon a disparu.
+    let detail = platform
+        .call(Method::GET, "/prefabs/my-prefab/0.1.0", None)
+        .await;
+    assert_eq!(detail.status, StatusCode::OK, "{}", detail.json);
+    assert_eq!(detail.json["source"], "official");
+    assert_eq!(detail.json["assets"], json!(["icon"]));
+    let event = platform.admin.last_audit("prefab_draft.published").await;
+    assert_eq!(event.details["exported_to"], "my-prefab");
+    let gone = platform.call(Method::GET, &path(&draft), None).await;
+    assert_eq!(gone.status, StatusCode::NOT_FOUND);
+
+    // La même version une seconde fois : refusée avant toute écriture, le dossier est intact.
+    let again = blank(&platform).await;
+    let again_id = uuid::Uuid::parse_str(again["id"].as_str().unwrap()).unwrap();
+    let refused = kuro_api::studio::application::publish(
+        &platform.admin.pool,
+        &AuditContext::cli("test"),
+        &prefabs_dir,
+        again_id,
+    )
+    .await;
+    assert!(matches!(refused, Err(PrefabsError::Exists)), "{refused:?}");
+    assert_eq!(
+        std::fs::read_to_string(folder.join("prefab.yaml")).unwrap(),
+        manifest
+    );
+    let kept = platform.call(Method::GET, &path(&again), None).await;
+    assert_eq!(kept.status, StatusCode::OK);
 }

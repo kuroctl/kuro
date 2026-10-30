@@ -40,7 +40,7 @@ const SCHEMA: &str = include_str!("../../../shared/prefab/schema/prefab.v1.schem
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(schema, list, create, get, save, delete, validate, compose, egg, put_asset, asset, delete_asset, import_steam_assets, publish, start_trial),
+    paths(schema, list, create, get, save, delete, validate, compose, egg, put_asset, asset, delete_asset, import_steam_assets, publish, export, start_trial),
     tags((name = "admin-studio", description = "Prefab Studio : brouillons de prefabs (ADR-0011)"))
 )]
 pub struct StudioApi;
@@ -74,6 +74,7 @@ where
             route_post(import_steam_assets),
         )
         .route("/studio/drafts/{id}/publish", route_post(publish))
+        .route("/studio/drafts/{id}/export", route_get(export))
         .route("/studio/drafts/{id}/trial", route_post(start_trial))
         .route(
             "/studio/compose",
@@ -353,7 +354,7 @@ pub struct PrefabVersionRef {
 pub async fn create(
     State(iam): State<IamState>,
     State(pool): State<PgPool>,
-    State(PrefabsDir(dir)): State<PrefabsDir>,
+    State(prefabs_dir): State<PrefabsDir>,
     session: AdminSession,
     Json(request): Json<CreateDraftRequest>,
 ) -> Result<(StatusCode, Json<DraftDto>), ApiError> {
@@ -375,7 +376,7 @@ pub async fn create(
         },
         (None, None, None) => Start::Blank,
     };
-    let id = studio::create(&pool, &session.context, &dir, start).await?;
+    let id = studio::create(&pool, &session.context, &prefabs_dir.dir, start).await?;
     let record = studio::get(&pool, id).await?;
     Ok((StatusCode::CREATED, Json(draft_dto(&pool, &record).await?)))
 }
@@ -643,8 +644,27 @@ pub async fn start_trial(
     ))
 }
 
-/// Publie le brouillon en version importée (même validation qu'une archive `.kprefab`), puis le
-/// supprime.
+/// Archive `.kprefab` du brouillon (ADR-0042) : ses fichiers enregistrés et ses images, prête à
+/// être déposée dans le dépôt des prefabs ou importée ailleurs. Permission : `prefabs.manage`.
+#[utoipa::path(get, path = "/api/admin/v1/studio/drafts/{id}/export", tag = "admin-studio",
+    security(("bearer" = [])), params(("id" = Uuid, Path)),
+    responses(
+        (status = 200, description = "Archive zip `<id>-<version>.kprefab`", content_type = "application/zip"),
+        (status = 403, body = Problem), (status = 404, body = Problem)))]
+pub async fn export(
+    State(iam): State<IamState>,
+    State(pool): State<PgPool>,
+    session: AdminSession,
+    Path(id): Path<Uuid>,
+) -> Result<Response, ApiError> {
+    session.require(&iam, Permission::PrefabsManage).await?;
+    let (name, bytes) = studio::export_archive(&pool, id).await?;
+    Ok(crate::prefabs::http::archive_response(&name, bytes))
+}
+
+/// Publie le brouillon (même validation qu'une archive `.kprefab`), puis le supprime. Avec
+/// `prefabs.publish_to_dir`, ses fichiers sont écrits dans le dossier des prefabs officiels et la
+/// version entre en `official` ; sinon en `uploaded` (ADR-0042).
 #[utoipa::path(post, path = "/api/admin/v1/studio/drafts/{id}/publish", tag = "admin-studio",
     security(("bearer" = [])), params(("id" = Uuid, Path)),
     responses((status = 201, body = PrefabDto), (status = 403, body = Problem), (status = 404, body = Problem),
@@ -654,6 +674,7 @@ pub async fn publish(
     State(iam): State<IamState>,
     State(pool): State<PgPool>,
     State(servers): State<ServersState>,
+    State(prefabs_dir): State<PrefabsDir>,
     session: AdminSession,
     Path(id): Path<Uuid>,
 ) -> Result<(StatusCode, Json<PrefabDto>), ApiError> {
@@ -661,7 +682,7 @@ pub async fn publish(
     // L'essai en cours n'a plus d'objet : la version publiée le remplace. Relevé avant la
     // publication, qui efface le brouillon (et le lien des serveurs vers lui).
     let running = trials::running(&servers, id).await?;
-    let imported = studio::publish(&pool, &session.context, id).await?;
+    let imported = studio::publish(&pool, &session.context, &prefabs_dir, id).await?;
     trials::stop_all(
         &servers,
         &session.context,

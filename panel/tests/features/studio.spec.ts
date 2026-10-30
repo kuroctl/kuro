@@ -4,7 +4,7 @@ import { currentCompletions, startCompletion } from '@codemirror/autocomplete'
 import { EditorView } from '@codemirror/view'
 import { screen, waitFor, within } from '@testing-library/vue'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { Schemas } from '@/shared/api/types'
 
@@ -181,6 +181,30 @@ describe('prefab studio', () => {
 
     await waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/prefabs/my-prefab?version=0.1.0'))
     expect(published).toBe(true)
+  })
+
+  it('exports the saved draft as a .kprefab archive', async () => {
+    setup()
+    let exported = false
+    server.use(
+      http.post(`${API}/studio/validate`, () => HttpResponse.json({ valid: true, reason: null, issues: [] })),
+      http.get(`${API}/studio/drafts/${DRAFT_ID}/export`, () => {
+        exported = true
+        return new HttpResponse(new Blob(['PK']), { headers: { 'Content-Type': 'application/zip' } })
+      }),
+    )
+    let downloaded: string | undefined
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      downloaded = this.download
+    })
+    const { user } = await renderApp(`/prefabs/studio/${DRAFT_ID}`)
+    await screen.findByText('Prefab valide, prêt à publier.')
+
+    await user.click(screen.getByRole('button', { name: 'Exporter' }))
+
+    await waitFor(() => expect(downloaded).toBe('my-prefab-0.1.0.kprefab'))
+    expect(exported).toBe(true)
+    click.mockRestore()
   })
 
   it('completes the manifest keys and values from the published schema', async () => {

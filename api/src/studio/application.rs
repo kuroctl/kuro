@@ -8,7 +8,7 @@ use kuro_prefab::assets::{Asset, AssetKind, MAX_ASSET_BYTES, sniff};
 use kuro_prefab::compose::{self, Conversion, NoteKind};
 use kuro_prefab::egg;
 use kuro_prefab::files::ArchiveFiles;
-use kuro_prefab::package::{MANIFEST_FILE, parse_manifest, template_paths};
+use kuro_prefab::package::{MANIFEST_FILE, parse_manifest};
 use kuro_prefab::{Issue, LoadError, Manifest, Package};
 use serde_json::{Value, json};
 use sqlx::PgPool;
@@ -18,7 +18,8 @@ use crate::audit::domain::{AuditAction, AuditContext, AuditEvent};
 use crate::audit::infra::AuditedTx;
 use crate::content::steamgriddb::SteamGrid;
 use crate::content::{ContentSources, ProviderError};
-use crate::prefabs::application::{self as prefabs, Imported, PrefabsError};
+use crate::prefabs::application::{self as prefabs, Imported, PrefabsDir, PrefabsError};
+use crate::prefabs::export::{self, StoredAsset, official_files, stored_files};
 use crate::prefabs::infra::PrefabRepository;
 use crate::studio::infra::{DraftRecord, DraftRepository, NewDraft};
 
@@ -243,101 +244,6 @@ pub async fn create(
     )
     .await?;
     Ok(id)
-}
-
-/// Fichiers texte du dossier officiel de cette version, s'il est là.
-fn official_files(prefabs_dir: &Path, id: &str, version: &str) -> Option<DraftFiles> {
-    let dir = std::fs::read_dir(prefabs_dir)
-        .ok()?
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .find(|dir| {
-            std::fs::read_to_string(dir.join(MANIFEST_FILE))
-                .ok()
-                .and_then(|text| parse_manifest(&text).ok())
-                .is_some_and(|manifest| {
-                    manifest.id == id && manifest.version.to_string() == version
-                })
-        })?;
-    let manifest_text = std::fs::read_to_string(dir.join(MANIFEST_FILE)).ok()?;
-    let manifest = parse_manifest(&manifest_text).ok()?;
-    let mut files = DraftFiles::from([(MANIFEST_FILE.to_owned(), manifest_text)]);
-    if let Ok(entries) = std::fs::read_dir(dir.join("locales")) {
-        for path in entries.filter_map(Result::ok).map(|entry| entry.path()) {
-            if let (Some(name), Ok(text)) = (
-                path.file_name().and_then(|name| name.to_str()),
-                std::fs::read_to_string(&path),
-            ) {
-                files.insert(format!("locales/{name}"), text);
-            }
-        }
-    }
-    for relative in template_paths(&manifest) {
-        if let Ok(text) = std::fs::read_to_string(dir.join(&relative)) {
-            files.insert(relative, text);
-        }
-    }
-    Some(files)
-}
-
-/// Fichiers reconstitués depuis la version stockée (archive importée : fichiers d'origine non
-/// conservés).
-fn stored_files(
-    manifest: &Manifest,
-    locales: &Value,
-    templates: &Value,
-) -> Result<DraftFiles, PrefabsError> {
-    let mut files = DraftFiles::from([(MANIFEST_FILE.to_owned(), manifest_yaml(manifest))]);
-    if let Some(locales) = locales.as_object() {
-        for (lang, messages) in locales {
-            let text = serde_json::to_string_pretty(messages)
-                .map_err(|e| PrefabsError::Corrupted(e.to_string()))?;
-            files.insert(format!("locales/{lang}.json"), format!("{text}\n"));
-        }
-    }
-    if let Some(templates) = templates.as_object() {
-        for (path, text) in templates {
-            if let Some(text) = text.as_str() {
-                files.insert(path.clone(), text.to_owned());
-            }
-        }
-    }
-    Ok(files)
-}
-
-/// Manifest en YAML, sans les champs vides (`key: null`) que la sérialisation écrit. Si le
-/// résultat ne se relit pas à l'identique, la version complète est gardée.
-fn manifest_yaml(manifest: &Manifest) -> String {
-    let full = serde_saphyr::to_string(manifest).unwrap_or_default();
-    let mut lines: Vec<String> = full
-        .lines()
-        .filter(|line| !(line.trim_end().ends_with(": null") || line.trim_end().ends_with(": ~")))
-        .map(str::to_owned)
-        .collect();
-    // Une clé dont tous les enfants ont disparu (`assets:` seul) part à son tour. Une liste
-    // s'écrit au même retrait que sa clé (`tags:` puis `- a`) : ce n'est pas une clé vide.
-    loop {
-        let indent = |line: &str| line.len() - line.trim_start().len();
-        let empty = (0..lines.len()).find(|&index| {
-            let line = &lines[index];
-            line.trim_end().ends_with(':')
-                && lines.get(index + 1).is_none_or(|next| {
-                    indent(next) < indent(line)
-                        || (indent(next) == indent(line) && !next.trim_start().starts_with("- "))
-                })
-        });
-        match empty {
-            Some(index) => {
-                lines.remove(index);
-            }
-            None => break,
-        }
-    }
-    let compact = format!("{}\n", lines.join("\n"));
-    match parse_manifest(&compact) {
-        Ok(parsed) if &parsed == manifest => compact,
-        _ => full,
-    }
 }
 
 /// Passe le manifest à la version de correctif suivante.
@@ -719,22 +625,99 @@ pub async fn draft_package(
         .and_then(|archive| prefabs::load_package(&archive, assets)))
 }
 
-/// Publie le brouillon en version importée (`uploaded`), par le même chemin qu'une archive :
-/// même validation, version immuable, refus journalisé. Le brouillon disparaît ensuite.
+/// Publie le brouillon, par le même chemin qu'une archive : même validation, version immuable,
+/// refus journalisé. Le brouillon disparaît ensuite.
+///
+/// Avec `prefabs.publish_to_dir` (ADR-0042), ses fichiers sont écrits dans le dossier des
+/// prefabs officiels (celui qui porte déjà cet identifiant, sinon `<id>/`), images déclarées
+/// comprises, puis le dossier est réimporté : la version entre au catalogue en `official`, prête
+/// à être commitée dans le dépôt des prefabs. Sinon elle entre en `uploaded`.
 pub async fn publish(
     pool: &PgPool,
     context: &AuditContext,
+    prefabs_dir: &PrefabsDir,
     id: Uuid,
 ) -> Result<Imported, PrefabsError> {
+    let record = get(pool, id).await?;
     let loaded = draft_package(pool, id).await?;
-    let imported = prefabs::import_loaded(
-        pool,
-        context,
-        loaded,
-        json!({ "draft": id }),
-        prefabs::ImportAs::Uploaded,
-    )
-    .await?;
+    let mut exported_to = Value::Null;
+    let imported = if prefabs_dir.publish_to_dir {
+        let (package, assets) = match loaded {
+            Ok(loaded) => loaded,
+            Err(error) => {
+                let (reason, issues) = prefabs::refusal(error);
+                return Err(PrefabsError::Invalid { reason, issues });
+            }
+        };
+        let (prefab_id, version) = (
+            package.manifest.id.clone(),
+            package.manifest.version.to_string(),
+        );
+        {
+            let mut conn = pool.acquire().await?;
+            if PrefabRepository::get(&mut conn, &prefab_id, &version)
+                .await?
+                .is_some()
+            {
+                return Err(PrefabsError::Exists);
+            }
+        }
+        let files = export::with_assets(
+            files_of(&record),
+            Some(&package.manifest),
+            assets
+                .into_iter()
+                .map(|asset| StoredAsset {
+                    kind: asset.kind,
+                    data: asset.data,
+                })
+                .collect(),
+        );
+        let folder = tokio::task::spawn_blocking({
+            let dir = prefabs_dir.dir.clone();
+            let prefab_id = prefab_id.clone();
+            move || {
+                let folder = export::folder_for(&dir, &prefab_id);
+                export::write_dir(&folder, &files).map(|()| folder)
+            }
+        })
+        .await
+        .map_err(|e| PrefabsError::Io(e.to_string()))?
+        .map_err(|e| PrefabsError::Io(e.to_string()))?;
+        exported_to = json!(
+            folder
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+        );
+        let report = prefabs::import_dir_as(pool, context, &prefabs_dir.dir).await?;
+        let label = format!("{prefab_id}@{version}");
+        if !report.imported.contains(&label) {
+            let reason = report
+                .invalid
+                .into_iter()
+                .find(|(name, _)| {
+                    folder
+                        .file_name()
+                        .is_some_and(|f| f.to_string_lossy() == *name)
+                })
+                .map(|(_, reason)| reason)
+                .unwrap_or_else(|| "written prefab was not imported".to_owned());
+            return Err(PrefabsError::Io(reason));
+        }
+        Imported {
+            id: prefab_id,
+            version,
+        }
+    } else {
+        prefabs::import_loaded(
+            pool,
+            context,
+            loaded,
+            json!({ "draft": id }),
+            prefabs::ImportAs::Uploaded,
+        )
+        .await?
+    };
 
     let mut tx = AuditedTx::begin(pool, context).await?;
     DraftRepository::delete(&mut tx, id).await?;
@@ -743,8 +726,41 @@ pub async fn publish(
             "draft": id,
             "prefab": imported.id,
             "version": imported.version,
+            "exported_to": exported_to,
         })),
     )
     .await?;
     Ok(imported)
+}
+
+/// Archive `.kprefab` du brouillon (ADR-0042) : ses fichiers tels qu'enregistrés et ses images,
+/// déclarées dans le manifest si elles ne l'étaient pas. Rend `(nom de fichier, zip)`. Un
+/// manifest illisible est exporté tel quel, images dans `assets/`.
+pub async fn export_archive(pool: &PgPool, id: Uuid) -> Result<(String, Vec<u8>), PrefabsError> {
+    let record = get(pool, id).await?;
+    let files = files_of(&record);
+    let manifest = files
+        .get(MANIFEST_FILE)
+        .and_then(|text| parse_manifest(text).ok());
+    let assets = {
+        let mut conn = pool.acquire().await?;
+        DraftRepository::assets(&mut conn, id).await?
+    }
+    .into_iter()
+    .filter_map(|(kind, _, data)| {
+        Some(StoredAsset {
+            kind: AssetKind::parse(&kind)?,
+            data,
+        })
+    })
+    .collect();
+    let (folder, name) = match &manifest {
+        Some(manifest) => (
+            manifest.id.clone(),
+            export::archive_name(&manifest.id, &manifest.version.to_string()),
+        ),
+        None => (format!("draft-{id}"), format!("draft-{id}.kprefab")),
+    };
+    let files = export::with_assets(files, manifest.as_ref(), assets);
+    Ok((name, export::zip(&folder, &files)?))
 }

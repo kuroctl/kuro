@@ -27,6 +27,7 @@ import { type DraftCheck, type DraftFiles, useStudioApi } from '@/features/studi
 import { useDraft, useInvalidateStudio, useStudioSchema } from '@/features/studio/studio.queries'
 import { problemCode, useApiError } from '@/shared/api/useApiError'
 import PageHeader from '@/shared/layout/PageHeader.vue'
+import { saveBlob } from '@/shared/lib/download'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -192,6 +193,22 @@ async function save() {
   }
 }
 
+// Archive `.kprefab` du brouillon enregistré : à déposer dans le dépôt des prefabs, ou à importer
+// sur une autre instance.
+const exporting = ref(false)
+async function exportDraft() {
+  if (!draft.value) return
+  exporting.value = true
+  try {
+    const archive = await api.exportArchive(id.value)
+    saveBlob(archive, `${draft.value.prefab_id ?? 'draft'}-${draft.value.prefab_version ?? id.value}.kprefab`)
+  } catch (caught) {
+    handleError(caught)
+  } finally {
+    exporting.value = false
+  }
+}
+
 const publishing = ref(false)
 const confirmPublish = ref(false)
 async function publish() {
@@ -287,6 +304,9 @@ function answerLeave(leave: boolean) {
       <template v-if="draft && can('prefabs.manage')">
         <Badge v-if="dirty" variant="secondary">{{ t('files.editor.unsaved') }}</Badge>
         <Button variant="outline" :disabled="!dirty || saving" @click="save"><Save />{{ t('common.save') }}</Button>
+        <Button variant="outline" :disabled="dirty || exporting" :title="dirty ? t('studio.publishSaveFirst') : t('studio.exportHelp')" @click="exportDraft">
+          <Download />{{ t('studio.export') }}
+        </Button>
         <Button
           v-if="can('servers.create')"
           variant="outline"

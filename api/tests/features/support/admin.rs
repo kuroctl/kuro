@@ -122,9 +122,10 @@ impl TestAdmin {
             links,
             servers: servers.clone(),
             panel: None,
-            prefabs_dir: kuro_api::prefabs::application::PrefabsDir(
-                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs"),
-            ),
+            prefabs_dir: kuro_api::prefabs::application::PrefabsDir {
+                dir: std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs"),
+                publish_to_dir: false,
+            },
             oauth: Some(super::oauth::oauth_state(&pool, metadata.clone())),
             dns: dns.clone(),
             content_sources,

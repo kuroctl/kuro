@@ -173,7 +173,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         links: relay.clone(),
         servers,
         pool,
-        prefabs_dir: prefabs::PrefabsDir(config.prefabs.dir.clone()),
+        prefabs_dir: prefabs::PrefabsDir {
+            dir: config.prefabs.dir.clone(),
+            publish_to_dir: config.prefabs.publish_to_dir,
+        },
         http: kuro_api::http::policy::HttpPolicy::from_config(&config.http),
         readiness: daemon_listener.readiness(),
     };

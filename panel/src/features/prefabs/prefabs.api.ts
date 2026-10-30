@@ -49,5 +49,9 @@ export function usePrefabsApi() {
 
     asset: (id: string, version: string, kind: PrefabAssetKind) =>
       http.get<Blob>(`${BASE}/${id}/${version}/assets/${kind}`, { responseType: 'blob' }).then((response) => response.data),
+
+    /** Archive `.kprefab` de la version (ADR-0042). */
+    exportArchive: (id: string, version: string) =>
+      http.get<Blob>(`${BASE}/${id}/${version}/export`, { responseType: 'blob' }).then((response) => response.data),
   }
 }

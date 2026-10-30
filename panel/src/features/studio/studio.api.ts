@@ -56,5 +56,8 @@ export function useStudioApi() {
       http.post<Schemas['TrialStartedDto']>(`${BASE}/drafts/${id}/trial`, body).then((response) => response.data),
 
     publish: (id: string) => http.post<Schemas['PrefabDto']>(`${BASE}/drafts/${id}/publish`).then((response) => response.data),
+
+    /** Archive `.kprefab` du brouillon enregistré (ADR-0042). */
+    exportArchive: (id: string) => http.get<Blob>(`${BASE}/drafts/${id}/export`, { responseType: 'blob' }).then((response) => response.data),
   }
 }

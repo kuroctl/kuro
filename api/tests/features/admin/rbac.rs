@@ -285,6 +285,12 @@ fn protected_routes() -> Vec<(Method, String, Option<Value>, Vec<Permission>)> {
         ),
         (
             Method::GET,
+            "/prefabs/search".into(),
+            None,
+            vec![Permission::PrefabsRead],
+        ),
+        (
+            Method::GET,
             format!("/prefabs/{id}/1.0.0"),
             None,
             vec![Permission::PrefabsRead],
@@ -298,6 +304,12 @@ fn protected_routes() -> Vec<(Method, String, Option<Value>, Vec<Permission>)> {
         (
             Method::GET,
             format!("/prefabs/{id}/1.0.0/locales/fr"),
+            None,
+            vec![Permission::PrefabsRead],
+        ),
+        (
+            Method::GET,
+            format!("/prefabs/{id}/1.0.0/export"),
             None,
             vec![Permission::PrefabsRead],
         ),
@@ -617,6 +629,12 @@ fn protected_routes() -> Vec<(Method, String, Option<Value>, Vec<Permission>)> {
         ),
         (
             Method::POST,
+            format!("/servers/{id}/actions/cron"),
+            Some(json!({})),
+            vec![Permission::ServersActionsRun],
+        ),
+        (
+            Method::POST,
             format!("/servers/{id}/reinstall"),
             Some(json!({"mode": "reinstall"})),
             vec![Permission::ServersReinstall],
@@ -673,6 +691,12 @@ fn protected_routes() -> Vec<(Method, String, Option<Value>, Vec<Permission>)> {
             Method::POST,
             "/studio/drafts".into(),
             Some(json!({})),
+            vec![Permission::PrefabsManage],
+        ),
+        (
+            Method::GET,
+            format!("/studio/drafts/{id}/export"),
+            None,
             vec![Permission::PrefabsManage],
         ),
         (
@@ -962,7 +986,7 @@ fn shape(path: &str) -> String {
                 || uuid(segment)
                 || matches!(
                     segment,
-                    "mods" | "x" | "1.0.0" | "fr" | "curseforge" | "icon"
+                    "mods" | "x" | "1.0.0" | "fr" | "curseforge" | "icon" | "cron"
                 );
             if placeholder { "{}" } else { segment }
         })

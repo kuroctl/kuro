@@ -431,7 +431,7 @@ fn prefabs_failure(error: PrefabsError) -> CallToolResult {
             tracing::error!(%error, "mcp tool failed");
             failed("internal_error", Value::Null)
         }
-        PrefabsError::Corrupted(error) => {
+        PrefabsError::Corrupted(error) | PrefabsError::Io(error) => {
             tracing::error!(%error, "mcp tool failed");
             failed("internal_error", Value::Null)
         }

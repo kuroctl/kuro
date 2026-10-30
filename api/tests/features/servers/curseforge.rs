@@ -312,7 +312,10 @@ async fn a_mod_whose_author_forbids_distribution_is_never_downloaded() {
 /// identifiants (`MODS`), comme ARK les reçoit dans `-mods=`.
 fn reference_prefab() -> Vec<u8> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs/minecraft-java");
-    let manifest = std::fs::read_to_string(dir.join("prefab.yaml")).unwrap();
+    // Fins de ligne normalisées : un checkout Windows du sous-module peut être en CRLF.
+    let manifest = std::fs::read_to_string(dir.join("prefab.yaml"))
+        .unwrap()
+        .replace("\r\n", "\n");
     let start = manifest.find("content:\n").unwrap();
     let end = manifest.find("# Sauvegarde à chaud").unwrap();
     let manifest = format!(

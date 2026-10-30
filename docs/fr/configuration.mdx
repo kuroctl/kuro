@@ -19,7 +19,7 @@ par exemple `KURO_API_HTTP__BIND=127.0.0.1:9000`.
 | `[database]` | `url`, `max_connections`, `min_connections`, `acquire_timeout_secs`, `idle_timeout_secs`, `max_lifetime_secs` |
 | `[daemon]` | `bind` (listener mTLS des nœuds), chemins de la CA et du certificat de l'API |
 | `[auth]` | `require_totp`, `access_ttl_secs`, `refresh_ttl_secs`, `session_max_age_secs` (30 jours par défaut : au-delà, rafraîchir ne suffit plus, il faut se reconnecter) |
-| `[prefabs]` | `dir` (prefabs officiels) |
+| `[prefabs]` | `dir` (prefabs officiels), `publish_to_dir` (développement : « Publier » dans le Studio écrit le prefab dans `dir`, à laisser `false` en production) |
 | `[mcp]` | `public_url` (adresse publique, active le serveur MCP), `panel_url` |
 | `[log]` | `format` (`json` ou `pretty`), `filter` |
 

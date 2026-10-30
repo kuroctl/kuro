@@ -28,7 +28,7 @@ use crate::prefabs::infra::PrefabRecord;
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(list, search, get, locale, asset, import, delete, servers, reload, optimize_assets),
+    paths(list, search, get, locale, asset, export, import, delete, servers, reload, optimize_assets),
     tags((name = "admin-prefabs", description = "Prefabs : modèles de serveurs (ADR-0011)"))
 )]
 pub struct PrefabsApi;
@@ -56,6 +56,7 @@ where
         .route("/prefabs/{id}/{version}/servers", route_get(servers))
         .route("/prefabs/{id}/{version}/locales/{lang}", route_get(locale))
         .route("/prefabs/{id}/{version}/assets/{kind}", route_get(asset))
+        .route("/prefabs/{id}/{version}/export", route_get(export))
         .route(
             "/prefabs/{id}/{version}/assets/optimize",
             route_post(optimize_assets),
@@ -497,6 +498,42 @@ pub async fn asset(
     Ok((headers, data).into_response())
 }
 
+/// Archive `.kprefab` d'une version (ADR-0042) : un zip avec un dossier de tête `<id>/`, prêt
+/// à être importé ailleurs ou déposé dans le dépôt des prefabs. Une version officielle dont le
+/// dossier est présent garde ses fichiers d'origine ; une version importée a son manifest
+/// régénéré (sans commentaires). Permission : `prefabs.read`.
+#[utoipa::path(get, path = "/api/admin/v1/prefabs/{id}/{version}/export", tag = "admin-prefabs",
+    security(("bearer" = [])), params(("id" = String, Path), ("version" = String, Path)),
+    responses(
+        (status = 200, description = "Archive zip `<id>-<version>.kprefab`", content_type = "application/zip"),
+        (status = 403, body = Problem), (status = 404, body = Problem)))]
+pub async fn export(
+    State(iam): State<IamState>,
+    State(pool): State<PgPool>,
+    State(prefabs_dir): State<PrefabsDir>,
+    session: AdminSession,
+    Path((id, version)): Path<(String, String)>,
+) -> Result<Response, ApiError> {
+    session.require(&iam, Permission::PrefabsRead).await?;
+    let (name, bytes) =
+        crate::prefabs::export::version_archive(&pool, &prefabs_dir.dir, &id, &version).await?;
+    Ok(archive_response(&name, bytes))
+}
+
+/// Réponse d'une archive à télécharger : zip, nom de fichier, jamais mise en cache.
+pub fn archive_response(name: &str, bytes: Vec<u8>) -> Response {
+    let headers = [
+        (header::CONTENT_TYPE, "application/zip".to_owned()),
+        (
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{name}\""),
+        ),
+        (header::CACHE_CONTROL, "private, no-store".to_owned()),
+        (header::X_CONTENT_TYPE_OPTIONS, "nosniff".to_owned()),
+    ];
+    (headers, bytes).into_response()
+}
+
 /// Importe une archive `.kprefab` (zip, 10 Mio au plus) envoyée telle quelle dans le corps. Même
 /// validation que les prefabs officiels ; une version déjà présente est refusée (immuable).
 /// Permission : `prefabs.manage`.
@@ -679,11 +716,11 @@ pub async fn optimize_assets(
 pub async fn reload(
     State(iam): State<IamState>,
     State(pool): State<PgPool>,
-    State(PrefabsDir(dir)): State<PrefabsDir>,
+    State(prefabs_dir): State<PrefabsDir>,
     session: AdminSession,
 ) -> Result<Json<ReloadReportDto>, ApiError> {
     session.require(&iam, Permission::PrefabsManage).await?;
-    let report = prefabs::reload(&pool, &session.context, &dir).await?;
+    let report = prefabs::reload(&pool, &session.context, &prefabs_dir.dir).await?;
     Ok(Json(ReloadReportDto {
         imported: report.imported,
         unchanged: report.unchanged,

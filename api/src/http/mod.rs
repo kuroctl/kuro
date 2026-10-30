@@ -46,7 +46,7 @@ pub fn router(state: AppState) -> Router {
             mcp::server::McpState {
                 pool: state.pool.clone(),
                 servers: state.servers.clone(),
-                prefabs_dir: state.prefabs_dir.0.clone(),
+                prefabs_dir: state.prefabs_dir.dir.clone(),
             },
             oauth,
         )

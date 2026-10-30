@@ -32,6 +32,9 @@ pub enum PrefabsError {
     /// Des serveurs utilisent encore cette version.
     #[error("prefab version in use")]
     InUse,
+    /// Écriture des fichiers d'un prefab (dossier des prefabs, archive) impossible.
+    #[error("cannot write prefab files: {0}")]
+    Io(String),
 }
 
 /// Résultat de l'import des prefabs officiels.
@@ -252,9 +255,14 @@ pub fn watch_dir(
     }
 }
 
-/// Dossier des prefabs officiels (`prefabs.dir`), pour le rechargement depuis le panel.
+/// Dossier des prefabs officiels (`prefabs.dir`), pour le rechargement depuis le panel, et
+/// s'il reçoit les brouillons publiés (`prefabs.publish_to_dir`, ADR-0042).
 #[derive(Debug, Clone)]
-pub struct PrefabsDir(pub std::path::PathBuf);
+pub struct PrefabsDir {
+    pub dir: std::path::PathBuf,
+    /// « Publier » écrit le brouillon dans `dir` et l'importe en `official` (développement).
+    pub publish_to_dir: bool,
+}
 
 /// Prefab importé depuis le panel.
 #[derive(Debug)]

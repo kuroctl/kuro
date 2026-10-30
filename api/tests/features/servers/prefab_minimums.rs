@@ -15,8 +15,10 @@ fn minecraft_with_needs() -> Vec<u8> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs/minecraft-java");
     let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
     let options = SimpleFileOptions::default();
+    // Fins de ligne normalisées : un checkout Windows du sous-module peut être en CRLF.
     let manifest = std::fs::read_to_string(dir.join("prefab.yaml"))
         .unwrap()
+        .replace("\r\n", "\n")
         .replace("version: 1.4.0", "version: 1.5.0")
         .replacen(
             "requires:\n  kuro: \">=0.2\"\n",

@@ -44,6 +44,9 @@ fn api_command(config_path: &std::path::Path) -> Command {
         .arg(config_path)
         // Les prefabs officiels sont réimportés dès que le dossier `prefabs/` change.
         .env("KURO_API_PREFABS__WATCH", "true")
+        // « Publier » dans le Studio écrit le prefab dans le sous-module `prefabs/`, à commiter
+        // dans `kuroctl/prefabs` (ADR-0042).
+        .env("KURO_API_PREFABS__PUBLISH_TO_DIR", "true")
         // Serveur MCP (ADR-0023) derrière le proxy de Vite : panel et API sur la même origine.
         .env(
             "KURO_API_MCP__PUBLIC_URL",
@@ -80,6 +83,7 @@ pub async fn run(args: DevArgs) -> anyhow::Result<()> {
         ports.push(panel_addr);
     }
     ensure_free(&ports).await?;
+    ensure_prefabs()?;
 
     step("starting Postgres");
     let mut compose = Command::new("docker");
@@ -226,6 +230,26 @@ async fn ensure_free(addresses: &[SocketAddr]) -> anyhow::Result<()> {
 }
 
 /// `.env` donne `DATABASE_URL` à sqlx-cli (`migrate run`, `prepare`) ; la compilation lit `.sqlx/`.
+/// Le sous-module `prefabs/` (ADR-0041) doit être récupéré : sans lui, l'API démarre avec un
+/// catalogue vide et les tests échouent.
+fn ensure_prefabs() -> anyhow::Result<()> {
+    let dir = root().join("prefabs");
+    let has_prefab = std::fs::read_dir(&dir)
+        .map(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .any(|entry| entry.path().join("prefab.yaml").is_file())
+        })
+        .unwrap_or(false);
+    if !has_prefab {
+        bail!(
+            "{} holds no prefab: run `git submodule update --init` (kuroctl/prefabs)",
+            dir.display()
+        );
+    }
+    Ok(())
+}
+
 fn ensure_env_file() -> anyhow::Result<()> {
     let env = root().join(".env");
     if !env.exists() {

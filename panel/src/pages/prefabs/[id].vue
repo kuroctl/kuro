@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Détail d'un prefab (ADR-0011) : versions, services et images, réglages, fichiers gérés et
 // emplacements de contenu, serveurs déployés, manifest ; suppression d'une version inutilisée.
-import { ImageDown, Rocket, Trash2 } from '@lucide/vue'
+import { Download, ImageDown, Rocket, Trash2 } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -26,6 +26,7 @@ import type { ServerState } from '@/features/servers/state'
 import PrefabUpgrades from '@/features/upgrades/components/PrefabUpgrades.vue'
 import { useApiError } from '@/shared/api/useApiError'
 import PageHeader from '@/shared/layout/PageHeader.vue'
+import { saveBlob } from '@/shared/lib/download'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -75,6 +76,22 @@ const show = (value: unknown) => (value === undefined || value === null || value
 
 const deleting = ref(false)
 const pending = ref(false)
+
+// Archive `.kprefab` de la version (ADR-0042) : à déposer dans le dépôt des prefabs ou à importer
+// sur une autre instance.
+const exporting = ref(false)
+async function exportVersion() {
+  if (!version.value) return
+  exporting.value = true
+  try {
+    const archive = await api.exportArchive(id.value, version.value)
+    saveBlob(archive, `${id.value}-${version.value}.kprefab`)
+  } catch (caught) {
+    handleError(caught)
+  } finally {
+    exporting.value = false
+  }
+}
 
 // Images remises aux dimensions convenues et compressées, côté API.
 const optimizing = ref(false)
@@ -136,6 +153,9 @@ async function remove() {
       </Select>
       <Button v-if="can('servers.create') && summary?.deployable" as-child>
         <RouterLink :to="{ path: '/servers/new', query: { prefab: id, version } }"><Rocket />{{ t('servers.create.deployThis') }}</RouterLink>
+      </Button>
+      <Button v-if="summary" variant="outline" :disabled="exporting" :title="t('prefabs.detail.exportHelp')" @click="exportVersion">
+        <Download />{{ t('prefabs.detail.export') }}
       </Button>
       <Button
         v-if="can('prefabs.manage') && summary?.assets.length"
