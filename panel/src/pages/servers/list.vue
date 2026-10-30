@@ -16,6 +16,7 @@ import ServerStateBadge from '@/features/servers/components/ServerStateBadge.vue
 import { type Server, useServersApi } from '@/features/servers/servers.api'
 import { useServerSearch } from '@/features/servers/servers.queries'
 import PageHeader from '@/shared/layout/PageHeader.vue'
+import { formatCores } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Checkbox } from '@/shared/ui/checkbox'
@@ -34,7 +35,7 @@ import {
 import { Empty } from '@/shared/ui/empty'
 import { Skeleton } from '@/shared/ui/skeleton'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { can } = usePermissions()
 /** Zone DNS : un serveur nommé s'affiche `<label>.<base>:<port>` (ADR-0026), un site web par son
  * adresse `https://<identifiant>.<domaine des sites>` (ADR-0038). */
@@ -149,7 +150,7 @@ const columns = column.columns([
     header: sortable(t('servers.fields.resources')),
     cell: ({ row }) =>
       h('span', { class: 'text-xs text-muted-foreground tabular-nums' },
-        t('servers.resourcesSummary', { memory: row.original.memory_mb, cpu: row.original.cpu_percent })),
+        t('servers.resourcesSummary', { memory: row.original.memory_mb, cpu: formatCores(row.original.cpu_percent, locale.value) })),
   }),
   column.accessor('created_at', {
     id: 'created',

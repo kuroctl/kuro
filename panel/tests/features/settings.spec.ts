@@ -18,6 +18,9 @@ const settings: Schemas['SettingsDto'] = {
   default_backup_limit: 3,
   max_backup_limit: null,
   audit_retention_days: 365,
+  alert_cpu_percent: 90,
+  alert_memory_percent: 90,
+  alert_minutes: 5,
   mcp_enabled: false,
   mcp_url: 'https://kuro.test/mcp',
   updated_at: '2026-10-27T10:00:00Z',
@@ -48,6 +51,75 @@ describe('project settings', () => {
 
     await waitFor(() => expect(body).toEqual({ default_memory_mb: 4096, max_disk_mb: null }))
     expect(await screen.findByText('Paramètres enregistrés.')).toBeTruthy()
+  })
+
+  it('sends a changed alert threshold', async () => {
+    let body: unknown
+    server.use(
+      ...signedIn(),
+      http.get(`${API}/settings`, () => HttpResponse.json(settings)),
+      http.patch(`${API}/settings`, async ({ request }) => {
+        body = await request.json()
+        return HttpResponse.json({ ...settings, alert_minutes: 10 })
+      }),
+    )
+    const { user } = await renderApp('/settings')
+
+    expect(await screen.findByText('Seuils d’alerte')).toBeTruthy()
+    expect((screen.getByLabelText('Processeur (% de l’allocation)') as HTMLInputElement).value).toBe('90')
+    const minutes = screen.getByLabelText('Durée (minutes)')
+    await user.clear(minutes)
+    await user.type(minutes, '10')
+    await user.tab()
+    await user.click(await screen.findByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(body).toEqual({ alert_minutes: 10 }))
+  })
+
+  it('edits the CPU in cores and sends it as a percentage', async () => {
+    let body: unknown
+    server.use(
+      ...signedIn(),
+      http.get(`${API}/settings`, () => HttpResponse.json(settings)),
+      http.patch(`${API}/settings`, async ({ request }) => {
+        body = await request.json()
+        return HttpResponse.json({ ...settings, default_cpu_percent: 50, max_cpu_percent: 800 })
+      }),
+    )
+    const { user } = await renderApp('/settings')
+
+    expect(await screen.findByText('En cœurs, décimales permises (0,5 = un demi-cœur).')).toBeTruthy()
+    const cpu = screen.getByLabelText('Par défaut', { selector: '#default_cpu_percent' }) as HTMLInputElement
+    expect(cpu.value).toBe('2')
+    await user.clear(cpu)
+    await user.type(cpu, '0,5')
+    await user.type(screen.getByLabelText('Plafond', { selector: '#max_cpu_percent' }), '8')
+    await user.tab()
+    await user.click(await screen.findByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(body).toEqual({ default_cpu_percent: 50, max_cpu_percent: 800 }))
+    expect(cpu.value).toBe('0,5')
+  })
+
+  it('shows the CPU bounds refused by the API in cores', async () => {
+    server.use(
+      ...signedIn(),
+      http.get(`${API}/settings`, () => HttpResponse.json(settings)),
+      http.patch(`${API}/settings`, () =>
+        problem(422, 'validation_failed', {
+          fields: [{ field: 'default_cpu_percent', code: 'value_out_of_range', params: { min: 1, max: 12_800 } }],
+        }),
+      ),
+    )
+    const { user } = await renderApp('/settings')
+
+    const cpu = await screen.findByLabelText('Par défaut', { selector: '#default_cpu_percent' })
+    await user.clear(cpu)
+    await user.type(cpu, '3')
+    await user.tab()
+    await user.click(await screen.findByRole('button', { name: 'Enregistrer' }))
+
+    expect(await screen.findByText('Valeur hors bornes : entre 0,01 cœur et 128 cœurs.')).toBeTruthy()
   })
 
   it('shows the refusal of a field under it', async () => {

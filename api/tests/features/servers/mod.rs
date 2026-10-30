@@ -2,6 +2,7 @@
 
 mod actions;
 mod addons;
+mod alerts;
 mod allocations;
 mod backups;
 mod console;

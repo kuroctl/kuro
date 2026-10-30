@@ -9,7 +9,7 @@ import HistoryChart from '@/features/servers/components/HistoryChart.vue'
 import { type MetricsRange, useServerMetrics } from '@/features/servers/servers.queries'
 import { useServer } from '@/features/servers/servers.queries'
 import PageHeader from '@/shared/layout/PageHeader.vue'
-import { formatBytes, formatPercent } from '@/shared/lib/format'
+import { formatBytes, formatCores, formatPercent } from '@/shared/lib/format'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
 import { Skeleton } from '@/shared/ui/skeleton'
@@ -29,6 +29,7 @@ const points = computed(() => metrics.value?.points ?? [])
 const cpu = computed(() => points.value.map((p) => ({ at: p.at, values: [p.cpu_millis_avg / 10, p.cpu_millis_max / 10] })))
 const memory = computed(() => points.value.map((p) => ({ at: p.at, values: [p.memory_bytes_avg, p.memory_bytes_max] })))
 const network = computed(() => points.value.map((p) => ({ at: p.at, values: [p.network_rx_bytes, p.network_tx_bytes] })))
+// La courbe reste en % d'un cœur (`cpu_millis / 10`) ; seul le titre parle en cœurs.
 const memoryMax = computed(() => (server.value ? server.value.memory_mb * 1024 * 1024 : undefined))
 const percent = (value: number) => formatPercent(value, locale.value)
 const bytes = (value: number) => formatBytes(value, locale.value)
@@ -50,7 +51,7 @@ const bytes = (value: number) => formatBytes(value, locale.value)
       <p v-else-if="!points.length" class="text-sm text-muted-foreground" data-empty>{{ t('servers.stats.empty') }}</p>
       <template v-else>
         <Card class="gap-2 py-4">
-          <CardHeader class="px-4"><CardTitle class="text-sm">{{ t('servers.stats.cpu', { max: percent(server.cpu_percent) }) }}</CardTitle></CardHeader>
+          <CardHeader class="px-4"><CardTitle class="text-sm">{{ t('servers.stats.cpu', { max: formatCores(server.cpu_percent, locale) }) }}</CardTitle></CardHeader>
           <CardContent class="px-4">
             <HistoryChart :points="cpu" :labels="[t('servers.stats.average'), t('servers.stats.peak')]" :format="percent" :max="server.cpu_percent" :range="range" />
           </CardContent>

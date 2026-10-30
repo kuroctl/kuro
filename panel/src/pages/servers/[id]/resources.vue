@@ -18,6 +18,7 @@ import { useInvalidateServers, useServer } from '@/features/servers/servers.quer
 import { usePlatformSettings } from '@/features/settings/settings.queries'
 import { type FieldErrors, useApiError } from '@/shared/api/useApiError'
 import PageHeader from '@/shared/layout/PageHeader.vue'
+import { CORES_INPUT, coresToPercent, formatCores, percentToCores } from '@/shared/lib/format'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -43,9 +44,10 @@ import { Skeleton } from '@/shared/ui/skeleton'
 definePage({ meta: { subnav: 'server' } })
 
 type Resource = 'memory_mb' | 'cpu_percent' | 'disk_mb' | 'backup_limit'
+/** Bornes de l'API ; le pas est celui du champ, donc en cœurs pour le CPU. */
 const RESOURCES: { key: Resource; min: number; max: number; step: number }[] = [
   { key: 'memory_mb', min: 64, max: 1_048_576, step: 512 },
-  { key: 'cpu_percent', min: 1, max: 12_800, step: 50 },
+  { key: 'cpu_percent', min: 1, max: 12_800, step: CORES_INPUT.step },
   { key: 'disk_mb', min: 0, max: 104_857_600, step: 1024 },
   { key: 'backup_limit', min: 0, max: 100, step: 1 },
 ]
@@ -71,17 +73,25 @@ function isNeeded(key: Resource): key is NeededResource {
 function floor(resource: { key: Resource; min: number }): number {
   return (isNeeded(resource.key) && need(entry.value, resource.key)?.min) || resource.min
 }
+
+// Le CPU est saisi en cœurs ; l'API, le prefab et les plafonds le comptent en pourcent (100 = un cœur).
+const toField = (key: Resource, value: number) => (key === 'cpu_percent' ? percentToCores(value) : value)
+const fromField = (key: Resource, value: number) => (key === 'cpu_percent' ? coresToPercent(value) : value)
+/** Valeur d'une ressource telle que les repères l'affichent (plafond…). */
+const label = (key: Resource, value: number) => (key === 'cpu_percent' ? formatCores(value, locale.value) : String(value))
+
+/** Valeurs des champs, dans leur unité d'affichage. */
 const form = reactive<Record<Resource, number>>({ memory_mb: 0, cpu_percent: 0, disk_mb: 0, backup_limit: 0 })
 const errors = ref<FieldErrors>({})
 const pending = ref(false)
 const confirmSuspend = ref(false)
 
 function load(value: Server) {
-  for (const { key } of RESOURCES) form[key] = value[key]
+  for (const { key } of RESOURCES) form[key] = toField(key, value[key])
 }
 watch(server, (value) => value && load(value), { immediate: true })
 
-const changed = computed(() => RESOURCES.filter(({ key }) => server.value && form[key] !== server.value[key]).map(({ key }) => key))
+const changed = computed(() => RESOURCES.filter(({ key }) => server.value && fromField(key, form[key]) !== server.value[key]).map(({ key }) => key))
 
 /** Plafond du projet, s'il y en a un et que l'admin peut le lire. */
 function ceiling(key: Resource): number | null {
@@ -99,7 +109,7 @@ async function save() {
   pending.value = true
   errors.value = {}
   try {
-    const body = Object.fromEntries(changed.value.map((key) => [key, form[key]]))
+    const body = Object.fromEntries(changed.value.map((key) => [key, fromField(key, form[key])]))
     load(await api.updateResources(server.value.id, body))
     toast.success(t('servers.resources.saved'))
     await invalidate()
@@ -143,9 +153,10 @@ async function setSuspended(suspended: boolean) {
               <NumberField
                 :id="`resource-${resource.key}`"
                 v-model="form[resource.key]"
-                :min="floor(resource)"
-                :max="ceiling(resource.key) ?? resource.max"
+                :min="toField(resource.key, floor(resource))"
+                :max="toField(resource.key, ceiling(resource.key) ?? resource.max)"
                 :step="resource.step"
+                :format-options="resource.key === 'cpu_percent' ? CORES_INPUT.formatOptions : undefined"
                 :step-snapping="false"
                 :locale="locale"
                 :disabled="!editable"
@@ -158,10 +169,10 @@ async function setSuspended(suspended: boolean) {
               </NumberField>
               <p v-if="errors[resource.key]" class="text-sm text-destructive">{{ errors[resource.key] }}</p>
               <p v-else-if="aboveCeiling(resource.key)" class="text-xs text-warning">
-                {{ t('servers.resources.aboveCeiling', { max: ceiling(resource.key) }) }}
+                {{ t('servers.resources.aboveCeiling', { max: label(resource.key, ceiling(resource.key)!) }) }}
               </p>
               <p v-else-if="ceiling(resource.key) !== null" class="text-xs text-muted-foreground">
-                {{ t('servers.resources.ceiling', { max: ceiling(resource.key) }) }}
+                {{ t('servers.resources.ceiling', { max: label(resource.key, ceiling(resource.key)!) }) }}
               </p>
               <p v-else-if="resource.key === 'disk_mb'" class="text-xs text-muted-foreground">{{ t('servers.resources.diskUnlimited') }}</p>
               <ResourceNeedHint v-if="isNeeded(resource.key)" :entry="entry" :resource="resource.key" />

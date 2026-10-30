@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Paramètres du projet (ADR-0019) : valeur par défaut et plafond de chaque ressource des
-// serveurs, conservation du journal d'audit. Seuls les champs modifiés sont envoyés.
+// serveurs, conservation du journal d'audit, seuils d'alerte des stats (ADR-0043). Seuls les
+// champs modifiés sont envoyés.
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
@@ -11,6 +12,7 @@ import { type PlatformSettings, type SettingsPatch, useSettingsApi } from '@/fea
 import { useInvalidateSettings, usePlatformSettings } from '@/features/settings/settings.queries'
 import { type FieldErrors, useApiError } from '@/shared/api/useApiError'
 import PageHeader from '@/shared/layout/PageHeader.vue'
+import { CORES_INPUT, coresToPercent, percentToCores } from '@/shared/lib/format'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Label } from '@/shared/ui/label'
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/shared/ui/number-field'
@@ -19,8 +21,10 @@ import { UnsavedBar } from '@/shared/ui/unsaved-bar'
 
 type Resource = 'memory_mb' | 'cpu_percent' | 'disk_mb' | 'backup_limit'
 const RESOURCES: Resource[] = ['memory_mb', 'cpu_percent', 'disk_mb', 'backup_limit']
-type Field = `default_${Resource}` | `max_${Resource}` | 'audit_retention_days'
-const FIELDS: Field[] = [...RESOURCES.flatMap((r) => [`default_${r}`, `max_${r}`] as Field[]), 'audit_retention_days']
+type Alert = 'alert_cpu_percent' | 'alert_memory_percent' | 'alert_minutes'
+const ALERTS: Alert[] = ['alert_cpu_percent', 'alert_memory_percent', 'alert_minutes']
+type Field = `default_${Resource}` | `max_${Resource}` | 'audit_retention_days' | Alert
+const FIELDS: Field[] = [...RESOURCES.flatMap((r) => [`default_${r}`, `max_${r}`] as Field[]), 'audit_retention_days', ...ALERTS]
 
 const { t, locale } = useI18n()
 const { can } = usePermissions()
@@ -30,20 +34,27 @@ const { handleError, message } = useApiError()
 const invalidate = useInvalidateSettings()
 const editable = computed(() => can('system.settings.update'))
 
-/** Valeurs saisies : un plafond vide veut dire « aucun ». */
+/** Le CPU est saisi en cœurs ; l'API le compte en pourcent (100 = un cœur). */
+const isCpu = (field: Field) => field.endsWith('cpu_percent')
+
+/** Valeurs saisies (CPU en cœurs) : un plafond vide veut dire « aucun ». */
 const form = reactive<Record<Field, number | undefined>>(Object.fromEntries(FIELDS.map((f) => [f, undefined])) as Record<Field, number | undefined>)
 const errors = ref<FieldErrors>({})
 const pending = ref(false)
 
 function load(value: PlatformSettings) {
-  for (const field of FIELDS) form[field] = value[field] ?? undefined
+  for (const field of FIELDS) {
+    const stored = value[field]
+    form[field] = stored == null ? undefined : isCpu(field) ? percentToCores(stored) : stored
+  }
 }
 watch(settings, (value) => value && load(value), { immediate: true })
 
 /** Champ vidé : `undefined` ou `NaN` selon le NumberField, dans les deux cas « aucun ». */
 function parsed(field: Field): number | null {
   const value = form[field]
-  return value == null || Number.isNaN(value) ? null : value
+  if (value == null || Number.isNaN(value)) return null
+  return isCpu(field) ? coresToPercent(value) : value
 }
 
 const patch = computed<SettingsPatch>(() => {
@@ -102,7 +113,10 @@ async function save() {
                   <Label :for="`default_${resource}`" class="sm:sr-only">{{ t('settings.resources.default') }}</Label>
                   <NumberField
                     v-model="form[`default_${resource}`]"
-                    :min="0"
+                    :min="resource === 'cpu_percent' ? CORES_INPUT.min : 0"
+                    :max="resource === 'cpu_percent' ? CORES_INPUT.max : undefined"
+                    :step="resource === 'cpu_percent' ? CORES_INPUT.step : 1"
+                    :format-options="resource === 'cpu_percent' ? CORES_INPUT.formatOptions : undefined"
                     :step-snapping="false"
                     :locale="locale"
                     :disabled="!editable"
@@ -119,7 +133,10 @@ async function save() {
                   <Label :for="`max_${resource}`" class="sm:sr-only">{{ t('settings.resources.ceiling') }}</Label>
                   <NumberField
                     v-model="form[`max_${resource}`]"
-                    :min="0"
+                    :min="resource === 'cpu_percent' ? CORES_INPUT.min : 0"
+                    :max="resource === 'cpu_percent' ? CORES_INPUT.max : undefined"
+                    :step="resource === 'cpu_percent' ? CORES_INPUT.step : 1"
+                    :format-options="resource === 'cpu_percent' ? CORES_INPUT.formatOptions : undefined"
                     :step-snapping="false"
                     :locale="locale"
                     :disabled="!editable"
@@ -156,6 +173,26 @@ async function save() {
                 </NumberFieldContent>
               </NumberField>
               <p v-if="errors.audit_retention_days" class="text-xs text-destructive">{{ errors.audit_retention_days }}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{{ t('settings.alerts.title') }}</CardTitle>
+              <CardDescription>{{ t('settings.alerts.help') }}</CardDescription>
+            </CardHeader>
+            <CardContent class="grid gap-4 sm:grid-cols-3">
+              <div v-for="field in ALERTS" :key="field" class="grid gap-1.5">
+                <Label :for="field">{{ t(`settings.alerts.${field}`) }}</Label>
+                <NumberField v-model="form[field]" :min="0" :step-snapping="false" :locale="locale" :disabled="!editable">
+                  <NumberFieldContent>
+                    <NumberFieldDecrement />
+                    <NumberFieldInput :id="field" :aria-invalid="!!errors[field]" />
+                    <NumberFieldIncrement />
+                  </NumberFieldContent>
+                </NumberField>
+                <p v-if="errors[field]" class="text-xs text-destructive">{{ errors[field] }}</p>
+              </div>
             </CardContent>
           </Card>
 

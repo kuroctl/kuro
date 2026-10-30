@@ -4,7 +4,7 @@ import { Cpu, MemoryStick, Network } from '@lucide/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { formatBytes, formatPercent } from '@/shared/lib/format'
+import { formatBytes, formatCores, formatPercent } from '@/shared/lib/format'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 
 import { STATS_WINDOW, type StatsSample } from '../composables/useServerConsole'
@@ -30,7 +30,7 @@ const bytes = (value: number) => formatBytes(value, locale.value)
       <CardContent class="grid gap-2 px-4">
         <p v-if="latest" class="text-[22px] leading-tight font-extrabold tracking-tight tabular-nums">
           {{ formatPercent(latest.cpu_millis / 10, locale) }}
-          <span class="text-[13px] font-semibold text-muted-foreground">{{ t('servers.console.stats.of', { max: formatPercent(server.cpu_percent, locale) }) }}</span>
+          <span class="text-[13px] font-semibold text-muted-foreground">{{ t('servers.console.stats.of', { max: formatCores(server.cpu_percent, locale) }) }}</span>
         </p>
         <p v-else class="text-sm text-muted-foreground">{{ t('servers.console.stats.noData') }}</p>
         <StatsSparkline :series="[samples.map((s) => s.cpu_millis)]" :window="STATS_WINDOW" :max="server.cpu_percent * 10" />

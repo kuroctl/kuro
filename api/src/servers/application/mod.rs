@@ -5,6 +5,7 @@
 //! spécification envoyée au daemon.
 
 pub mod actions;
+pub mod alerts;
 pub mod backups;
 pub mod bulk;
 pub mod compat;

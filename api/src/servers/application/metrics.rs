@@ -95,8 +95,11 @@ pub async fn record(
         .await?
     {
         tracing::warn!(%node, server_id = %metrics.server_id, "ignored metrics of a server not on this node");
+        return Ok(());
     }
-    Ok(())
+    drop(conn);
+    // Seuils d'alerte (ADR-0043, amendement) : la minute reçue peut ouvrir ou fermer une alerte.
+    super::alerts::evaluate(pool, metrics.server_id, at).await
 }
 
 /// Historique d'un serveur sur `range`, prêt à tracer.

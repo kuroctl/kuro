@@ -20,6 +20,12 @@ pub enum EventKind {
     ServerUpgradeFailed,
     #[serde(rename = "server.disk_high")]
     ServerDiskHigh,
+    /// CPU soutenu au-dessus du seuil des paramètres (ADR-0043).
+    #[serde(rename = "server.cpu_high")]
+    ServerCpuHigh,
+    /// Mémoire soutenue au-dessus du seuil des paramètres (ADR-0043).
+    #[serde(rename = "server.memory_high")]
+    ServerMemoryHigh,
     #[serde(rename = "node.offline")]
     NodeOffline,
     #[serde(rename = "node.online")]
@@ -30,12 +36,14 @@ pub enum EventKind {
 
 impl EventKind {
     /// Événements qu'une règle peut viser (tout sauf `test`).
-    pub const RULE_EVENTS: [Self; 7] = [
+    pub const RULE_EVENTS: [Self; 9] = [
         Self::ServerCrashed,
         Self::ServerScheduleFailed,
         Self::ServerBackupFailed,
         Self::ServerUpgradeFailed,
         Self::ServerDiskHigh,
+        Self::ServerCpuHigh,
+        Self::ServerMemoryHigh,
         Self::NodeOffline,
         Self::NodeOnline,
     ];
@@ -47,6 +55,8 @@ impl EventKind {
             Self::ServerBackupFailed => "server.backup_failed",
             Self::ServerUpgradeFailed => "server.upgrade_failed",
             Self::ServerDiskHigh => "server.disk_high",
+            Self::ServerCpuHigh => "server.cpu_high",
+            Self::ServerMemoryHigh => "server.memory_high",
             Self::NodeOffline => "node.offline",
             Self::NodeOnline => "node.online",
             Self::Test => "test",

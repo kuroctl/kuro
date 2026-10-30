@@ -48,6 +48,7 @@ describe('server stats history', () => {
     const { user } = await renderApp(PAGE)
 
     expect((await screen.findAllByText('Moyenne')).length).toBe(2)
+    expect(screen.getByText('Processeur (alloué : 2 cœurs)')).toBeTruthy()
     // Dernier point en légende : 50 % de CPU, 700 Mio de mémoire.
     expect(screen.getAllByText('50 %').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/700/).length).toBeGreaterThan(0)

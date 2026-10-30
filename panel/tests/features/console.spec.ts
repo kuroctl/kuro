@@ -92,6 +92,7 @@ describe('server console', () => {
 
     await waitFor(() => expect(screen.getByTestId('terminal').textContent).toContain('Done (3.2s)!'))
     expect(await screen.findByText('75 %', { exact: false })).toBeTruthy()
+    expect(screen.getByText('sur 2 cœurs')).toBeTruthy()
     expect(screen.getByText('1 Go', { exact: false })).toBeTruthy()
     expect(screen.getByRole('status').textContent).toContain('En direct')
   })

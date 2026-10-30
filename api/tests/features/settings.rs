@@ -30,6 +30,9 @@ async fn settings_start_from_the_previous_defaults() {
     assert_eq!(settings["default_disk_mb"], 10240);
     assert_eq!(settings["default_backup_limit"], 3);
     assert_eq!(settings["audit_retention_days"], 365);
+    assert_eq!(settings["alert_cpu_percent"], 90);
+    assert_eq!(settings["alert_memory_percent"], 90);
+    assert_eq!(settings["alert_minutes"], 5);
     for max in [
         "max_memory_mb",
         "max_cpu_percent",
@@ -103,6 +106,21 @@ async fn invalid_settings_are_refused_field_by_field() {
         (
             json!({ "max_disk_mb": 0 }),
             "max_disk_mb",
+            "value_out_of_range",
+        ),
+        (
+            json!({ "alert_cpu_percent": 40 }),
+            "alert_cpu_percent",
+            "value_out_of_range",
+        ),
+        (
+            json!({ "alert_memory_percent": 101 }),
+            "alert_memory_percent",
+            "value_out_of_range",
+        ),
+        (
+            json!({ "alert_minutes": 0 }),
+            "alert_minutes",
             "value_out_of_range",
         ),
         (

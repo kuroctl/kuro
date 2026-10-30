@@ -22,13 +22,14 @@ import { useServer } from '@/features/servers/servers.queries'
 import { isOverQuota } from '@/features/servers/state'
 import ServerUpgrade from '@/features/upgrades/components/ServerUpgrade.vue'
 import PageHeader from '@/shared/layout/PageHeader.vue'
+import { formatCores } from '@/shared/lib/format'
 import { Alert } from '@/shared/ui/alert'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Skeleton } from '@/shared/ui/skeleton'
 
 definePage({ meta: { subnav: 'server' } })
 
-const { t } = useI18n()
+const { t, locale: lang } = useI18n()
 const route = useRoute('/servers/[id]/')
 const { data: server } = useServer(() => route.params.id)
 const locale = usePrefabLocale(() => server.value?.prefab)
@@ -50,7 +51,7 @@ const underMinimum = computed(() => (server.value ? belowMinimum(entry.value, se
     <div v-else class="grid gap-6 p-6">
       <PrefabCover :prefab="server.prefab">
         <div class="flex min-h-32 items-end gap-4 p-5">
-          <PrefabIcon :prefab="server.prefab" class="size-14 rounded-xl text-xl ring-2 ring-card" />
+          <PrefabIcon :prefab="server.prefab" class="size-14 rounded-xl text-xl ring-card" />
           <div class="min-w-0">
             <p class="truncate text-lg font-bold">{{ locale.prefabName() }}</p>
             <p class="font-mono text-xs text-muted-foreground">{{ `${server.prefab.id} · ${server.prefab.version}` }}</p>
@@ -76,7 +77,7 @@ const underMinimum = computed(() => (server.value ? belowMinimum(entry.value, se
           <CardHeader><CardTitle>{{ t('servers.overview.resources') }}</CardTitle></CardHeader>
           <CardContent class="grid gap-1 text-sm">
             <span>{{ t('servers.overview.memory', { value: server.memory_mb }) }}</span>
-            <span>{{ t('servers.overview.cpu', { value: server.cpu_percent }) }}</span>
+            <span>{{ t('servers.overview.cpu', { value: formatCores(server.cpu_percent, lang) }) }}</span>
             <ServerDiskUsage :server="server" class="mt-1" />
           </CardContent>
         </Card>

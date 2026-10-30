@@ -17,12 +17,14 @@ use crate::error_code::{ErrorCode, FieldError};
 use crate::servers::infra::ServerRepository;
 
 /// Événements qu'un abonnement de serveur peut viser : ceux du serveur, jamais ceux du nœud.
-pub const SERVER_EVENTS: [EventKind; 5] = [
+pub const SERVER_EVENTS: [EventKind; 7] = [
     EventKind::ServerCrashed,
     EventKind::ServerScheduleFailed,
     EventKind::ServerBackupFailed,
     EventKind::ServerUpgradeFailed,
     EventKind::ServerDiskHigh,
+    EventKind::ServerCpuHigh,
+    EventKind::ServerMemoryHigh,
 ];
 
 /// Saisie d'un abonnement : `channel_id` pour un canal partagé, sinon une destination propre

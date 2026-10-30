@@ -3960,6 +3960,23 @@ export interface components {
         SettingsDto: {
             /**
              * Format: int32
+             * @description Seuils d'alerte des stats (ADR-0043) : CPU et mémoire en % de l'allocation (50 à 100),
+             *     soutenus pendant `alert_minutes` minutes (1 à 60) ; réarmés 20 points plus bas.
+             * @example 90
+             */
+            alert_cpu_percent: number;
+            /**
+             * Format: int32
+             * @example 90
+             */
+            alert_memory_percent: number;
+            /**
+             * Format: int32
+             * @example 5
+             */
+            alert_minutes: number;
+            /**
+             * Format: int32
              * @description Durée de conservation du journal d'audit (30 à 3650 jours), purgé chaque jour.
              * @example 365
              */
@@ -4200,6 +4217,12 @@ export interface components {
         };
         /** @description Champs modifiés seulement ; un plafond à `null` est supprimé. */
         UpdatePlatformSettingsRequest: {
+            /** Format: int32 */
+            alert_cpu_percent?: number | null;
+            /** Format: int32 */
+            alert_memory_percent?: number | null;
+            /** Format: int32 */
+            alert_minutes?: number | null;
             /** Format: int32 */
             audit_retention_days?: number | null;
             /** Format: int32 */

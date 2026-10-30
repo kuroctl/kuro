@@ -17,6 +17,11 @@ pub struct PlatformSettings {
     pub audit_retention_days: i32,
     /// Serveur MCP ouvert aux agents IA (ADR-0023).
     pub mcp_enabled: bool,
+    /// Seuils d'alerte des stats (ADR-0043) : CPU et mémoire en % de l'allocation, soutenus
+    /// pendant `alert_minutes` minutes.
+    pub alert_cpu_percent: i32,
+    pub alert_memory_percent: i32,
+    pub alert_minutes: i32,
     pub updated_at: OffsetDateTime,
 }
 
@@ -29,7 +34,8 @@ impl SettingsRepository {
             PlatformSettings,
             "SELECT default_memory_mb, max_memory_mb, default_cpu_percent, max_cpu_percent,
                     default_disk_mb, max_disk_mb, default_backup_limit, max_backup_limit,
-                    audit_retention_days, mcp_enabled, updated_at
+                    audit_retention_days, mcp_enabled, alert_cpu_percent, alert_memory_percent,
+                    alert_minutes, updated_at
              FROM platform_settings"
         )
         .fetch_one(conn)
@@ -42,7 +48,8 @@ impl SettingsRepository {
             PlatformSettings,
             "SELECT default_memory_mb, max_memory_mb, default_cpu_percent, max_cpu_percent,
                     default_disk_mb, max_disk_mb, default_backup_limit, max_backup_limit,
-                    audit_retention_days, mcp_enabled, updated_at
+                    audit_retention_days, mcp_enabled, alert_cpu_percent, alert_memory_percent,
+                    alert_minutes, updated_at
              FROM platform_settings FOR UPDATE"
         )
         .fetch_one(conn)
@@ -66,7 +73,8 @@ impl SettingsRepository {
                 default_cpu_percent = $3, max_cpu_percent = $4,
                 default_disk_mb = $5, max_disk_mb = $6,
                 default_backup_limit = $7, max_backup_limit = $8,
-                audit_retention_days = $9, mcp_enabled = $10, updated_at = now()
+                audit_retention_days = $9, mcp_enabled = $10, alert_cpu_percent = $11,
+                alert_memory_percent = $12, alert_minutes = $13, updated_at = now()
              RETURNING updated_at",
             settings.default_memory_mb,
             settings.max_memory_mb,
@@ -78,6 +86,9 @@ impl SettingsRepository {
             settings.max_backup_limit,
             settings.audit_retention_days,
             settings.mcp_enabled,
+            settings.alert_cpu_percent,
+            settings.alert_memory_percent,
+            settings.alert_minutes,
         )
         .fetch_one(conn)
         .await

@@ -25,6 +25,7 @@ import { usePrefab, usePrefabs } from '@/features/prefabs/prefabs.queries'
 import CreateServerSettings, { type ServerBasics } from '@/features/servers/components/CreateServerSettings.vue'
 import { usePlatformSettings } from '@/features/settings/settings.queries'
 import PageHeader from '@/shared/layout/PageHeader.vue'
+import { CORES_INPUT, coresToPercent, percentToCores } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
 import { Card } from '@/shared/ui/card'
 import { Empty } from '@/shared/ui/empty'
@@ -83,12 +84,18 @@ const basicsForm = useForm({
       name: z.string().trim().min(1, t('prefabs.validation.required')).max(64, t('prefabs.validation.max_length', { max: 64 })),
       node_id: z.string({ required_error: t('prefabs.validation.required') }).uuid(),
       memory_mb: z.number().int().min(64).max(1_048_576),
-      cpu_percent: z.number().int().min(1).max(12_800),
+      cpu_percent: z.number().min(CORES_INPUT.min).max(CORES_INPUT.max),
       disk_mb: z.number().int().min(0).max(104_857_600),
     }),
   ),
   initialValues: defaults(),
 })
+
+type BasicResource = 'memory_mb' | 'cpu_percent' | 'disk_mb'
+
+// Le champ `cpu_percent` du formulaire est en cœurs ; l'API, le prefab et les plafonds comptent en
+// pourcent (100 = un cœur) : converti au passage à l'étape suivante.
+const toField = (resource: BasicResource, value: number) => (resource === 'cpu_percent' ? percentToCores(value) : value)
 
 /**
  * Valeurs par défaut du projet (sinon celles d'origine), relevées à la recommandation du prefab
@@ -99,19 +106,25 @@ function defaults() {
   return {
     name: '',
     memory_mb: prefill(entry, 'memory_mb', platform.value?.default_memory_mb ?? 2048, ceiling('memory_mb')),
-    cpu_percent: prefill(entry, 'cpu_percent', platform.value?.default_cpu_percent ?? 200, ceiling('cpu_percent')),
+    cpu_percent: percentToCores(prefill(entry, 'cpu_percent', platform.value?.default_cpu_percent ?? 200, ceiling('cpu_percent'))),
     disk_mb: prefill(entry, 'disk_mb', platform.value?.default_disk_mb ?? 10240, ceiling('disk_mb')),
   }
 }
 
 /** Minimum accepté par le champ : celui du prefab, sinon celui de l'API. */
-function floor(resource: 'memory_mb' | 'cpu_percent' | 'disk_mb'): number {
-  return need(pickedEntry.value, resource)?.min ?? (resource === 'disk_mb' ? 0 : 1)
+function floor(resource: BasicResource): number {
+  return toField(resource, need(pickedEntry.value, resource)?.min ?? (resource === 'disk_mb' ? 0 : 1))
 }
 
-/** Plafond du projet, appliqué par l'API ; le champ s'y arrête. */
-function ceiling(resource: 'memory_mb' | 'cpu_percent' | 'disk_mb'): number | undefined {
+/** Plafond du projet (dans l'unité de l'API), appliqué par l'API. */
+function ceiling(resource: BasicResource): number | undefined {
   return platform.value?.[`max_${resource}`] ?? undefined
+}
+
+/** Plafond tel que le champ s'y arrête. */
+function fieldCeiling(resource: BasicResource): number | undefined {
+  const max = ceiling(resource)
+  return max === undefined ? undefined : toField(resource, max)
 }
 
 // Paramètres chargés après l'ouverture : on ne remplace que des champs encore intacts.
@@ -149,7 +162,7 @@ const toBasics = () => goBack((query) => !!query.prefab && !query.step, { path: 
 const pickLink = ({ prefab }: CatalogEntry): RouteLocationRaw => ({ path: PATH, query: { prefab: prefab.id, version: prefab.version } })
 
 const next = basicsForm.handleSubmit((values) => {
-  basics.value = values as ServerBasics
+  basics.value = { ...values, cpu_percent: coresToPercent(values.cpu_percent) } as ServerBasics
   void router.push({ path: PATH, query: { ...route.query, step: 'settings' } })
 })
 
@@ -269,7 +282,16 @@ const description = computed(() => pickedEntry.value?.descriptions[locale.value]
             >
               <FormItem>
                 <FormLabel>{{ t(`servers.fields.${resource}`) }}</FormLabel>
-                <NumberField :model-value="value" :min="floor(resource)" :max="ceiling(resource)" :step-snapping="false" :locale="locale" :step="resource === 'cpu_percent' ? 50 : 512" @update:model-value="handleChange">
+                <NumberField
+                  :model-value="value"
+                  :min="floor(resource)"
+                  :max="fieldCeiling(resource)"
+                  :step="resource === 'cpu_percent' ? CORES_INPUT.step : 512"
+                  :format-options="resource === 'cpu_percent' ? CORES_INPUT.formatOptions : undefined"
+                  :step-snapping="false"
+                  :locale="locale"
+                  @update:model-value="handleChange"
+                >
                   <NumberFieldContent>
                     <NumberFieldDecrement />
                     <FormControl><NumberFieldInput /></FormControl>

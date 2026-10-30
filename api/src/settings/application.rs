@@ -15,6 +15,9 @@ pub use crate::settings::infra::PlatformSettings;
 
 /// Conservation du journal d'audit : 30 jours au moins, pour ne pas le vider par erreur.
 pub const RETENTION_DAYS: RangeInclusive<i32> = 30..=3650;
+/// Seuils d'alerte des stats (ADR-0043) : en % de l'allocation, et durée en minutes.
+pub const ALERT_PERCENT: RangeInclusive<i32> = 50..=100;
+pub const ALERT_MINUTES: RangeInclusive<i32> = 1..=60;
 
 #[derive(Debug, thiserror::Error)]
 pub enum SettingsError {
@@ -45,6 +48,9 @@ pub struct SettingsPatch {
     pub max_backup_limit: Option<Option<i32>>,
     pub audit_retention_days: Option<i32>,
     pub mcp_enabled: Option<bool>,
+    pub alert_cpu_percent: Option<i32>,
+    pub alert_memory_percent: Option<i32>,
+    pub alert_minutes: Option<i32>,
 }
 
 pub async fn get(pool: &PgPool) -> Result<PlatformSettings, SettingsError> {
@@ -77,7 +83,10 @@ pub async fn update(
         default_backup_limit,
         max_backup_limit,
         audit_retention_days,
-        mcp_enabled
+        mcp_enabled,
+        alert_cpu_percent,
+        alert_memory_percent,
+        alert_minutes
     );
     validate(&next)?;
 
@@ -136,6 +145,21 @@ pub async fn update(
         "mcp_enabled",
         json!(current.mcp_enabled),
         json!(next.mcp_enabled),
+    );
+    record(
+        "alert_cpu_percent",
+        json!(current.alert_cpu_percent),
+        json!(next.alert_cpu_percent),
+    );
+    record(
+        "alert_memory_percent",
+        json!(current.alert_memory_percent),
+        json!(next.alert_memory_percent),
+    );
+    record(
+        "alert_minutes",
+        json!(current.alert_minutes),
+        json!(next.alert_minutes),
     );
     if changed.is_empty() {
         return Err(SettingsError::Unprocessable(ErrorCode::EmptyPatch));
@@ -200,6 +224,17 @@ fn validate(settings: &PlatformSettings) -> Result<(), SettingsError> {
             "audit_retention_days".to_owned(),
             &RETENTION_DAYS,
         ));
+    }
+    for (field, value) in [
+        ("alert_cpu_percent", settings.alert_cpu_percent),
+        ("alert_memory_percent", settings.alert_memory_percent),
+    ] {
+        if !ALERT_PERCENT.contains(&value) {
+            errors.push(out_of_range(field.to_owned(), &ALERT_PERCENT));
+        }
+    }
+    if !ALERT_MINUTES.contains(&settings.alert_minutes) {
+        errors.push(out_of_range("alert_minutes".to_owned(), &ALERT_MINUTES));
     }
     if errors.is_empty() {
         Ok(())

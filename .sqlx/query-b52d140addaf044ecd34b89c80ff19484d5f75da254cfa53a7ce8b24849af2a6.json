@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM server_alerts WHERE server_id = $1 AND kind = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b52d140addaf044ecd34b89c80ff19484d5f75da254cfa53a7ce8b24849af2a6"
+}

@@ -15,6 +15,7 @@ describe('servers', () => {
     expect(await screen.findByText('Survie')).toBeTruthy()
     expect(screen.getByText('Arrêté')).toBeTruthy()
     expect(screen.getByText('0.0.0.0:25565')).toBeTruthy()
+    expect(screen.getByText('2048 Mo · 2 cœurs')).toBeTruthy()
   })
 
   it('marks a server whose content waits for a restart', async () => {
@@ -29,7 +30,7 @@ describe('servers', () => {
   })
 
   it('proposes the resources a game recommends and shows its minimum', async () => {
-    const needs = { memory_mb: { min: 3072, recommended: 4096 } }
+    const needs = { memory_mb: { min: 3072, recommended: 4096 }, cpu_percent: { min: 100, recommended: 300 } }
     server.use(
       ...signedIn(),
       http.get(`${API}/prefabs`, () => HttpResponse.json([{ ...prefabSummary, resources: needs }])),
@@ -44,6 +45,9 @@ describe('servers', () => {
     const memory = (await screen.findByLabelText('Mémoire (Mo)')) as HTMLInputElement
     expect(memory.value.replace(/\D/g, '')).toBe('4096')
     expect(screen.getByText(/Ce jeu : 3.072 minimum, 4.096 recommandé\./)).toBeTruthy()
+    // CPU déclaré en pourcent par le prefab, proposé et expliqué en cœurs.
+    expect((screen.getByLabelText('CPU (cœurs)') as HTMLInputElement).value).toBe('3')
+    expect(screen.getByText('Ce jeu : 1 cœur minimum, 3 cœurs recommandé.')).toBeTruthy()
   })
 
   it('offers only test nodes for a draft version', async () => {
@@ -147,6 +151,12 @@ describe('servers', () => {
     await user.type(await screen.findByLabelText('Nom'), 'Survie')
     await user.click(screen.getByRole('combobox', { name: 'Nœud' }))
     await user.click(await screen.findByRole('option', { name: 'Dev 1' }))
+    // Le CPU se saisit en cœurs, avec décimales ; l'API le reçoit en pourcent.
+    const cpu = screen.getByLabelText('CPU (cœurs)') as HTMLInputElement
+    expect(cpu.value).toBe('2')
+    await user.clear(cpu)
+    await user.type(cpu, '1,5')
+    await user.tab()
     await user.click(screen.getByRole('button', { name: 'Continuer' }))
 
     const motd = await screen.findByLabelText("Message d'accueil")
@@ -162,7 +172,7 @@ describe('servers', () => {
       prefab_id: 'minecraft-java',
       prefab_version: '1.0.0',
       memory_mb: 2048,
-      cpu_percent: 200,
+      cpu_percent: 150,
       disk_mb: 10240,
       settings: { motd: 'Bienvenue', max_players: 20, difficulty: 'normal', loader: 'vanilla' },
       start_when_installed: true,

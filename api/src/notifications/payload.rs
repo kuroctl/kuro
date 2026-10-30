@@ -94,6 +94,33 @@ pub fn texts(event: &Event, lang: &str) -> Texts {
                 },
             )
         }
+        EventKind::ServerCpuHigh | EventKind::ServerMemoryHigh => {
+            let percent = event.details["percent"].as_u64().unwrap_or(0);
+            let minutes = event.details["minutes"].as_u64().unwrap_or(0);
+            let cpu = event.kind == EventKind::ServerCpuHigh;
+            (
+                match (cpu, fr) {
+                    (true, true) => "Processeur saturé",
+                    (true, false) => "CPU saturated",
+                    (false, true) => "Mémoire saturée",
+                    (false, false) => "Memory saturated",
+                },
+                match (cpu, fr) {
+                    (true, true) => format!(
+                        "Le serveur « {server} » utilise {percent} % de son processeur depuis {minutes} min."
+                    ),
+                    (true, false) => format!(
+                        "Server \"{server}\" has been using {percent}% of its CPU for {minutes} min."
+                    ),
+                    (false, true) => format!(
+                        "Le serveur « {server} » utilise {percent} % de sa mémoire depuis {minutes} min."
+                    ),
+                    (false, false) => format!(
+                        "Server \"{server}\" has been using {percent}% of its memory for {minutes} min."
+                    ),
+                },
+            )
+        }
         EventKind::NodeOffline => (
             if fr {
                 "Nœud hors ligne"
@@ -246,7 +273,9 @@ fn color(kind: EventKind) -> u32 {
     match kind {
         EventKind::NodeOnline => 0x2E_CC71,
         EventKind::Test => 0x95_A5A6,
-        EventKind::ServerDiskHigh => 0xF3_9C12,
+        EventKind::ServerDiskHigh | EventKind::ServerCpuHigh | EventKind::ServerMemoryHigh => {
+            0xF3_9C12
+        }
         _ => 0xE7_4C3C,
     }
 }

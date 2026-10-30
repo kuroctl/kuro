@@ -9,23 +9,38 @@ import { isAxiosError } from 'axios'
 import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
 
-import type { ErrorCode, Problem } from './types'
+import { formatCores } from '@/shared/lib/format'
+
+import type { ErrorCode, FieldProblem, Problem } from './types'
 
 /** Message traduit par nom de champ. */
 export type FieldErrors = Record<string, string>
 
 const REQUEST_ID_HEADER = 'x-request-id'
 
+/** Champs que l'API compte en pourcent de CPU (100 = un cœur) et que le panel montre en cœurs. */
+const CPU_FIELDS = ['cpu_percent', 'default_cpu_percent', 'max_cpu_percent']
+
 function asProblem(data: unknown): Problem | null {
   return typeof data === 'object' && data !== null && 'code' in data ? (data as Problem) : null
 }
 
 export function useApiError() {
-  const { t, te } = useI18n()
+  const { t, te, locale } = useI18n()
 
   function translate(code: ErrorCode, params?: object): string {
     const key = `errors.${code}`
     return te(key) ? t(key, (params ?? {}) as Record<string, unknown>) : t('errors.unknown')
+  }
+
+  /** Bornes d'un champ CPU (`min`, `max` de `value_out_of_range`, `resource_*`) traduites en cœurs. */
+  function fieldParams(field: FieldProblem): object | undefined {
+    if (!CPU_FIELDS.includes(field.field) || !field.params) return field.params
+    const params = { ...field.params }
+    for (const bound of ['min', 'max']) {
+      if (typeof params[bound] === 'number') params[bound] = formatCores(params[bound], locale.value)
+    }
+    return params
   }
 
   function handleError(error: unknown, formFields: readonly string[] = []): FieldErrors {
@@ -49,7 +64,7 @@ export function useApiError() {
     const fieldErrors: FieldErrors = {}
     for (const field of problem.fields ?? []) {
       if (formFields.includes(field.field)) {
-        fieldErrors[field.field] = translate(field.code, field.params)
+        fieldErrors[field.field] = translate(field.code, fieldParams(field))
       }
     }
     if (Object.keys(fieldErrors).length === 0) {

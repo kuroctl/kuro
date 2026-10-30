@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/vue'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
-import { API, server, signedIn } from '../support/api'
+import { API, problem, server, signedIn } from '../support/api'
 import { renderApp } from '../support/app'
 import { catalog, SERVER_ID, serverDto } from '../support/servers'
 
@@ -17,6 +17,9 @@ const settings = {
   default_backup_limit: 3,
   max_backup_limit: null,
   audit_retention_days: 365,
+  alert_cpu_percent: 90,
+  alert_memory_percent: 90,
+  alert_minutes: 5,
   updated_at: '2026-10-27T10:00:00Z',
 }
 
@@ -54,6 +57,48 @@ describe('server resources', () => {
     expect(await screen.findByText('Ressources enregistrées.')).toBeTruthy()
   })
 
+  it('edits the CPU in cores and sends it as a percentage', async () => {
+    setup()
+    let body: unknown
+    server.use(
+      http.get(`${API}/settings`, () => HttpResponse.json({ ...settings, max_cpu_percent: 400 })),
+      http.patch(`${API}/servers/${SERVER_ID}/resources`, async ({ request }) => {
+        body = await request.json()
+        return HttpResponse.json(serverDto({ cpu_percent: 150 }))
+      }),
+    )
+    const { user } = await renderApp(`/servers/${SERVER_ID}/resources`)
+
+    expect(await screen.findByText('Plafond du projet : 4 cœurs')).toBeTruthy()
+    const cpu = screen.getByLabelText('CPU (cœurs)') as HTMLInputElement
+    expect(cpu.value).toBe('2')
+    await user.clear(cpu)
+    await user.type(cpu, '1,5')
+    await user.tab()
+    await user.click(await screen.findByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(body).toEqual({ cpu_percent: 150 }))
+    expect(cpu.value).toBe('1,5')
+  })
+
+  it('shows a CPU ceiling refused by the API in cores', async () => {
+    setup()
+    server.use(
+      http.patch(`${API}/servers/${SERVER_ID}/resources`, () =>
+        problem(422, 'validation_failed', { fields: [{ field: 'cpu_percent', code: 'resource_above_ceiling', params: { max: 400 } }] }),
+      ),
+    )
+    const { user } = await renderApp(`/servers/${SERVER_ID}/resources`)
+
+    const cpu = await screen.findByLabelText('CPU (cœurs)')
+    await user.clear(cpu)
+    await user.type(cpu, '6')
+    await user.tab()
+    await user.click(await screen.findByRole('button', { name: 'Enregistrer' }))
+
+    expect(await screen.findByText('Au-delà du plafond du projet (4 cœurs).')).toBeTruthy()
+  })
+
   it('shows the disk usage against the quota', async () => {
     setup({ disk_mb: 10240, disk_used_bytes: 2 * 1024 ** 3 })
     await renderApp(`/servers/${SERVER_ID}/resources`)
@@ -68,6 +113,7 @@ describe('server resources', () => {
     await renderApp(`/servers/${SERVER_ID}`)
 
     expect(await screen.findByText(/Quota disque atteint/)).toBeTruthy()
+    expect(screen.getByText('CPU : 2 cœurs')).toBeTruthy()
   })
 
   it('suspends after confirmation, then blocks the start', async () => {

@@ -1,11 +1,13 @@
 //! Adaptateurs du domaine `servers`.
 
+mod alerts;
 mod backups;
 mod content;
 mod metrics;
 mod schedules;
 mod tickets;
 
+pub use alerts::AlertRepository;
 pub use backups::{BackupRecord, BackupRepository};
 pub use content::{ContentPackage, ContentRecord, ContentRepository, NewContent};
 pub use metrics::{MetricPoint, MetricsRepository};

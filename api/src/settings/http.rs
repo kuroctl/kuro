@@ -79,6 +79,14 @@ pub struct SettingsDto {
     /// URL à donner au client IA (`<mcp.public_url>/mcp`) ; absente si le MCP n'est pas
     /// configuré sur ce serveur, auquel cas l'activer reste sans effet.
     pub mcp_url: Option<String>,
+    /// Seuils d'alerte des stats (ADR-0043) : CPU et mémoire en % de l'allocation (50 à 100),
+    /// soutenus pendant `alert_minutes` minutes (1 à 60) ; réarmés 20 points plus bas.
+    #[schema(example = 90)]
+    pub alert_cpu_percent: i32,
+    #[schema(example = 90)]
+    pub alert_memory_percent: i32,
+    #[schema(example = 5)]
+    pub alert_minutes: i32,
     #[serde(with = "time::serde::rfc3339")]
     #[schema(value_type = String, format = DateTime)]
     pub updated_at: OffsetDateTime,
@@ -98,6 +106,9 @@ impl SettingsDto {
             audit_retention_days: s.audit_retention_days,
             mcp_enabled: s.mcp_enabled,
             mcp_url: oauth.map(OAuthState::resource),
+            alert_cpu_percent: s.alert_cpu_percent,
+            alert_memory_percent: s.alert_memory_percent,
+            alert_minutes: s.alert_minutes,
             updated_at: s.updated_at,
         }
     }
@@ -125,6 +136,9 @@ pub struct UpdatePlatformSettingsRequest {
     pub max_backup_limit: Option<Option<i32>>,
     pub audit_retention_days: Option<i32>,
     pub mcp_enabled: Option<bool>,
+    pub alert_cpu_percent: Option<i32>,
+    pub alert_memory_percent: Option<i32>,
+    pub alert_minutes: Option<i32>,
 }
 
 /// Paramètres du projet. Permission : `system.settings.read`.
@@ -172,6 +186,9 @@ pub async fn update_settings(
         max_backup_limit: request.max_backup_limit,
         audit_retention_days: request.audit_retention_days,
         mcp_enabled: request.mcp_enabled,
+        alert_cpu_percent: request.alert_cpu_percent,
+        alert_memory_percent: request.alert_memory_percent,
+        alert_minutes: request.alert_minutes,
     };
     Ok(Json(SettingsDto::new(
         settings::update(&pool, &session.context, patch).await?,
