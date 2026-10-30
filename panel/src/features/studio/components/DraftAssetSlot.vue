@@ -79,7 +79,9 @@ async function remove() {
       class="flex items-center justify-center overflow-hidden rounded-lg border border-dashed bg-muted/40"
       :class="{ 'aspect-square': kind === 'icon', 'aspect-[8/3]': kind === 'cover', 'aspect-[3/4]': kind === 'thumbnail' }"
     >
-      <img v-if="present && src" :src="src" alt="" class="size-full object-cover">
+      <!-- L'icône à sa taille d'affichage (64 px), pas étirée sur la carte. -->
+      <img v-if="present && src && kind === 'icon'" :src="src" alt="" class="size-16 rounded-lg object-cover">
+      <img v-else-if="present && src" :src="src" alt="" class="size-full object-cover">
       <p v-else class="px-3 text-center text-xs text-muted-foreground">{{ t('studio.assets.none') }}</p>
     </div>
     <div class="flex flex-wrap gap-2">

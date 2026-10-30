@@ -136,8 +136,12 @@ pub struct FileSpec {
 pub enum FileContent {
     /// Remplacé à chaque démarrage.
     Template { content: String },
-    /// Seules ces clés sont réécrites ; le reste du fichier est conservé.
-    ManagedKeys { keys: BTreeMap<String, String> },
+    /// Seules ces clés sont réécrites ; le reste du fichier est conservé. Une valeur est un
+    /// scalaire (chaîne, nombre, booléen) ou une liste de scalaires (ADR-0039) : son type est
+    /// gardé en JSON et YAML ; `ini` et `properties` n'acceptent que des chaînes.
+    ManagedKeys {
+        keys: BTreeMap<String, serde_json::Value>,
+    },
     /// Créé s'il n'existe pas, jamais modifié ensuite.
     User {
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -187,8 +191,11 @@ pub enum StopSpec {
     /// Commande envoyée sur l'entrée de la console.
     Console(String),
     Signal(StopSignal),
+    /// Le `STOPSIGNAL` déclaré par l'image (SIGTERM à défaut), ADR-0039.
+    Image,
 }
 
+/// Liste fermée : un signal arbitraire (SIGKILL, SIGSTOP) contournerait l'arrêt propre.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum StopSignal {
     #[serde(rename = "SIGTERM")]
@@ -197,6 +204,11 @@ pub enum StopSignal {
     Int,
     #[serde(rename = "SIGQUIT")]
     Quit,
+    /// Arrêt en douceur d'Apache (images officielles), ADR-0039.
+    #[serde(rename = "SIGWINCH")]
+    Winch,
+    #[serde(rename = "SIGHUP")]
+    Hup,
 }
 
 impl StopSignal {
@@ -205,6 +217,8 @@ impl StopSignal {
             Self::Term => "SIGTERM",
             Self::Int => "SIGINT",
             Self::Quit => "SIGQUIT",
+            Self::Winch => "SIGWINCH",
+            Self::Hup => "SIGHUP",
         }
     }
 }
@@ -251,6 +265,20 @@ pub struct ServerCommand {
     pub server_id: Uuid,
     /// Une seule ligne, sans caractère de contrôle (voir [`crate::limits::is_valid_command`]).
     pub line: String,
+}
+
+/// Action d'un prefab (ADR-0039) : commande déjà rendue par l'API (liste d'arguments, jamais une
+/// ligne de shell), exécutée dans le conteneur du service en marche avec son utilisateur.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServerAction {
+    pub server_id: Uuid,
+    /// Clé de l'action dans le prefab (journaux du daemon).
+    pub action: String,
+    pub service: String,
+    pub command: Vec<String>,
+    /// Au-delà, le daemon abandonne et répond `internal` ; borné par
+    /// [`crate::limits::MAX_ACTION_TIMEOUT_SECS`].
+    pub timeout_secs: u32,
 }
 
 /// Nouvelles ressources d'un serveur (ADR-0019), appliquées à chaud : limites par service, déjà

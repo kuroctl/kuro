@@ -23,7 +23,7 @@ use bollard::query_parameters::{
 };
 use futures_util::{Stream, StreamExt};
 use kuro_protocol::api::server::{Limits, PortProtocol, ServiceSpec};
-use kuro_protocol::limits::MAX_CONSOLE_LINE_BYTES;
+use kuro_protocol::limits::{MAX_ACTION_OUTPUT_BYTES, MAX_CONSOLE_LINE_BYTES};
 use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
@@ -61,6 +61,14 @@ pub struct ProxyContainer<'a> {
     pub labels: HashMap<String, String>,
     pub memory_bytes: u64,
     pub pids: u32,
+}
+
+/// Issue d'une exécution dans un conteneur (`exec`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecOutcome {
+    pub exit_code: i64,
+    pub output: String,
+    pub truncated: bool,
 }
 
 /// Fichier déposé dans un conteneur créé, avant son démarrage.
@@ -102,6 +110,9 @@ pub struct Installer<'a> {
     pub image: &'a str,
     /// Tableau d'arguments : aucune commande shell construite par Kuro.
     pub command: Vec<String>,
+    /// Point d'entrée de l'image remis à vide : `command` s'exécute tel quel (étape `script`,
+    /// ADR-0039). Faux : `command` est passé en arguments du point d'entrée de l'image.
+    pub clear_entrypoint: bool,
     pub env: Vec<String>,
     pub user: &'a str,
     /// (chemin du conteneur, dossier de l'hôte).
@@ -437,6 +448,8 @@ impl Docker {
         let body = ContainerCreateBody {
             image: Some(installer.image.to_owned()),
             cmd: Some(installer.command.clone()),
+            // Docker : un point d'entrée `[""]` efface celui de l'image.
+            entrypoint: installer.clear_entrypoint.then(|| vec![String::new()]),
             env: Some(installer.env.clone()),
             user: Some(installer.user.to_owned()),
             labels: Some(labels(installer.server_id, Some(INSTALLER))),
@@ -499,14 +512,19 @@ impl Docker {
     }
 
     /// Arrêt avec signal et délai de grâce, puis SIGKILL.
+    /// Arrête un conteneur : `signal` donné, ou le `STOPSIGNAL` de l'image s'il est absent ;
+    /// SIGKILL passé le délai.
     pub async fn stop(
         &self,
         name: &str,
-        signal: &str,
+        signal: Option<&str>,
         timeout_secs: u32,
     ) -> Result<(), DockerError> {
-        let options = StopContainerOptionsBuilder::new()
-            .signal(signal)
+        let mut builder = StopContainerOptionsBuilder::new();
+        if let Some(signal) = signal {
+            builder = builder.signal(signal);
+        }
+        let options = builder
             .t(i32::try_from(timeout_secs).unwrap_or(i32::MAX))
             .build();
         match self.client.stop_container(name, Some(options)).await {
@@ -776,39 +794,51 @@ impl Docker {
         }
     }
 
-    /// Exécute une commande dans un conteneur en marche : code de sortie et sortie (stdout et
-    /// stderr), tronquée à 4 Kio.
+    /// Exécute une commande dans un conteneur en marche, avec `user` (`uid:gid`) ou celui du
+    /// conteneur : code de sortie, sortie (stdout et stderr) tronquée à
+    /// [`MAX_ACTION_OUTPUT_BYTES`], et si elle l'a été.
     pub async fn exec(
         &self,
         container: &str,
         cmd: Vec<String>,
-    ) -> Result<(i64, String), DockerError> {
+        user: Option<&str>,
+    ) -> Result<ExecOutcome, DockerError> {
         let exec = self
             .client
             .create_exec(
                 container,
                 ExecConfig {
                     cmd: Some(cmd),
+                    user: user.map(str::to_owned),
                     attach_stdout: Some(true),
                     attach_stderr: Some(true),
                     ..Default::default()
                 },
             )
             .await?;
-        let mut output = String::new();
+        let mut output = Vec::new();
+        let mut truncated = false;
         if let bollard::exec::StartExecResults::Attached {
             output: mut stream, ..
         } = self.client.start_exec(&exec.id, None).await?
         {
             while let Some(chunk) = stream.next().await {
-                let chunk = chunk?;
-                if output.len() < 4096 {
-                    output.push_str(&String::from_utf8_lossy(&chunk.into_bytes()));
+                let bytes = chunk?.into_bytes();
+                let room = MAX_ACTION_OUTPUT_BYTES.saturating_sub(output.len());
+                if bytes.len() > room {
+                    output.extend_from_slice(&bytes[..room]);
+                    truncated = true;
+                } else {
+                    output.extend_from_slice(&bytes);
                 }
             }
         }
         let inspect = self.client.inspect_exec(&exec.id).await?;
-        Ok((inspect.exit_code.unwrap_or(-1), output))
+        Ok(ExecOutcome {
+            exit_code: inspect.exit_code.unwrap_or(-1),
+            output: String::from_utf8_lossy(&output).into_owned(),
+            truncated,
+        })
     }
 
     pub async fn kuro_servers(&self) -> Result<Vec<Uuid>, DockerError> {

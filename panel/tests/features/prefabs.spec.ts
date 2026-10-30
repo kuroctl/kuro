@@ -172,7 +172,7 @@ describe('prefabs', () => {
         optimized = String(params.version)
         return HttpResponse.json({
           optimized: [
-            { kind: 'icon', before: { width: 1000, height: 1000, bytes: 307200 }, after: { width: 512, height: 512, bytes: 102400 }, small: false },
+            { kind: 'icon', before: { width: 1000, height: 1000, bytes: 307200 }, after: { width: 64, height: 64, bytes: 102400 }, small: false },
             { kind: 'thumbnail', before: { width: 364, height: 485, bytes: 1024 }, after: { width: 363, height: 484, bytes: 1024 }, small: true },
           ],
           unchanged: [],

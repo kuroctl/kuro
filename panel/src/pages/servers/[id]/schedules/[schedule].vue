@@ -7,12 +7,16 @@ import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 
 import { usePermissions } from '@/features/account/account.queries'
+import { usePrefabLocale } from '@/features/prefabs/composables/usePrefabLocale'
+import { schedulableActions } from '@/features/prefabs/manifest'
+import { usePrefab } from '@/features/prefabs/prefabs.queries'
 import RunOutcome from '@/features/schedules/components/RunOutcome.vue'
 import StepsEditor from '@/features/schedules/components/StepsEditor.vue'
 import TriggerEditor from '@/features/schedules/components/TriggerEditor.vue'
 import { type Schedule, type ScheduleRequest, type ScheduleStep, useSchedulesApi } from '@/features/schedules/schedules.api'
 import { useInvalidateSchedules, useSchedule, useScheduleRuns } from '@/features/schedules/schedules.queries'
 import { defaultTrigger, fromCron, timezones, toCron, type TriggerForm } from '@/features/schedules/trigger'
+import { useServer } from '@/features/servers/servers.queries'
 import { type FieldErrors, useApiError } from '@/shared/api/useApiError'
 import PageHeader from '@/shared/layout/PageHeader.vue'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -25,7 +29,12 @@ import { UnsavedBar } from '@/shared/ui/unsaved-bar'
 
 definePage({ meta: { subnav: 'server' } })
 
-const STEP_PERMISSIONS = { command: 'servers.console.write', power: 'servers.power', backup: 'servers.backups.create' } as const
+const STEP_PERMISSIONS = {
+  command: 'servers.console.write',
+  power: 'servers.power',
+  backup: 'servers.backups.create',
+  action: 'servers.actions.run',
+} as const
 
 const { t, locale } = useI18n()
 const route = useRoute('/servers/[id]/schedules/[schedule]')
@@ -40,8 +49,20 @@ const invalidate = useInvalidateSchedules()
 const { handleError } = useApiError()
 
 const editable = computed(() => can('servers.schedules.manage'))
+// Actions planifiables du prefab du serveur (ADR-0039), avec leur libellé.
+const { data: serverData } = useServer(server)
+const { data: prefab } = usePrefab(
+  () => serverData.value?.prefab.id,
+  () => serverData.value?.prefab.version,
+)
+const prefabLocale = usePrefabLocale(() => serverData.value?.prefab)
+const prefabActions = computed(() =>
+  schedulableActions(prefab.value?.manifest).map((key) => ({ key, label: prefabLocale.actionLabel(key) })),
+)
 const allowed = computed(() =>
-  (Object.keys(STEP_PERMISSIONS) as ScheduleStep['action'][]).filter((action) => can(STEP_PERMISSIONS[action])),
+  (Object.keys(STEP_PERMISSIONS) as ScheduleStep['action'][]).filter(
+    (action) => can(STEP_PERMISSIONS[action]) && (action !== 'action' || prefabActions.value.length > 0),
+  ),
 )
 
 const form = reactive({ name: '', enabled: true, onlyWhenOnline: false, timezone: timezones()[0] ?? 'UTC' })
@@ -50,13 +71,20 @@ const steps = ref<ScheduleStep[]>([])
 const errors = ref<FieldErrors>({})
 const pending = ref(false)
 
+/** Nouvelle tâche ouverte depuis une action du prefab (`?action=cron`) : une étape préremplie. */
+const prefilled = computed(() => (typeof route.query.action === 'string' ? route.query.action : undefined))
+
 function load(value?: Schedule) {
-  form.name = value?.name ?? ''
+  form.name = value?.name ?? (prefilled.value ? prefabLocale.actionLabel(prefilled.value) : '')
   form.enabled = value?.enabled ?? true
-  form.onlyWhenOnline = value?.only_when_online ?? false
+  form.onlyWhenOnline = value?.only_when_online ?? true
   form.timezone = value?.timezone ?? timezones()[0] ?? 'UTC'
   trigger.value = value ? fromCron(value.cron) : defaultTrigger()
-  steps.value = value ? value.steps.map((step) => ({ ...step })) : []
+  steps.value = value
+    ? value.steps.map((step) => ({ ...step }))
+    : prefilled.value
+      ? [{ action: 'action', value: prefilled.value, delay_secs: 0, continue_on_failure: false }]
+      : []
   errors.value = {}
 }
 watch(schedule, (value) => value && load(value), { immediate: true })
@@ -154,7 +182,7 @@ const when = (date: string) =>
           <CardDescription>{{ t('schedules.editor.stepsHelp') }}</CardDescription>
         </CardHeader>
         <CardContent>
-          <StepsEditor v-model="steps" :allowed="allowed" :disabled="!editable" :errors="errors" />
+          <StepsEditor v-model="steps" :allowed="allowed" :actions="prefabActions" :disabled="!editable" :errors="errors" />
         </CardContent>
       </Card>
 

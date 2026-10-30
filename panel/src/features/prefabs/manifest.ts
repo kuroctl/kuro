@@ -36,10 +36,21 @@ export interface Group {
 
 export type SectionKey = 'general' | 'advanced'
 
+/** Action d'un prefab (ADR-0039) : commande typée, paramètres comme des settings. */
+export interface ActionDecl {
+  service: string
+  command: string[]
+  params?: Record<string, Field>
+  timeout?: number
+  schedulable?: boolean
+}
+
 export interface Manifest {
   id: string
   version: string
   category: string
+  /** Jeu sur le magasin Steam : le Studio en importe les images. */
+  steam?: { app: number }
   services: Record<
     string,
     {
@@ -51,6 +62,18 @@ export interface Manifest {
   settings?: Partial<Record<SectionKey, Record<string, Group>>>
   files?: Record<string, { service: string; path: string; format: string; mode: string; editable?: boolean }>
   content?: Record<string, { kind: string; service: string; register?: { file: string }[] }>
+  actions?: Record<string, ActionDecl>
+}
+
+/** Actions planifiables : déclarées `schedulable`, sans paramètre obligatoire sans défaut. */
+export function schedulableActions(manifest: Manifest | undefined): string[] {
+  return Object.entries(manifest?.actions ?? {})
+    .filter(
+      ([, action]) =>
+        action.schedulable &&
+        !Object.values(action.params ?? {}).some((field) => field.required && (field.default === undefined || field.default === null)),
+    )
+    .map(([key]) => key)
 }
 
 export const SECTIONS: SectionKey[] = ['general', 'advanced']

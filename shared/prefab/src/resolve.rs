@@ -48,6 +48,85 @@ pub struct Deployment<'a> {
     pub packages: BTreeMap<String, Vec<serde_json::Value>>,
 }
 
+/// Commande d'une action prête à partir au nœud (ADR-0039).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedAction {
+    pub service: String,
+    pub command: Vec<String>,
+    pub timeout_secs: u32,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ActionError {
+    #[error("unknown action `{0}`")]
+    UnknownAction(String),
+    #[error("unknown parameter `{0}`")]
+    UnknownParam(String),
+    #[error("parameter `{0}` is required")]
+    MissingParam(String),
+    #[error("parameter `{name}`: {reason:?}")]
+    InvalidParam {
+        name: String,
+        reason: crate::settings::Reason,
+    },
+    #[error(transparent)]
+    Resolve(#[from] ResolveError),
+}
+
+/// Rend la commande d'une action avec des paramètres validés contre leur déclaration : un
+/// paramètre absent prend sa valeur par défaut, un paramètre obligatoire sans valeur est refusé.
+/// Le daemon reçoit une liste d'arguments finale, sans gabarit.
+pub fn resolve_action(
+    package: &Package,
+    deployment: &Deployment<'_>,
+    key: &str,
+    params: &serde_json::Map<String, serde_json::Value>,
+) -> Result<ResolvedAction, ActionError> {
+    let action = package
+        .manifest
+        .actions
+        .get(key)
+        .ok_or_else(|| ActionError::UnknownAction(key.to_owned()))?;
+    if let Some(unknown) = params
+        .keys()
+        .find(|name| !action.params.contains_key(*name))
+    {
+        return Err(ActionError::UnknownParam(unknown.clone()));
+    }
+    let mut values = BTreeMap::new();
+    for (name, field) in &action.params {
+        let value = match params.get(name).filter(|v| !v.is_null()) {
+            Some(value) => value.clone(),
+            None => match &field.default {
+                Some(default) => default.clone(),
+                None if field.required => return Err(ActionError::MissingParam(name.clone())),
+                None => continue,
+            },
+        };
+        crate::settings::check_value(field, &value).map_err(|reason| {
+            ActionError::InvalidParam {
+                name: name.clone(),
+                reason,
+            }
+        })?;
+        values.insert(name.clone(), value);
+    }
+    let mut context = context(package, deployment)?;
+    context.params = values;
+    let render = renderer(&context);
+    let command = action
+        .command
+        .iter()
+        .enumerate()
+        .map(|(index, arg)| render(format!("actions.{key}.command[{index}]"), arg))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(ResolvedAction {
+        service: action.service.clone(),
+        command,
+        timeout_secs: action.timeout,
+    })
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ResolveError {
     #[error("{at}: {source}")]
@@ -91,9 +170,18 @@ fn context<'a>(
         server_id: deployment.server_id.to_string(),
         server_name: deployment.server_name.to_owned(),
         server_web_url: deployment.web_url.clone(),
+        server_web_host: deployment.web_url.as_deref().map(web_host_of),
         content: deployment.content.clone(),
         content_values: deployment.content_values.clone(),
+        params: BTreeMap::new(),
     })
+}
+
+/// Nom d'hôte d'une adresse de site (`https://<hôte>`), sans schéma ni barre finale.
+fn web_host_of(url: &str) -> String {
+    url.trim_start_matches("https://")
+        .trim_end_matches('/')
+        .to_owned()
 }
 
 fn renderer<'c>(
@@ -502,10 +590,31 @@ pub fn resolve(
                     .keys
                     .iter()
                     .map(|(key, value)| {
-                        Ok((
-                            key.clone(),
-                            render(format!("files.{id}.keys.{key}"), value)?,
-                        ))
+                        // Les chaînes sont des gabarits ; nombres, booléens et listes gardent
+                        // leur type (ADR-0039).
+                        let rendered = match value {
+                            serde_json::Value::String(text) => serde_json::Value::String(render(
+                                format!("files.{id}.keys.{key}"),
+                                text,
+                            )?),
+                            serde_json::Value::Array(items) => serde_json::Value::Array(
+                                items
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(index, item)| match item {
+                                        serde_json::Value::String(text) => {
+                                            Ok(serde_json::Value::String(render(
+                                                format!("files.{id}.keys.{key}[{index}]"),
+                                                text,
+                                            )?))
+                                        }
+                                        other => Ok(other.clone()),
+                                    })
+                                    .collect::<Result<_, ResolveError>>()?,
+                            ),
+                            other => other.clone(),
+                        };
+                        Ok((key.clone(), rendered))
                     })
                     .collect::<Result<_, ResolveError>>()?,
             },
@@ -566,10 +675,7 @@ pub fn resolve(
     // serveur. Sans adresse (domaine des sites retiré), aucune route : le site n'est pas servi.
     let web = match (m.web_port(), &deployment.web_url) {
         (Some((service, _, decl)), Some(url)) => vec![WebRoute {
-            host: url
-                .trim_start_matches("https://")
-                .trim_end_matches('/')
-                .to_owned(),
+            host: web_host_of(url),
             service: service.to_owned(),
             container_port: decl.container,
         }],
@@ -595,10 +701,14 @@ pub fn resolve(
             }),
             stop: match &lifecycle.stop {
                 Stop::Console(command) => StopSpec::Console(command.clone()),
+                Stop::Signal(Signal::Image) => StopSpec::Image,
                 Stop::Signal(signal) => StopSpec::Signal(match signal {
                     Signal::Term => StopSignal::Term,
                     Signal::Int => StopSignal::Int,
                     Signal::Quit => StopSignal::Quit,
+                    Signal::Winch => StopSignal::Winch,
+                    Signal::Hup => StopSignal::Hup,
+                    Signal::Image => unreachable!("handled above"),
                 }),
             },
             stop_timeout_secs: lifecycle.timeout,

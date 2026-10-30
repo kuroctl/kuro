@@ -14,6 +14,7 @@ pub fn official(id: &str) -> Package {
     Package::load_dir(&prefabs_dir().join(id)).unwrap()
 }
 
+/// Dossiers des prefabs officiels (nom libre ; l'`id` est celui du manifest).
 pub const OFFICIAL: &[&str] = &[
     "minecraft-java",
     "wordpress",
@@ -25,7 +26,8 @@ pub const OFFICIAL: &[&str] = &[
     "enshrouded",
     "minecraft-bedrock",
     "arma-3",
-    "fivem",
+    "fivem-gta5",
+    "fivem-red-dead-redemption-2",
 ];
 
 /// Copie d'un prefab officiel avec `prefab.yaml` modifié.

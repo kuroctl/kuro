@@ -37,3 +37,5 @@ Pour l'éditer avec autocomplétion et validation (VS Code, extension YAML de Re
 Les contrôles qu'un JSON Schema ne peut pas exprimer (références de gabarits, chemins sous les volumes, bornes des valeurs par défaut, clés de traduction) sont faits par la crate `shared/prefab`, à l'import comme dans le Studio.
 
 Images (`assets/`) : visuels des éditeurs (Steam pour les jeux Steam), à remplacer si leur usage n'est pas autorisé pour votre déploiement.
+
+Un jeu vendu sur Steam déclare `steam: { app: <id> }` : l'identifiant **du jeu** sur le magasin (730 pour Counter-Strike 2, 892970 pour Valheim), pas celui de son serveur dédié. Le Studio en importe alors les images (« Importer depuis Steam », ADR-0039). Comme `assets`, cette rubrique est cosmétique : l'ajouter ne demande pas de nouvelle version.

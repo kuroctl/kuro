@@ -115,6 +115,14 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
                 kuro_api::content::steam::SteamWorkshop::new(&config.content.steam_url)
                     .map_err(|e| anyhow::anyhow!("content provider: {e}"))?,
             ),
+            steam_store: Arc::new(
+                kuro_api::content::steam_store::SteamStoreClient::new(&config.content.steam_url)
+                    .map_err(|e| anyhow::anyhow!("steam store: {e}"))?,
+            ),
+            steam_grid: Arc::new(
+                kuro_api::content::steamgriddb::SteamGridDb::new(&config.content.steamgriddb_url)
+                    .map_err(|e| anyhow::anyhow!("steamgriddb: {e}"))?,
+            ),
         },
     };
     // Le lien redéploie après des paquets extraits (ADR-0030) : il reçoit les cas d'usage.

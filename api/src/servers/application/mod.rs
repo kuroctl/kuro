@@ -4,8 +4,10 @@
 //! au repos et jamais renvoyés : ils ne rejoignent les réglages qu'au moment de résoudre la
 //! spécification envoyée au daemon.
 
+pub mod actions;
 pub mod backups;
 pub mod bulk;
+pub mod compat;
 mod console;
 pub mod content;
 mod create;

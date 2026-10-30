@@ -49,6 +49,9 @@ export function useStudioApi() {
 
     removeAsset: (id: string, kind: PrefabAssetKind) => http.delete<void>(`${BASE}/drafts/${id}/assets/${kind}`).then(() => undefined),
 
+    importSteamAssets: (id: string) =>
+      http.post<Schemas['SteamImportDto']>(`${BASE}/drafts/${id}/assets/steam`).then((response) => response.data),
+
     startTrial: (id: string, body: Schemas['StartTrialRequest']) =>
       http.post<Schemas['TrialStartedDto']>(`${BASE}/drafts/${id}/trial`, body).then((response) => response.data),
 

@@ -1,5 +1,6 @@
 //! Routes HTTP de l'espace admin pour le domaine `servers`, montées sous `/api/admin/v1`.
 
+mod actions;
 mod backups;
 mod console;
 mod content;
@@ -25,7 +26,7 @@ use crate::servers::application::ServersState;
 #[openapi(
     paths(
         servers::list, servers::get, servers::create, servers::update_settings,
-        servers::update_resources, servers::suspend, servers::unsuspend, servers::power, servers::reinstall, servers::delete, console::ticket, console::command,
+        servers::update_resources, servers::suspend, servers::unsuspend, servers::power, servers::reinstall, servers::delete, console::ticket, console::command, actions::run,
         files::list, files::read, files::write, files::mkdir, files::rename, files::delete,
         backups::list, backups::create, backups::update, backups::restore, backups::delete,
         backups::download_ticket, backups::download, content::slots, content::list,
@@ -82,6 +83,7 @@ where
         .route("/servers/{id}/console/ticket", post(console::ticket))
         .route("/servers/{id}/console", get(console::socket))
         .route("/servers/{id}/command", post(console::command))
+        .route("/servers/{id}/actions/{key}", post(actions::run))
         .route(
             "/servers/{id}/schedules",
             get(schedules::list).post(schedules::create),

@@ -563,6 +563,12 @@ fn protected_routes() -> Vec<(Method, String, Option<Value>, Vec<Permission>)> {
         ),
         (
             Method::POST,
+            format!("/servers/{id}/actions/cron"),
+            Some(json!({"params": {}})),
+            vec![Permission::ServersActionsRun],
+        ),
+        (
+            Method::POST,
             format!("/servers/{id}/console/ticket"),
             None,
             vec![Permission::ServersConsoleRead],
@@ -672,6 +678,12 @@ fn protected_routes() -> Vec<(Method, String, Option<Value>, Vec<Permission>)> {
         (
             Method::POST,
             format!("/studio/drafts/{id}/publish"),
+            None,
+            vec![Permission::PrefabsManage],
+        ),
+        (
+            Method::POST,
+            format!("/studio/drafts/{id}/assets/steam"),
             None,
             vec![Permission::PrefabsManage],
         ),

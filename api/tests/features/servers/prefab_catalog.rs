@@ -313,7 +313,7 @@ async fn reloading_ignores_fields_added_to_the_model_and_adds_images_even_on_con
     assert_eq!(reloaded.json["conflicts"], json!(["terraria@1.0.0"]));
     let unchanged = reloaded.json["unchanged"].as_array().unwrap();
     assert!(
-        unchanged.contains(&json!("wordpress@1.1.0")),
+        unchanged.contains(&json!("wordpress@1.2.0")),
         "{unchanged:?}"
     );
     let added = reloaded.json["assets_added"].as_array().unwrap();
@@ -374,7 +374,7 @@ async fn images_are_brought_to_the_convention_and_revalidated_by_the_browser() {
             icon["after"]["width"].clone(),
             icon["after"]["height"].clone()
         ),
-        (json!(512), json!(512))
+        (json!(64), json!(64))
     );
     let event = platform.admin.last_audit("prefab.assets_optimized").await;
     assert_eq!(event.actor_kind, "admin");
@@ -436,4 +436,26 @@ async fn optimizing_images_requires_the_manage_permission() {
         .call(Method::POST, "/prefabs/nope/1.0.0/assets/optimize", None)
         .await;
     assert_eq!(unknown.status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn declaring_the_steam_game_of_a_published_prefab_is_not_a_conflict() {
+    let platform = Platform::start().await;
+    // Version stockée avant que le prefab déclare son jeu Steam (ADR-0039).
+    sqlx::query(
+        "UPDATE prefabs SET manifest = (manifest::jsonb - 'steam')::text WHERE id = 'terraria'",
+    )
+    .execute(&platform.api.pool)
+    .await
+    .unwrap();
+
+    let reloaded = platform.call(Method::POST, "/prefabs/reload", None).await;
+
+    assert_eq!(reloaded.status, StatusCode::OK, "{}", reloaded.json);
+    assert_eq!(reloaded.json["conflicts"], json!([]));
+    let unchanged = reloaded.json["unchanged"].as_array().unwrap();
+    assert!(
+        unchanged.contains(&json!("terraria@1.0.0")),
+        "{unchanged:?}"
+    );
 }

@@ -258,6 +258,10 @@ async fn execute(message: ApiMessage, m: &Manager) -> Result<Option<DaemonMessag
             .command(command.server_id, &command.line)
             .await
             .map(|()| None),
+        ApiMessage::ServerAction(action) => m
+            .action(action)
+            .await
+            .map(|result| Some(DaemonMessage::ActionResult(result))),
         ApiMessage::FileList(list) => m
             .file_list(list.server_id, &list.path)
             .await

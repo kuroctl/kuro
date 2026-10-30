@@ -12,7 +12,7 @@ use crate::audit::infra::AuditedTx;
 use crate::auth::secret_box;
 
 /// Sources qui demandent une clé d'API.
-pub const KEYED_SOURCES: [&str; 2] = ["curseforge", "steam-workshop"];
+pub const KEYED_SOURCES: [&str; 3] = ["curseforge", "steam-workshop", "steamgriddb"];
 
 /// Canal du bus (ADR-0037) : une clé a changé, chaque instance recharge les siennes.
 pub const CHANGES_CHANNEL: &str = "kuro_content_sources";
@@ -53,14 +53,34 @@ pub struct SourceStatus {
     pub updated_at: Option<OffsetDateTime>,
 }
 
+/// Source à clé : de contenu (mods), ou d'images pour le Studio (SteamGridDB, ADR-0040).
+enum Keyed<'a> {
+    Content(&'a std::sync::Arc<dyn super::ContentProvider>),
+    Images(&'a std::sync::Arc<dyn super::steamgriddb::SteamGrid>),
+}
+
+impl Keyed<'_> {
+    fn set_key(&self, key: Option<String>) {
+        match self {
+            Self::Content(source) => source.set_key(key),
+            Self::Images(source) => source.set_key(key),
+        }
+    }
+
+    async fn verify_key(&self, key: &str) -> Result<(), ProviderError> {
+        match self {
+            Self::Content(source) => source.verify_key(key).await,
+            Self::Images(source) => source.verify_key(key).await,
+        }
+    }
+}
+
 impl ContentSourcesState {
-    fn provider(
-        &self,
-        name: &str,
-    ) -> Result<&std::sync::Arc<dyn super::ContentProvider>, SourceKeyError> {
+    fn provider(&self, name: &str) -> Result<Keyed<'_>, SourceKeyError> {
         match name {
-            "curseforge" => Ok(&self.sources.curseforge),
-            "steam-workshop" => Ok(&self.sources.steam),
+            "curseforge" => Ok(Keyed::Content(&self.sources.curseforge)),
+            "steam-workshop" => Ok(Keyed::Content(&self.sources.steam)),
+            "steamgriddb" => Ok(Keyed::Images(&self.sources.steam_grid)),
             _ => Err(SourceKeyError::UnknownSource),
         }
     }

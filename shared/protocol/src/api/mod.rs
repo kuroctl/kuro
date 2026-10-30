@@ -26,8 +26,8 @@ pub use install::{
     InstallMode, InstallSpec, InstallStep, ServerInstall, SteamLogin, SteamPlatform,
 };
 pub use server::{
-    ServerCommand, ServerDelete, ServerDeploy, ServerLimits, ServerPower, ServerSuspend,
-    ServerSync, ServerWatch, WebRoute,
+    ServerAction, ServerCommand, ServerDelete, ServerDeploy, ServerLimits, ServerPower,
+    ServerSuspend, ServerSync, ServerWatch, WebRoute,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -51,6 +51,8 @@ pub enum ApiMessage {
     ServerInstall(ServerInstall),
     #[serde(rename = "server.command")]
     ServerCommand(ServerCommand),
+    #[serde(rename = "server.action")]
+    ServerAction(ServerAction),
     #[serde(rename = "server.limits")]
     ServerLimits(ServerLimits),
     #[serde(rename = "server.suspend")]

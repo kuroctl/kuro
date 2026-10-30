@@ -16,6 +16,8 @@ use uuid::Uuid;
 
 use crate::audit::domain::{AuditAction, AuditContext, AuditEvent};
 use crate::audit::infra::AuditedTx;
+use crate::content::steamgriddb::SteamGrid;
+use crate::content::{ContentSources, ProviderError};
 use crate::prefabs::application::{self as prefabs, Imported, PrefabsError};
 use crate::prefabs::infra::PrefabRepository;
 use crate::studio::infra::{DraftRecord, DraftRepository, NewDraft};
@@ -404,6 +406,160 @@ pub async fn put_asset(
     kind: AssetKind,
     data: &[u8],
 ) -> Result<(), PrefabsError> {
+    store_asset(pool, context, id, kind, data, None).await
+}
+
+/// D'où vient une image importée (ADR-0040).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ImageOrigin {
+    /// Image de la communauté SteamGridDB : son identifiant et son auteur.
+    SteamGridDb { id: u64, author: Option<String> },
+    /// CDN du magasin Steam.
+    Steam,
+}
+
+impl ImageOrigin {
+    pub fn source(&self) -> &'static str {
+        match self {
+            Self::SteamGridDb { .. } => "steamgriddb",
+            Self::Steam => "steam",
+        }
+    }
+}
+
+/// Images importées pour un jeu Steam (ADR-0039, ADR-0040).
+#[derive(Debug)]
+pub struct SteamImport {
+    pub app: u32,
+    /// Nom du jeu sur le magasin.
+    pub name: String,
+    pub imported: Vec<(AssetKind, ImageOrigin)>,
+    /// Introuvables, ou refusées (format, taille) : l'image du brouillon reste.
+    pub missing: Vec<AssetKind>,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum SteamImportError {
+    #[error(transparent)]
+    Prefabs(#[from] PrefabsError),
+    /// Le manifest enregistré ne déclare pas `steam.app`.
+    #[error("no steam game declared")]
+    NoGame,
+    #[error("unknown steam game")]
+    GameNotFound,
+    #[error("steam unavailable: {0}")]
+    Unavailable(String),
+}
+
+/// Importe les images du jeu Steam déclaré par le manifest **enregistré** (`steam.app`) :
+/// jaquette, bannière et icône. Pour chacune, SteamGridDB d'abord quand sa clé est réglée (la
+/// mieux notée), sinon le CDN du magasin (icône de la communauté, sinon logo). Une panne de
+/// SteamGridDB ne fait pas échouer l'import. Les images trouvées remplacent celles du brouillon,
+/// les autres sont listées ; chacune est journalisée avec sa source.
+pub async fn import_steam_assets(
+    pool: &PgPool,
+    context: &AuditContext,
+    sources: &ContentSources,
+    id: Uuid,
+) -> Result<SteamImport, SteamImportError> {
+    let record = get(pool, id).await?;
+    let app = files_of(&record)
+        .get(MANIFEST_FILE)
+        .and_then(|text| parse_manifest(text).ok())
+        .and_then(|manifest| manifest.steam)
+        .map(|steam| steam.app)
+        .filter(|app| *app > 0)
+        .ok_or(SteamImportError::NoGame)?;
+    let unavailable = |error: ProviderError| match error {
+        ProviderError::NotFound => SteamImportError::GameNotFound,
+        other => SteamImportError::Unavailable(other.to_string()),
+    };
+    let game = sources.steam_store.game(app).await.map_err(unavailable)?;
+    // Tout est lu avant d'écrire : Steam injoignable en cours de route ne laisse pas un brouillon
+    // à moitié changé.
+    let mut found = Vec::new();
+    let mut missing = Vec::new();
+    for (kind, candidates) in &game.images {
+        let mut data = from_steamgriddb(sources.steam_grid.as_ref(), app, *kind).await;
+        if data.is_none() {
+            // Premier chemin trouvé (icône 184 px, sinon 32 px…).
+            for path in candidates {
+                match sources.steam_store.image(path).await {
+                    Ok(bytes) => {
+                        data = Some((bytes, ImageOrigin::Steam));
+                        break;
+                    }
+                    Err(ProviderError::NotFound) => {}
+                    Err(other) => return Err(SteamImportError::Unavailable(other.to_string())),
+                }
+            }
+        }
+        match data {
+            Some((data, origin)) => found.push((*kind, data, origin)),
+            None => missing.push(*kind),
+        }
+    }
+    let mut imported = Vec::new();
+    for (kind, data, origin) in found {
+        match store_asset(pool, context, id, kind, &data, Some((app, &origin))).await {
+            Ok(()) => imported.push((kind, origin)),
+            Err(PrefabsError::Invalid { .. }) => missing.push(kind),
+            Err(other) => return Err(other.into()),
+        }
+    }
+    imported.sort_by_key(|(kind, _)| *kind);
+    missing.sort();
+    Ok(SteamImport {
+        app,
+        name: game.name,
+        imported,
+        missing,
+    })
+}
+
+/// Meilleure image de SteamGridDB pour ce type, lisible et reconnue comme image ; `None` sans
+/// clé, sans image convenable, ou si SteamGridDB ne répond pas (le magasin prend le relais).
+async fn from_steamgriddb(
+    grid: &dyn SteamGrid,
+    app: u32,
+    kind: AssetKind,
+) -> Option<(Vec<u8>, ImageOrigin)> {
+    if !grid.configured() {
+        return None;
+    }
+    let images = match grid.images(app, kind).await {
+        Ok(images) => images,
+        Err(error) => {
+            tracing::warn!(%error, app, kind = kind.as_str(), "steamgriddb unavailable, using steam");
+            return None;
+        }
+    };
+    for image in images {
+        match grid.fetch(&image.url).await {
+            Ok(bytes) if sniff(&bytes).is_some() => {
+                return Some((
+                    bytes,
+                    ImageOrigin::SteamGridDb {
+                        id: image.id,
+                        author: image.author,
+                    },
+                ));
+            }
+            Ok(_) => {}
+            Err(error) => tracing::debug!(%error, id = image.id, "steamgriddb image skipped"),
+        }
+    }
+    None
+}
+
+async fn store_asset(
+    pool: &PgPool,
+    context: &AuditContext,
+    id: Uuid,
+    kind: AssetKind,
+    data: &[u8],
+    origin: Option<(u32, &ImageOrigin)>,
+) -> Result<(), PrefabsError> {
     let refused = |reason: &str| PrefabsError::Invalid {
         reason: reason.to_owned(),
         issues: Vec::new(),
@@ -418,14 +574,21 @@ pub async fn put_asset(
     }
     DraftRepository::put_asset(&mut tx, id, kind.as_str(), content_type, data).await?;
     DraftRepository::touch(&mut tx, id, context.actor.id).await?;
-    tx.commit(
-        AuditEvent::success(AuditAction::PrefabDraftUpdated).details(json!({
-            "draft": id,
-            "asset": kind.as_str(),
-            "bytes": data.len(),
-        })),
-    )
-    .await?;
+    let mut details = json!({
+        "draft": id,
+        "asset": kind.as_str(),
+        "bytes": data.len(),
+    });
+    if let Some((app, origin)) = origin {
+        details["steam_app"] = json!(app);
+        details["source"] = json!(origin.source());
+        if let ImageOrigin::SteamGridDb { id, author } = origin {
+            details["steamgriddb_image"] = json!(id);
+            details["author"] = json!(author);
+        }
+    }
+    tx.commit(AuditEvent::success(AuditAction::PrefabDraftUpdated).details(details))
+        .await?;
     Ok(())
 }
 

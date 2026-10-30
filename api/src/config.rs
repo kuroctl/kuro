@@ -56,6 +56,9 @@ pub struct ContentConfig {
     /// API Web de Steam (HTTPS), pour le Workshop ; la clé se règle dans le panel.
     #[serde(default = "default_steam_url")]
     pub steam_url: String,
+    /// API de SteamGridDB (HTTPS), pour les images du Studio ; la clé se règle dans le panel.
+    #[serde(default = "default_steamgriddb_url")]
+    pub steamgriddb_url: String,
 }
 
 impl Default for ContentConfig {
@@ -64,6 +67,7 @@ impl Default for ContentConfig {
             modrinth_url: default_modrinth_url(),
             curseforge_url: default_curseforge_url(),
             steam_url: default_steam_url(),
+            steamgriddb_url: default_steamgriddb_url(),
         }
     }
 }
@@ -78,6 +82,10 @@ fn default_curseforge_url() -> String {
 
 fn default_steam_url() -> String {
     crate::content::steam::DEFAULT_BASE_URL.to_owned()
+}
+
+fn default_steamgriddb_url() -> String {
+    crate::content::steamgriddb::DEFAULT_BASE_URL.to_owned()
 }
 
 /// Prefabs officiels importés au démarrage (ADR-0011).

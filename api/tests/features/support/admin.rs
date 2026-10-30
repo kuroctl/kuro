@@ -25,6 +25,8 @@ pub struct TestAdmin {
     pub content: std::sync::Arc<super::content::FakeModrinth>,
     pub curseforge: std::sync::Arc<super::content::FakeSource>,
     pub steam: std::sync::Arc<super::content::FakeSource>,
+    pub steam_store: std::sync::Arc<super::content::FakeSteamStore>,
+    pub steam_grid: std::sync::Arc<super::content::FakeSteamGrid>,
     /// Dépendances des cas d'usage `servers`, pour piloter le moteur des tâches planifiées.
     pub servers: kuro_api::servers::application::ServersState,
     /// Documents de métadonnées des clients OAuth simulés.
@@ -84,6 +86,8 @@ impl TestAdmin {
         let content = std::sync::Arc::new(super::content::FakeModrinth::default());
         let curseforge = std::sync::Arc::new(super::content::FakeSource::curseforge());
         let steam = std::sync::Arc::new(super::content::FakeSource::steam());
+        let steam_store = std::sync::Arc::new(super::content::FakeSteamStore::default());
+        let steam_grid = std::sync::Arc::new(super::content::FakeSteamGrid::default());
         let metadata = std::sync::Arc::new(super::oauth::FakeFetcher::default());
         let dns_provider = std::sync::Arc::new(super::dns::FakeDns::default());
         let dns = kuro_api::dns::application::DnsState::new(
@@ -101,6 +105,8 @@ impl TestAdmin {
                 modrinth: content.clone(),
                 curseforge: curseforge.clone(),
                 steam: steam.clone(),
+                steam_store: steam_store.clone(),
+                steam_grid: steam_grid.clone(),
             },
         };
         let content_sources = kuro_api::content::settings::ContentSourcesState {
@@ -132,6 +138,8 @@ impl TestAdmin {
             content,
             curseforge,
             steam,
+            steam_store,
+            steam_grid,
             servers,
             metadata,
             dns_provider,

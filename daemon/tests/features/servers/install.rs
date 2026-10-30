@@ -445,6 +445,31 @@ async fn a_script_step_runs_in_an_isolated_container() {
     );
 }
 
+/// Image dont le point d'entrée est un binaire (`curl`) : l'étape `script` doit tout de même
+/// tourner dans un shell (ADR-0039).
+const ENTRYPOINT_IMAGE: &str = "docker.io/curlimages/curl:8.14.1";
+
+#[tokio::test]
+async fn a_script_step_ignores_the_entrypoint_of_its_image() {
+    let mut node = Node::new(DownloadPolicy::default());
+
+    let outcome = node
+        .install(
+            InstallMode::Reinstall,
+            vec![InstallStep::Script {
+                run: "echo installed > /data/marker".to_owned(),
+                image: Some(ENTRYPOINT_IMAGE.to_owned()),
+            }],
+        )
+        .await;
+
+    assert_eq!(outcome, Ok(()));
+    assert_eq!(
+        std::fs::read_to_string(node.host("marker")).unwrap(),
+        "installed\n"
+    );
+}
+
 #[tokio::test]
 async fn a_failing_script_fails_the_install() {
     let mut node = Node::new(DownloadPolicy::default());
@@ -582,6 +607,7 @@ async fn a_file_put_in_an_installer_reaches_only_its_user_and_never_its_argument
             server_id: id,
             image: IMAGE,
             command: command.clone(),
+            clear_entrypoint: false,
             env: vec![],
             user: "1000:1000",
             mounts: vec![],

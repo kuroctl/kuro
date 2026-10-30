@@ -5,9 +5,9 @@ use std::collections::BTreeMap;
 
 use kuro_protocol::api::server::{
     FileContent, FileFormat, FileSpec, HealthcheckSpec, LifecycleSpec, Limits, PortProtocol,
-    PortSpec, PowerAction, PublishedPort, ReadySpec, ServerDelete, ServerDeploy, ServerLimits,
-    ServerPower, ServerSuspend, ServerSync, ServiceSpec, StopSignal, StopSpec, VolumeSpec,
-    WebRoute,
+    PortSpec, PowerAction, PublishedPort, ReadySpec, ServerAction, ServerDelete, ServerDeploy,
+    ServerLimits, ServerPower, ServerSuspend, ServerSync, ServiceSpec, StopSignal, StopSpec,
+    VolumeSpec, WebRoute,
 };
 use kuro_protocol::{ApiMessage, Envelope, decode};
 use serde_json::json;
@@ -87,7 +87,7 @@ fn server_deploy_wire_format() {
                     path: "/data/server.properties".to_owned(),
                     format: FileFormat::Properties,
                     content: FileContent::ManagedKeys {
-                        keys: BTreeMap::from([("motd".to_owned(), "Hello".to_owned())]),
+                        keys: BTreeMap::from([("motd".to_owned(), serde_json::json!("Hello"))]),
                     },
                 },
                 FileSpec {
@@ -239,6 +239,106 @@ fn a_web_route_is_carried_by_the_deploy_and_absent_without_a_site() {
     encoded.as_object_mut().unwrap().remove("web");
     let decoded: ServerDeploy = serde_json::from_value(encoded).unwrap();
     assert!(decoded.web.is_empty());
+}
+
+#[test]
+fn managed_keys_keep_their_types_and_strings_keep_their_wire_format() {
+    let keys = BTreeMap::from([
+        ("motd".to_owned(), json!("hello")),
+        ("gateway.port".to_owned(), json!(8080)),
+        ("debug".to_owned(), json!(false)),
+        ("trusted".to_owned(), json!(["10.0.0.0/8", "172.16.0.0/12"])),
+    ]);
+    let content = FileContent::ManagedKeys { keys: keys.clone() };
+    let encoded = serde_json::to_value(&content).unwrap();
+    assert_eq!(
+        encoded,
+        json!({ "mode": "managed-keys", "keys": {
+            "motd": "hello", "gateway.port": 8080, "debug": false,
+            "trusted": ["10.0.0.0/8", "172.16.0.0/12"]
+        } })
+    );
+    let decoded: FileContent = serde_json::from_value(encoded).unwrap();
+    assert_eq!(decoded, content);
+}
+
+#[test]
+fn an_action_and_its_result_round_trip() {
+    use kuro_protocol::DaemonMessage;
+    use kuro_protocol::daemon::server::ActionResult;
+
+    let envelope = Envelope {
+        id: id(ID),
+        reply_to: None,
+        message: ApiMessage::ServerAction(ServerAction {
+            server_id: server_id(),
+            action: "fix-owner".to_owned(),
+            service: "web".to_owned(),
+            command: vec![
+                "chown".to_owned(),
+                "-R".to_owned(),
+                "33:33".to_owned(),
+                "/var/www/html".to_owned(),
+            ],
+            timeout_secs: 120,
+        }),
+    };
+    assert_wire_format(
+        &envelope,
+        json!({
+            "id": ID,
+            "type": "server.action",
+            "payload": {
+                "server_id": SERVER_ID, "action": "fix-owner", "service": "web",
+                "command": ["chown", "-R", "33:33", "/var/www/html"], "timeout_secs": 120
+            }
+        }),
+    );
+
+    let result = Envelope {
+        id: id(ID),
+        reply_to: Some(id(ID)),
+        message: DaemonMessage::ActionResult(ActionResult {
+            server_id: server_id(),
+            exit_code: 3,
+            output: "done\n".to_owned(),
+            truncated: false,
+        }),
+    };
+    let encoded = serde_json::to_value(&result).unwrap();
+    assert_eq!(encoded["type"], "action.result");
+    assert_eq!(
+        encoded["payload"],
+        json!({ "server_id": SERVER_ID, "exit_code": 3, "output": "done\n" })
+    );
+    let decoded: Envelope<DaemonMessage> = serde_json::from_value(encoded).unwrap();
+    assert_eq!(decoded, result);
+}
+
+#[test]
+fn stop_signals_and_the_image_signal_round_trip() {
+    for (spec, wire) in [
+        (
+            StopSpec::Signal(StopSignal::Winch),
+            json!({ "signal": "SIGWINCH" }),
+        ),
+        (
+            StopSpec::Signal(StopSignal::Hup),
+            json!({ "signal": "SIGHUP" }),
+        ),
+        (StopSpec::Image, json!("image")),
+        (
+            StopSpec::Console("stop".to_owned()),
+            json!({ "console": "stop" }),
+        ),
+    ] {
+        let encoded = serde_json::to_value(&spec).unwrap();
+        assert_eq!(encoded, wire);
+        let decoded: StopSpec = serde_json::from_value(encoded).unwrap();
+        assert_eq!(decoded, spec);
+    }
+    // Un signal hors liste n'entre jamais.
+    assert!(serde_json::from_value::<StopSpec>(json!({ "signal": "SIGKILL" })).is_err());
 }
 
 #[test]

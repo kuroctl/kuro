@@ -13,8 +13,8 @@ use regex::Regex;
 use serde_json::Value;
 
 use crate::manifest::{
-    ContentInstallMode, Field, FieldType, FileFormat, FileMode, Manifest, Protocol, Ready,
-    SCHEMA_V1, Service, Step,
+    ContentInstallMode, Field, FieldType, FileFormat, FileMode, MAX_ACTION_TIMEOUT_SECS, Manifest,
+    Protocol, Ready, SCHEMA_V1, Service, Step,
 };
 use crate::package::Package;
 use crate::settings;
@@ -53,7 +53,33 @@ static SHA256: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 /// Formats dont Kuro sait réécrire des clés (`managed-keys`).
-pub const MANAGED_KEY_FORMATS: &[FileFormat] = &[FileFormat::Properties, FileFormat::Ini];
+pub const MANAGED_KEY_FORMATS: &[FileFormat] = &[
+    FileFormat::Properties,
+    FileFormat::Ini,
+    FileFormat::Json,
+    FileFormat::Yaml,
+];
+
+/// `{{ … }}` seul, du début à la fin de l'argument (espaces compris) : un paramètre ne se
+/// concatène jamais à du texte ou à une autre référence.
+fn is_whole_expression(arg: &str) -> bool {
+    let trimmed = arg.trim();
+    trimmed.starts_with("{{") && trimmed.ends_with("}}") && trimmed.matches("{{").count() == 1
+}
+
+/// Formats où une clé est un chemin (`a.b.c`) et une valeur garde son type (ADR-0039).
+const STRUCTURED_KEY_FORMATS: &[FileFormat] = &[FileFormat::Json, FileFormat::Yaml];
+
+/// Valeur d'une clé gérée : scalaire, ou liste de scalaires.
+fn is_managed_value(value: &Value) -> bool {
+    match value {
+        Value::String(_) | Value::Number(_) | Value::Bool(_) => true,
+        Value::Array(items) => items
+            .iter()
+            .all(|item| matches!(item, Value::String(_) | Value::Number(_) | Value::Bool(_))),
+        Value::Null | Value::Object(_) => false,
+    }
+}
 
 pub fn validate(package: &Package) -> Vec<Issue> {
     let mut check = Checker::default();
@@ -70,6 +96,7 @@ pub fn validate(package: &Package) -> Vec<Issue> {
     check.content(manifest);
     check.lifecycle(manifest);
     check.web_ports(manifest);
+    check.actions(manifest);
     check.templates(manifest);
     check.migrations(manifest);
     check.locales(package);
@@ -106,6 +133,9 @@ impl Checker {
             && semver::VersionReq::parse(requirement).is_err()
         {
             self.fail("requires.kuro", "invalid semver requirement");
+        }
+        if m.steam.is_some_and(|steam| steam.app == 0) {
+            self.fail("steam.app", "expected a Steam app id");
         }
         for (name, need) in m.requires.resources.iter() {
             let at = format!("requires.resources.{name}");
@@ -357,7 +387,35 @@ impl Checker {
                     self.fail(&at, "mode managed-keys needs keys");
                 }
                 FileMode::ManagedKeys if !MANAGED_KEY_FORMATS.contains(&file.format) => {
-                    self.fail(&at, "managed-keys supports properties and ini only");
+                    self.fail(&at, "managed-keys supports properties, ini, json and yaml");
+                }
+                FileMode::ManagedKeys => {
+                    let structured = STRUCTURED_KEY_FORMATS.contains(&file.format);
+                    for (key, value) in &file.keys {
+                        let at_key = format!("{at}.keys.{key}");
+                        let valid_key = if structured {
+                            !key.is_empty()
+                                && key.split('.').all(|segment| {
+                                    !segment.is_empty()
+                                        && segment.chars().all(|c| {
+                                            c.is_ascii_alphanumeric() || c == '_' || c == '-'
+                                        })
+                                })
+                        } else {
+                            !key.is_empty() && !key.contains(['\n', '=', ' '])
+                        };
+                        if !valid_key {
+                            self.fail(&at_key, "invalid key");
+                        }
+                        if !is_managed_value(value) {
+                            self.fail(
+                                &at_key,
+                                "expected a string, number, boolean or list of those",
+                            );
+                        } else if !structured && !value.is_string() {
+                            self.fail(&at_key, "only strings in a properties or ini file");
+                        }
+                    }
                 }
                 _ => {}
             }
@@ -673,6 +731,108 @@ impl Checker {
         }
     }
 
+    /// Actions (ADR-0039) : service connu, commande non vide, délai borné, paramètres typés
+    /// comme des settings (ni secret, ni mot de passe, ni généré), et chaque paramètre entre dans
+    /// la commande comme argument entier, jamais concaténé à autre chose.
+    fn actions(&mut self, m: &Manifest) {
+        let fields: BTreeSet<&str> = m.settings.fields().map(|f| f.key).collect();
+        let public_ports: BTreeSet<&str> = m
+            .services
+            .values()
+            .flat_map(|s| {
+                s.ports
+                    .iter()
+                    .filter(|(_, p)| p.public)
+                    .map(|(n, _)| n.as_str())
+            })
+            .collect();
+        for (key, action) in &m.actions {
+            let at = format!("actions.{key}");
+            if !is_slug(key) {
+                self.fail(&at, "invalid action key");
+            }
+            if !m.services.contains_key(&action.service) {
+                self.fail(format!("{at}.service"), "unknown service");
+            }
+            if action.command.is_empty() {
+                self.fail(format!("{at}.command"), "a command is required");
+            }
+            if action.timeout == 0 || action.timeout > MAX_ACTION_TIMEOUT_SECS {
+                self.fail(
+                    format!("{at}.timeout"),
+                    format!("expected 1 to {MAX_ACTION_TIMEOUT_SECS} seconds"),
+                );
+            }
+            for (name, field) in &action.params {
+                let at = format!("{at}.params.{name}");
+                if !is_key(name) {
+                    self.fail(&at, "invalid parameter name");
+                }
+                if !matches!(
+                    field.kind,
+                    FieldType::String
+                        | FieldType::Int
+                        | FieldType::Float
+                        | FieldType::Bool
+                        | FieldType::Enum
+                ) {
+                    self.fail(&at, "a parameter is a string, int, float, bool or enum");
+                }
+                if field.generate.is_some() {
+                    self.fail(&at, "a parameter is never generated");
+                }
+                if field.kind == FieldType::String && field.pattern.is_none() {
+                    self.fail(&at, "a string parameter needs a pattern");
+                }
+                self.field(&at, field);
+            }
+            if action.schedulable
+                && action
+                    .params
+                    .values()
+                    .any(|f| f.required && f.default.is_none())
+            {
+                self.fail(
+                    format!("{at}.schedulable"),
+                    "a schedulable action has no required parameter",
+                );
+            }
+            for (index, arg) in action.command.iter().enumerate() {
+                let at = format!("{at}.command[{index}]");
+                let template = match Template::parse(arg) {
+                    Ok(template) => template,
+                    Err(error) => {
+                        self.fail(&at, error.to_string());
+                        continue;
+                    }
+                };
+                for reference in template.references() {
+                    let problem = match reference {
+                        Reference::Param(name) if !action.params.contains_key(name) => {
+                            Some(format!("unknown parameter `{name}`"))
+                        }
+                        Reference::Param(_) if !is_whole_expression(arg) => {
+                            Some("a parameter is a whole argument, never part of one".to_owned())
+                        }
+                        Reference::Setting(key) if !fields.contains(key.as_str()) => {
+                            Some(format!("unknown setting `{key}`"))
+                        }
+                        Reference::PortHost(port) if !public_ports.contains(port.as_str()) => {
+                            Some(format!("`{port}` is not a public port"))
+                        }
+                        Reference::ContentIds(_) | Reference::ContentValues(..) => {
+                            Some("content lists have no place in an action".to_owned())
+                        }
+                        _ => None,
+                    };
+                    if let Some(problem) = problem {
+                        self.fail(&at, problem);
+                    }
+                }
+            }
+        }
+    }
+
     /// Un seul port web par prefab (ADR-0038).
     fn web_ports(&mut self, m: &Manifest) {
         let web: Vec<String> = m
@@ -728,7 +888,22 @@ impl Checker {
         }
         for (id, file) in &m.files {
             for (key, value) in &file.keys {
-                sources.push((format!("files.{id}.keys.{key}"), value));
+                match value {
+                    Value::String(text) => {
+                        sources.push((format!("files.{id}.keys.{key}"), text.as_str()));
+                    }
+                    Value::Array(items) => {
+                        for (index, item) in items.iter().enumerate() {
+                            if let Value::String(text) = item {
+                                sources.push((
+                                    format!("files.{id}.keys.{key}[{index}]"),
+                                    text.as_str(),
+                                ));
+                            }
+                        }
+                    }
+                    _ => {}
+                }
             }
         }
         for (slot, def) in &m.content {
@@ -761,8 +936,11 @@ impl Checker {
                     Reference::PortContainer(port) if !all_ports.contains(port.as_str()) => {
                         Some(format!("unknown port `{port}`"))
                     }
-                    Reference::ServerWebUrl if !has_web_port => {
-                        Some("`server.web_url` needs a `web: true` port".to_owned())
+                    Reference::ServerWebUrl | Reference::ServerWebHost if !has_web_port => {
+                        Some(format!("`{reference}` needs a `web: true` port"))
+                    }
+                    Reference::Param(_) => {
+                        Some("`params` are only available in an action command".to_owned())
                     }
                     Reference::ContentIds(slot) if !m.content.contains_key(slot) => {
                         Some(format!("unknown content slot `{slot}`"))
@@ -814,6 +992,15 @@ impl Checker {
         required.extend(groups.into_iter().map(|g| format!("groups.{g}.title")));
         required.extend(m.files.keys().map(|id| format!("files.{id}.description")));
         required.extend(m.content.keys().map(|slot| format!("content.{slot}.title")));
+        for (key, action) in &m.actions {
+            required.push(format!("actions.{key}.label"));
+            required.extend(
+                action
+                    .params
+                    .keys()
+                    .map(|name| format!("actions.{key}.params.{name}.label")),
+            );
+        }
         for (slot, def) in &m.content {
             required.extend(
                 def.fields

@@ -207,6 +207,50 @@ describe('prefab studio', () => {
     expect(await screen.findByRole('button', { name: 'Retirer l’image : icône' })).toBeTruthy()
   })
 
+  it('offers no Steam import when the manifest declares no Steam game', async () => {
+    setup()
+    const { user } = await renderApp(`/prefabs/studio/${DRAFT_ID}`)
+    await user.click(await screen.findByRole('tab', { name: 'Images' }))
+
+    await screen.findByLabelText('Choisir l’image : icône')
+    expect(screen.queryByRole('button', { name: /Importer depuis Steam/ })).toBeNull()
+  })
+
+  it('imports the images of the declared Steam game', async () => {
+    setup()
+    let imported = false
+    server.use(
+      http.get(`${API}/studio/drafts/${DRAFT_ID}`, () =>
+        HttpResponse.json({ ...draft, files: { ...draft.files, 'prefab.yaml': `${MANIFEST}steam:
+  app: 730
+` } }),
+      ),
+      http.post(`${API}/studio/drafts/${DRAFT_ID}/assets/steam`, () => {
+        imported = true
+        return HttpResponse.json({
+          app: 730,
+          name: 'Counter-Strike 2',
+          imported: ['icon', 'thumbnail'],
+          sources: { icon: 'steamgriddb', thumbnail: 'steam' },
+          missing: ['cover'],
+        })
+      }),
+      http.get(`${API}/studio/drafts/${DRAFT_ID}/assets/:kind`, () =>
+        HttpResponse.arrayBuffer(new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer, { headers: { 'Content-Type': 'image/png' } }),
+      ),
+    )
+    const { user } = await renderApp(`/prefabs/studio/${DRAFT_ID}`)
+    await user.click(await screen.findByRole('tab', { name: 'Images' }))
+
+    await user.click(await screen.findByRole('button', { name: 'Importer depuis Steam (730)' }))
+
+    await waitFor(() => expect(imported).toBe(true))
+    expect(await screen.findByText('Images de Counter-Strike 2 importées ; introuvables : bannière.')).toBeTruthy()
+    expect(await screen.findByText('Depuis SteamGridDB : icône.')).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'Retirer l’image : icône' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Retirer l’image : bannière' })).toBeNull()
+  })
+
   it('converts a docker-compose, lists what was refused, then creates the draft', async () => {
     setup([])
     let converted: unknown

@@ -17,7 +17,8 @@ use time::OffsetDateTime;
 use utoipa::{OpenApi, ToSchema};
 use uuid::Uuid;
 
-use crate::http::error::{ApiError, Problem};
+use crate::error_code::ErrorCode;
+use crate::http::error::{ApiError, Problem, error_response};
 use crate::http::extract::{Json, Path};
 use crate::iam::application::IamState;
 use crate::iam::domain::Permission;
@@ -39,7 +40,7 @@ const SCHEMA: &str = include_str!("../../../prefabs/schema/prefab.v1.schema.json
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(schema, list, create, get, save, delete, validate, compose, egg, put_asset, asset, delete_asset, publish, start_trial),
+    paths(schema, list, create, get, save, delete, validate, compose, egg, put_asset, asset, delete_asset, import_steam_assets, publish, start_trial),
     tags((name = "admin-studio", description = "Prefab Studio : brouillons de prefabs (ADR-0011)"))
 )]
 pub struct StudioApi;
@@ -67,6 +68,10 @@ where
                 .get(asset)
                 .delete(delete_asset)
                 .layer(DefaultBodyLimit::max(MAX_ASSET_BYTES as usize + 1024)),
+        )
+        .route(
+            "/studio/drafts/{id}/assets/steam",
+            route_post(import_steam_assets),
         )
         .route("/studio/drafts/{id}/publish", route_post(publish))
         .route("/studio/drafts/{id}/trial", route_post(start_trial))
@@ -499,6 +504,85 @@ pub async fn delete_asset(
     let kind = AssetKind::parse(&kind).ok_or(PrefabsError::NotFound)?;
     studio::delete_asset(&pool, &session.context, id, kind).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Images importées du magasin Steam.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct SteamImportDto {
+    /// Application Steam du jeu, lue dans le manifest enregistré (`steam.app`).
+    #[schema(example = 730)]
+    pub app: u32,
+    /// Nom du jeu sur le magasin.
+    #[schema(example = "Counter-Strike 2")]
+    pub name: String,
+    /// Images posées : `icon`, `cover` (bannière), `thumbnail` (jaquette).
+    pub imported: Vec<String>,
+    /// Source de chaque image posée : `steamgriddb` (si sa clé est réglée) ou `steam`.
+    #[schema(example = json!({ "icon": "steamgriddb", "cover": "steam" }))]
+    pub sources: BTreeMap<String, String>,
+    /// Introuvables ou refusées (format, taille) : les images du brouillon restent.
+    pub missing: Vec<String>,
+}
+
+impl IntoResponse for studio::SteamImportError {
+    fn into_response(self) -> Response {
+        match self {
+            Self::Prefabs(error) => error.into_response(),
+            Self::NoGame => error_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ErrorCode::SteamGameMissing,
+            ),
+            Self::GameNotFound => error_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ErrorCode::SteamGameNotFound,
+            ),
+            Self::Unavailable(reason) => {
+                tracing::warn!(%reason, "steam store unavailable");
+                error_response(StatusCode::BAD_GATEWAY, ErrorCode::ProviderUnavailable)
+            }
+        }
+    }
+}
+
+/// Importe les images du jeu Steam déclaré par le manifest enregistré (`steam.app`) : icône de
+/// la communauté, sinon logo (`icon`), bannière (`cover`), jaquette (`thumbnail`). Les images absentes du magasin sont
+/// listées, celles du brouillon restent.
+#[utoipa::path(post, path = "/api/admin/v1/studio/drafts/{id}/assets/steam", tag = "admin-studio",
+    security(("bearer" = [])), params(("id" = Uuid, Path)),
+    responses((status = 200, body = SteamImportDto), (status = 403, body = Problem),
+        (status = 404, body = Problem),
+        (status = 422, description = "Aucun jeu Steam déclaré, ou inconnu du magasin", body = Problem),
+        (status = 502, description = "Steam injoignable", body = Problem)))]
+pub async fn import_steam_assets(
+    State(iam): State<IamState>,
+    State(pool): State<PgPool>,
+    State(servers): State<ServersState>,
+    session: AdminSession,
+    Path(id): Path<Uuid>,
+) -> Result<Json<SteamImportDto>, ApiError> {
+    session.require(&iam, Permission::PrefabsManage).await?;
+    let import = studio::import_steam_assets(&pool, &session.context, &servers.content, id)
+        .await
+        .map_err(|error| ApiError::from(error.into_response()))?;
+    Ok(Json(SteamImportDto {
+        app: import.app,
+        name: import.name,
+        imported: import
+            .imported
+            .iter()
+            .map(|(kind, _)| kind.as_str().to_owned())
+            .collect(),
+        sources: import
+            .imported
+            .iter()
+            .map(|(kind, origin)| (kind.as_str().to_owned(), origin.source().to_owned()))
+            .collect(),
+        missing: import
+            .missing
+            .iter()
+            .map(|kind| kind.as_str().to_owned())
+            .collect(),
+    }))
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

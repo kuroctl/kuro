@@ -3,7 +3,7 @@
 # l'hôte : le proxy du nœud le sert en HTTPS à l'adresse du site (ADR-0038).
 schema: kuro.prefab/v1
 id: wordpress
-version: 1.1.0
+version: 1.2.0
 category: web
 tags: [wordpress, php, cms]
 authors:
@@ -96,6 +96,20 @@ content:
     providers:
       - { provider: upload }
     install: { mode: download, dir: /var/www/html/wp-content/plugins }
+
+# Actions (ADR-0039) : le cron de WordPress, planifiable ; la remise en ordre des propriétaires
+# après un dépôt de fichiers.
+actions:
+  cron:
+    service: web
+    command: [php, -f, /var/www/html/wp-cron.php]
+    schedulable: true
+  fix-owner:
+    service: web
+    command: [chown, -R, "33:33", "{{ params.path }}"]
+    params:
+      path: { type: string, pattern: "^/var/www/html(/[A-Za-z0-9._-]+)*$", default: /var/www/html }
+    timeout: 120
 
 lifecycle:
   service: web

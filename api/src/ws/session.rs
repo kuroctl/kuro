@@ -323,7 +323,8 @@ async fn serve(
                         tracing::debug!(?result, "unsolicited command.result");
                     }
                     Ok(Envelope { message: DaemonMessage::FileListing(_) | DaemonMessage::FileContent(_)
-                        | DaemonMessage::BackupListing(_) | DaemonMessage::BackupChunk(_), .. }) => {
+                        | DaemonMessage::BackupListing(_) | DaemonMessage::BackupChunk(_)
+                        | DaemonMessage::ActionResult(_), .. }) => {
                         tracing::debug!("unsolicited reply");
                     }
                     Ok(Envelope { message: DaemonMessage::BackupDone(done), .. }) => {

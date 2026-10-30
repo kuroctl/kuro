@@ -24,20 +24,22 @@ fn settings_ports_resources_and_server_are_rendered() {
         server_id: "s-1".to_owned(),
         server_name: "Survie".to_owned(),
         server_web_url: Some("https://abc123defg.web.kuroctl.test".to_owned()),
+        server_web_host: Some("abc123defg.web.kuroctl.test".to_owned()),
         content: BTreeMap::new(),
         content_values: BTreeMap::new(),
+        params: BTreeMap::new(),
     };
 
     let rendered = render(
         "{{ settings.motd }}/{{settings.slots}}/{{ settings.pvp }} {{ ports.game.host }}->{{ ports.game.container }} \
-         {{ resources.memory_mb }}M {{ resources.cpu_percent }}% {{ server.id }} {{ server.name }} {{ server.web_url }}",
+         {{ resources.memory_mb }}M {{ resources.cpu_percent }}% {{ server.id }} {{ server.name }} {{ server.web_url }} {{ server.web_host }}",
         &context,
     )
     .unwrap();
 
     assert_eq!(
         rendered,
-        "Hello/20/false 25570->25565 2048M 150% s-1 Survie https://abc123defg.web.kuroctl.test"
+        "Hello/20/false 25570->25565 2048M 150% s-1 Survie https://abc123defg.web.kuroctl.test abc123defg.web.kuroctl.test"
     );
 }
 
@@ -49,6 +51,8 @@ fn a_server_without_site_has_no_web_url() {
 
     let error = render("{{ server.web_url }}", &context).unwrap_err();
     assert_eq!(error, TemplateError::Missing("server.web_url".to_owned()));
+    let error = render("{{ server.web_host }}", &context).unwrap_err();
+    assert_eq!(error, TemplateError::Missing("server.web_host".to_owned()));
     assert_eq!(
         render(
             "{{ server.web_url | default(\"http://localhost\") }}",

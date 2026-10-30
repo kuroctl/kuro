@@ -205,6 +205,20 @@ const TOOLS: &[ToolDef] = &[
         },
     },
     ToolDef {
+        name: "import_prefab_draft_steam_images",
+        description: "Import the Steam store images of the game declared by the saved draft manifest (steam.app: the game's app id, not its dedicated server's): icon, cover (library hero) and thumbnail (library capsule), from SteamGridDB when its API key is set (best rated), else from the Steam CDN.",
+        permission: Permission::PrefabsManage,
+        read_only: false,
+        schema: || {
+            json!({
+                "type": "object",
+                "properties": { "draft_id": { "type": "string", "format": "uuid" } },
+                "required": ["draft_id"],
+                "additionalProperties": false,
+            })
+        },
+    },
+    ToolDef {
         name: "validate_prefab_files",
         description: "Validate prefab files as an import would, without saving anything.",
         permission: Permission::PrefabsManage,
@@ -328,6 +342,23 @@ fn prefabs_failure(error: PrefabsError) -> CallToolResult {
         PrefabsError::Corrupted(error) => {
             tracing::error!(%error, "mcp tool failed");
             failed("internal_error", Value::Null)
+        }
+    }
+}
+
+fn steam_import_failure(error: studio::SteamImportError) -> CallToolResult {
+    match error {
+        studio::SteamImportError::Prefabs(error) => prefabs_failure(error),
+        studio::SteamImportError::NoGame => failed(
+            "steam_game_missing",
+            json!(
+                "declare `steam: { app: <game app id> }` in prefab.yaml and save the draft first"
+            ),
+        ),
+        studio::SteamImportError::GameNotFound => failed("steam_game_not_found", Value::Null),
+        studio::SteamImportError::Unavailable(reason) => {
+            tracing::warn!(%reason, "steam store unavailable");
+            failed("provider_unavailable", Value::Null)
         }
     }
 }
@@ -532,6 +563,28 @@ impl KuroMcp {
             "get_prefab_draft" => {
                 let DraftArgs { draft_id } = arguments(args)?;
                 self.draft(draft_id).await?
+            }
+            "import_prefab_draft_steam_images" => {
+                let DraftArgs { draft_id } = arguments(args)?;
+                let import = studio::import_steam_assets(
+                    &state.pool,
+                    context,
+                    &state.servers.content,
+                    draft_id,
+                )
+                .await
+                .map_err(steam_import_failure)?;
+                ok(json!({
+                    "draft_id": draft_id,
+                    "app": import.app,
+                    "name": import.name,
+                    "imported": import
+                        .imported
+                        .iter()
+                        .map(|(kind, origin)| json!({ "kind": kind.as_str(), "source": origin.source() }))
+                        .collect::<Vec<_>>(),
+                    "missing": import.missing.iter().map(|k| k.as_str()).collect::<Vec<_>>(),
+                }))
             }
             "validate_prefab_files" => {
                 let FilesArgs { files } = arguments(args)?;

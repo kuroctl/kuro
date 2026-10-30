@@ -124,6 +124,7 @@ error_codes! {
     InvalidServerName => "invalid_server_name", "Invalid server name";
     InvalidResources => "invalid_resources", "Invalid resources";
     NodeOffline => "node_offline", "The node is offline";
+    DaemonTooOld => "daemon_too_old", "The daemon of this node is too old for this prefab: update kuro-daemon on the node";
     ConsoleHeldElsewhere => "console_held_elsewhere", "This node is linked to another API instance: its console is not available here";
     NodeNotForTrials => "node_not_for_trials", "This node does not accept Studio trials";
     PrefabDraftNeedsTestNode => "prefab_draft_needs_test_node", "This prefab version is a draft: deploy it on a test node";
@@ -148,6 +149,10 @@ error_codes! {
     ServerBusy => "server_busy", "An operation is already running on this server";
     ServerNotRunning => "server_not_running", "The server is not running";
     InvalidCommand => "invalid_command", "A console command is a single line without control characters";
+    // Actions d'un prefab (ADR-0039)
+    UnknownAction => "unknown_action", "This prefab declares no such action";
+    InvalidActionParam => "invalid_action_param", "Invalid action parameter";
+    ActionNotSchedulable => "action_not_schedulable", "This action cannot be scheduled: not declared schedulable, or it needs parameters";
     InvalidPath => "invalid_path", "Invalid path: it must stay under a volume of the server";
     FileNotFound => "file_not_found", "No such file or directory";
     FileExists => "file_exists", "A file or directory with this name already exists";
@@ -200,6 +205,9 @@ error_codes! {
     SteamAccountNotConfigured => "steam_account_not_configured", "No Steam account is set";
     SteamAccountUsernameInvalid => "steam_account_username_invalid", "A Steam account name has 3 to 64 letters, digits or underscores";
     SteamAccountPasswordInvalid => "steam_account_password_invalid", "Up to 64 characters, without quotes, backslashes or control characters";
+    // Images d'un jeu Steam dans le Studio (ADR-0039)
+    SteamGameMissing => "steam_game_missing", "The saved manifest declares no Steam game (steam.app)";
+    SteamGameNotFound => "steam_game_not_found", "No game with this id on the Steam store";
     // Paramètres du projet
     ValueOutOfRange => "value_out_of_range", "Value out of range";
     DaemonTimeout => "daemon_timeout", "The node did not answer in time";

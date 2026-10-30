@@ -5,16 +5,21 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use futures_util::future::BoxFuture;
+use kuro_api::content::steam_store::{SteamStore, StoreGame};
+use kuro_api::content::steamgriddb::{GridImage, SteamGrid};
 use kuro_api::content::{
     Category, Compat, ContentProvider, Dependency, InstalledRef, Loader, Project, ProjectHit,
     ProviderError, ProviderFile, ProviderVersion, SearchPage, SearchQuery,
 };
+use kuro_prefab::assets::AssetKind;
 use kuro_protocol::api::ContentHash;
 
 /// Seule clé d'API que la source CurseForge simulée accepte.
 pub const CURSEFORGE_KEY: &str = "good-curseforge-key";
 /// Seule clé d'API que la source Steam Workshop simulée accepte.
 pub const STEAM_KEY: &str = "good-steam-key";
+/// Seule clé d'API que SteamGridDB simulé accepte.
+pub const GRID_KEY: &str = "good-steamgriddb-key";
 
 /// Modrinth par défaut ; [`FakeSource::curseforge`] demande une clé d'API.
 pub type FakeModrinth = FakeSource;
@@ -371,5 +376,99 @@ impl ContentProvider for FakeSource {
                 },
             ])
         })
+    }
+}
+
+/// Magasin Steam simulé : jeux et images déclarés par chaque test.
+#[derive(Debug, Default)]
+pub struct FakeSteamStore {
+    /// Application → jeu.
+    pub games: Mutex<HashMap<u32, StoreGame>>,
+    /// Chemin sous le CDN → image.
+    pub images: Mutex<HashMap<String, Vec<u8>>>,
+    /// Chemins demandés, dans l'ordre.
+    pub fetched: Mutex<Vec<String>>,
+    pub unavailable: Mutex<bool>,
+}
+
+impl SteamStore for FakeSteamStore {
+    fn game(&self, app: u32) -> BoxFuture<'_, Result<StoreGame, ProviderError>> {
+        let found = self.games.lock().unwrap().get(&app).cloned();
+        let down = *self.unavailable.lock().unwrap();
+        Box::pin(async move {
+            if down {
+                return Err(ProviderError::Unavailable("down".to_owned()));
+            }
+            found.ok_or(ProviderError::NotFound)
+        })
+    }
+
+    fn image(&self, path: &str) -> BoxFuture<'_, Result<Vec<u8>, ProviderError>> {
+        self.fetched.lock().unwrap().push(path.to_owned());
+        let found = self.images.lock().unwrap().get(path).cloned();
+        Box::pin(async move { found.ok_or(ProviderError::NotFound) })
+    }
+}
+
+/// SteamGridDB simulé : images par type, contenu par adresse, déclarés par chaque test.
+#[derive(Debug, Default)]
+pub struct FakeSteamGrid {
+    key: Mutex<Option<String>>,
+    pub images: Mutex<HashMap<AssetKind, Vec<GridImage>>>,
+    /// Adresse → contenu.
+    pub files: Mutex<HashMap<String, Vec<u8>>>,
+    pub unavailable: Mutex<bool>,
+}
+
+impl FakeSteamGrid {
+    pub fn key(&self) -> Option<String> {
+        self.key.lock().unwrap().clone()
+    }
+}
+
+impl SteamGrid for FakeSteamGrid {
+    fn configured(&self) -> bool {
+        self.key.lock().unwrap().is_some()
+    }
+
+    fn set_key(&self, key: Option<String>) {
+        *self.key.lock().unwrap() = key;
+    }
+
+    fn verify_key(&self, key: &str) -> BoxFuture<'_, Result<(), ProviderError>> {
+        let valid = key == GRID_KEY;
+        Box::pin(async move {
+            if valid {
+                Ok(())
+            } else {
+                Err(ProviderError::Unauthorized)
+            }
+        })
+    }
+
+    fn images(
+        &self,
+        _app: u32,
+        kind: AssetKind,
+    ) -> BoxFuture<'_, Result<Vec<GridImage>, ProviderError>> {
+        let down = *self.unavailable.lock().unwrap();
+        let found = self
+            .images
+            .lock()
+            .unwrap()
+            .get(&kind)
+            .cloned()
+            .unwrap_or_default();
+        Box::pin(async move {
+            if down {
+                return Err(ProviderError::Unavailable("down".to_owned()));
+            }
+            Ok(found)
+        })
+    }
+
+    fn fetch(&self, url: &str) -> BoxFuture<'_, Result<Vec<u8>, ProviderError>> {
+        let found = self.files.lock().unwrap().get(url).cloned();
+        Box::pin(async move { found.ok_or(ProviderError::NotFound) })
     }
 }

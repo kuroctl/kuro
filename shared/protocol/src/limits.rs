@@ -24,6 +24,11 @@ pub const MAX_CONSOLE_BATCH_LINES: usize = 128;
 /// Caractères maximaux d'une commande console.
 pub const MAX_COMMAND_CHARS: usize = 1024;
 
+/// Sortie d'une action de prefab (ADR-0039) renvoyée à l'API, stdout et stderr confondus.
+pub const MAX_ACTION_OUTPUT_BYTES: usize = 4096;
+/// Durée maximale d'une action.
+pub const MAX_ACTION_TIMEOUT_SECS: u32 = 300;
+
 /// Commande console acceptable : non vide après espaces, une seule ligne, aucun caractère de
 /// contrôle, au plus [`MAX_COMMAND_CHARS`] caractères. Vérifiée par l'API et par le daemon.
 pub fn is_valid_command(line: &str) -> bool {

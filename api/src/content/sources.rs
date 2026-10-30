@@ -5,12 +5,18 @@ use std::sync::Arc;
 use kuro_prefab::manifest::Provider;
 
 use super::provider::ContentProvider;
+use super::steam_store::SteamStore;
+use super::steamgriddb::SteamGrid;
 
 #[derive(Debug, Clone)]
 pub struct ContentSources {
     pub modrinth: Arc<dyn ContentProvider>,
     pub curseforge: Arc<dyn ContentProvider>,
     pub steam: Arc<dyn ContentProvider>,
+    /// Magasin Steam : images des jeux pour le Studio (ADR-0039).
+    pub steam_store: Arc<dyn SteamStore>,
+    /// SteamGridDB : images de la communauté, essayées avant celles du magasin (ADR-0040).
+    pub steam_grid: Arc<dyn SteamGrid>,
 }
 
 impl ContentSources {

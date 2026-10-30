@@ -1,5 +1,6 @@
 //! Prefabs, ports et serveurs (ADR-0011, ADR-0013), avec un faux daemon sur le vrai lien.
 
+mod actions;
 mod addons;
 mod allocations;
 mod backups;

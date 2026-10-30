@@ -300,7 +300,7 @@ pub fn hello(id: &str, protocol_version: u16) -> Value {
         "type": "hello",
         "payload": {
             "protocol_version": protocol_version,
-            "daemon_version": "0.0.0-test",
+            "daemon_version": env!("CARGO_PKG_VERSION"),
             "host": { "os": "linux", "arch": "x86_64", "cpu_cores": 4, "memory_bytes": 8_589_934_592_u64 }
         }
     })

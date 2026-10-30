@@ -13,6 +13,7 @@ use super::{ServersError, ServersState, merged_values};
 use crate::error_code::ErrorCode;
 use crate::nodes::domain::NodeId;
 use crate::nodes::infra::AllocationRepository;
+use crate::nodes::infra::NodeRepository;
 use crate::prefabs::application as prefabs;
 use crate::servers::domain::ServerState;
 use crate::servers::infra::{ContentRepository, ServerRecord, ServerRepository};
@@ -35,11 +36,43 @@ pub(super) async fn resolved(state: &ServersState, id: Uuid) -> Result<Resolved,
     resolve_server(state, &server).await
 }
 
-/// Comme [`resolved`], pour un enregistrement donné (ressources pas encore enregistrées).
-pub(super) async fn resolve_server(
+/// Ce qui décide d'un déploiement, lu en base : possédé, pour construire un [`Deployment`]
+/// autant de fois que nécessaire (déploiement, installation, action).
+pub(super) struct Inputs {
+    server_id: Uuid,
+    server_name: String,
+    values: kuro_prefab::settings::Values,
+    memory_mb: u32,
+    cpu_percent: u32,
+    allocations: BTreeMap<String, (String, u16)>,
+    web_url: Option<String>,
+    content: BTreeMap<String, Vec<String>>,
+    content_values: BTreeMap<String, Vec<String>>,
+    packages: BTreeMap<String, Vec<serde_json::Value>>,
+}
+
+impl Inputs {
+    pub(super) fn deployment(&self) -> Deployment<'_> {
+        Deployment {
+            server_id: self.server_id,
+            server_name: &self.server_name,
+            settings: &self.values,
+            memory_mb: self.memory_mb,
+            cpu_percent: self.cpu_percent,
+            allocations: &self.allocations,
+            web_url: self.web_url.clone(),
+            content: self.content.clone(),
+            content_values: self.content_values.clone(),
+            packages: self.packages.clone(),
+        }
+    }
+}
+
+/// Prefab du serveur et entrées de son déploiement.
+pub(super) async fn inputs(
     state: &ServersState,
     server: &ServerRecord,
-) -> Result<Resolved, ServersError> {
+) -> Result<(Package, Inputs), ServersError> {
     let id = server.id;
     let mut conn = state.pool.acquire().await?;
     let allocations: BTreeMap<String, (String, u16)> =
@@ -75,18 +108,28 @@ pub(super) async fn resolve_server(
 
     let package = prefabs::package(&state.pool, &server.prefab_id, &server.prefab_version).await?;
     let values = merged_values(state, server)?;
-    let deployment = Deployment {
+    let inputs = Inputs {
         server_id: id,
-        server_name: &server.name,
-        settings: &values,
+        server_name: server.name.clone(),
+        values,
         memory_mb: u32::try_from(server.memory_mb).unwrap_or_default(),
         cpu_percent: u32::try_from(server.cpu_percent).unwrap_or_default(),
-        allocations: &allocations,
+        allocations,
         web_url: super::web::web_url(&state.pool, server).await?,
         content,
         content_values,
         packages,
     };
+    Ok((package, inputs))
+}
+
+/// Comme [`resolved`], pour un enregistrement donné (ressources pas encore enregistrées).
+pub(super) async fn resolve_server(
+    state: &ServersState,
+    server: &ServerRecord,
+) -> Result<Resolved, ServersError> {
+    let (package, inputs) = inputs(state, server).await?;
+    let deployment = inputs.deployment();
     let internal = |e: kuro_prefab::ResolveError| ServersError::Internal(e.to_string());
     let mut deploy = resolve(&package, &deployment).map_err(internal)?;
     deploy.disk_bytes = disk_bytes(server.disk_mb);
@@ -188,6 +231,13 @@ async fn deploy_with(
         deploy.install = with_steam_account(state, &package, install).await?;
     }
     deploy.defer = defer;
+    // Daemon trop ancien pour ce que le prefab demande : refusé avant l'envoi (ADR-0039).
+    {
+        let mut conn = state.pool.acquire().await?;
+        if let Some(record) = NodeRepository::get(&mut conn, node.as_uuid()).await? {
+            super::compat::check(&record.name, record.daemon_version.as_deref(), &deploy)?;
+        }
+    }
     let result = state
         .commands
         .send(node, ApiMessage::ServerDeploy(deploy))

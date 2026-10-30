@@ -6,7 +6,7 @@ import { autocompletion } from '@codemirror/autocomplete'
 import { lintGutter } from '@codemirror/lint'
 import type { Extension } from '@codemirror/state'
 import { useDebounceFn } from '@vueuse/core'
-import { AlertTriangle, CheckCircle2, FileCode2, FileJson, FlaskConical, Languages, Plus, Rocket, Save, Trash2, X } from '@lucide/vue'
+import { AlertTriangle, CheckCircle2, Download, FileCode2, FileJson, FlaskConical, Languages, Plus, Rocket, Save, Trash2, X } from '@lucide/vue'
 import { computed, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
@@ -235,6 +235,39 @@ const trialEnds = computed(() =>
   draft.value?.trial ? new Date(draft.value.trial.expires_at).toLocaleTimeString(language.value, { timeStyle: 'short' }) : '',
 )
 
+// Images du jeu Steam déclaré par le manifest **enregistré** (`steam.app`), comme l'API.
+const steamApp = computed(() => {
+  try {
+    const stored = JSON.parse(saved.value || '{}') as DraftFiles
+    const app = (parseYaml(stored[MANIFEST] ?? '') as Partial<Manifest> | null)?.steam?.app
+    return typeof app === 'number' && app > 0 ? app : undefined
+  } catch {
+    return undefined
+  }
+})
+const importingSteam = ref(false)
+async function importSteam() {
+  importingSteam.value = true
+  try {
+    const result = await api.importSteamAssets(id.value)
+    assets.value = [...new Set([...assets.value, ...result.imported])]
+    await invalidate.assets(id.value)
+    const label = (kind: string) => t(`prefabs.detail.assetKinds.${kind}`)
+    const missing = result.missing.map(label).join(', ')
+    const grid = Object.entries(result.sources)
+      .filter(([, source]) => source === 'steamgriddb')
+      .map(([kind]) => label(kind))
+      .join(', ')
+    const description = grid ? t('studio.assets.steam.fromGrid', { kinds: grid }) : undefined
+    if (missing) toast.warning(t('studio.assets.steam.partial', { game: result.name, missing }), { description })
+    else toast.success(t('studio.assets.steam.done', { game: result.name }), { description })
+  } catch (caught) {
+    handleError(caught)
+  } finally {
+    importingSteam.value = false
+  }
+}
+
 // Quitter avec des modifications non enregistrées : confirmation.
 const leaving = ref<((leave: boolean) => void) | null>(null)
 onBeforeRouteLeave(() => (dirty.value ? new Promise<boolean>((resolve) => (leaving.value = resolve)) : true))
@@ -363,6 +396,12 @@ function answerLeave(leave: boolean) {
         <!-- `content-start` : `TabsContent` est `flex-1`, ses lignes ne s'étirent pas sur la hauteur restante. -->
         <TabsContent value="assets" class="grid content-start gap-4">
           <p class="max-w-3xl text-sm text-muted-foreground">{{ t('studio.assets.help') }}</p>
+          <div v-if="steamApp && can('prefabs.manage')" class="flex flex-wrap items-center gap-3">
+            <Button variant="outline" :disabled="importingSteam" @click="importSteam">
+              <Download />{{ t('studio.assets.steam.action', { app: steamApp }) }}
+            </Button>
+            <span class="text-sm text-muted-foreground">{{ t('studio.assets.steam.help') }}</span>
+          </div>
           <div class="grid items-start gap-4 md:grid-cols-3">
             <DraftAssetSlot
               v-for="kind in KINDS"

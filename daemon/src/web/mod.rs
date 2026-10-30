@@ -394,11 +394,11 @@ impl Proxy {
             if attempt > 0 {
                 tokio::time::sleep(RELOAD_RETRY).await;
             }
-            let (code, output) = self.docker.exec(container, command.clone()).await?;
-            if code == 0 {
+            let outcome = self.docker.exec(container, command.clone(), None).await?;
+            if outcome.exit_code == 0 {
                 return Ok(());
             }
-            last = (code, output);
+            last = (outcome.exit_code, outcome.output);
         }
         Err(ProxyError::Reload {
             code: last.0,

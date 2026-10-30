@@ -30,6 +30,8 @@ pub enum StepActionDto {
     Power,
     /// Sauvegarde, nommée ou datée ; l'étape attend sa fin (`servers.backups.create`).
     Backup,
+    /// Action planifiable du prefab, par sa clé (`servers.actions.run`, ADR-0039).
+    Action,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -130,6 +132,7 @@ fn step_dto(step: &crate::servers::domain::schedule::Step) -> StepDto {
         StepAction::Command(line) => (StepActionDto::Command, Some(line.clone())),
         StepAction::Power(action) => (StepActionDto::Power, Some(power_key(*action).to_owned())),
         StepAction::Backup(name) => (StepActionDto::Backup, name.clone()),
+        StepAction::Action(key) => (StepActionDto::Action, Some(key.clone())),
     };
     StepDto {
         action,
@@ -191,6 +194,7 @@ impl From<ScheduleRequest> for ScheduleInput {
                         StepActionDto::Command => StepKind::Command,
                         StepActionDto::Power => StepKind::Power,
                         StepActionDto::Backup => StepKind::Backup,
+                        StepActionDto::Action => StepKind::Action,
                     },
                     value: step.value,
                     delay_secs: step.delay_secs,

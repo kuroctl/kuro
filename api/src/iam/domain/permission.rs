@@ -127,6 +127,7 @@ permissions! {
     ServersUpgrade => "servers.upgrade", Servers, "Mettre à jour vers une nouvelle version du prefab (autres images et scripts)", sensitive = true, Available;
     ServersConsoleRead => "servers.console.read", Servers, "Lire la console et les statistiques en direct", sensitive = false, Available;
     ServersConsoleWrite => "servers.console.write", Servers, "Envoyer des commandes à la console", sensitive = true, Available;
+    ServersActionsRun => "servers.actions.run", Servers, "Lancer les actions déclarées par le prefab (commande dans le conteneur, dans le périmètre choisi par le prefab)", sensitive = true, Available;
     ServersFilesRead => "servers.files.read", Servers, "Lister et lire les fichiers (ils peuvent contenir des secrets : mot de passe RCON…)", sensitive = true, Available;
     ServersFilesWrite => "servers.files.write", Servers, "Écrire et supprimer des fichiers", sensitive = true, Available;
     ServersBackupsRead => "servers.backups.read", Servers, "Lister les sauvegardes d'un serveur", sensitive = false, Available;

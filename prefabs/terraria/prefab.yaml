@@ -14,6 +14,8 @@ assets:
   icon: assets/icon.png
   cover: assets/banner.png
   thumbnail: assets/thumbnail.png
+# Jeu sur le magasin Steam : le Studio en importe les images (ADR-0039).
+steam: { app: 105600 }
 
 services:
   server:

@@ -110,6 +110,7 @@ audit_actions! {
     ServerDnsLabelChanged => "server.dns_label_changed",
     ServerConsoleOpened => "server.console_opened",
     ServerCommand => "server.command",
+    ServerActionRan => "server.action_ran",
     ServerFileWritten => "server.file_written",
     ServerDirectoryCreated => "server.directory_created",
     ServerFileRenamed => "server.file_renamed",

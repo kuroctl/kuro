@@ -26,6 +26,8 @@ pub enum FsError {
     UnknownService(String),
     #[error("cannot edit keys of a {0:?} file")]
     UnsupportedFormat(FileFormat),
+    #[error("{path}: {message}")]
+    InvalidFile { path: PathBuf, message: String },
     #[error("{path}: {source}")]
     Io {
         path: PathBuf,
@@ -212,9 +214,15 @@ impl ServerDir {
                     Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
                     Err(error) => return Err(io(&path)(error)),
                 };
+                let invalid = |message: String| FsError::InvalidFile {
+                    path: path.clone(),
+                    message,
+                };
                 match file.format {
-                    FileFormat::Properties => managed::properties(&original, keys),
-                    FileFormat::Ini => managed::ini(&original, keys),
+                    FileFormat::Properties => managed::properties(&original, &managed::texts(keys)),
+                    FileFormat::Ini => managed::ini(&original, &managed::texts(keys)),
+                    FileFormat::Json => managed::json(&original, keys).map_err(invalid)?,
+                    FileFormat::Yaml => managed::yaml(&original, keys).map_err(invalid)?,
                     other => return Err(FsError::UnsupportedFormat(other)),
                 }
             }

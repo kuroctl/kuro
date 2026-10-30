@@ -69,6 +69,9 @@ function prefabLocale(text: (path: string) => string | undefined, id: () => stri
     contentTitle: (slot: string) => text(`content.${slot}.title`) ?? humanize(slot),
     contentFieldLabel: (slot: string, field: string) => text(`content.${slot}.fields.${field}.label`) ?? humanize(field),
     contentFieldHelp: (slot: string, field: string) => text(`content.${slot}.fields.${field}.help`),
+    actionLabel: (action: string) => text(`actions.${action}.label`) ?? humanize(action),
+    actionHelp: (action: string) => text(`actions.${action}.help`),
+    actionParamLabel: (action: string, param: string) => text(`actions.${action}.params.${param}.label`) ?? humanize(param),
   }
 }
 

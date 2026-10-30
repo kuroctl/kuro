@@ -580,7 +580,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Met les images de la version aux dimensions convenues (icône 512×512, bannière 1600×600,
+         * Met les images de la version aux dimensions convenues (icône 64×64, bannière 1600×600,
          *     vignette 600×800 ; recadrées au centre, jamais agrandies) et les compresse sans perte.
          *     Permission : `prefabs.manage`.
          */
@@ -835,6 +835,26 @@ export interface paths {
          *     Permission : `servers.delete`.
          */
         delete: operations["delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/servers/{id}/actions/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lance une action déclarée par le prefab, dans le conteneur de son service en marche.
+         *     Permission : `servers.actions.run`.
+         */
+        post: operations["run"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1800,6 +1820,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/studio/drafts/{id}/assets/steam": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Importe les images du jeu Steam déclaré par le manifest enregistré (`steam.app`) : icône de
+         *     la communauté, sinon logo (`icon`), bannière (`cover`), jaquette (`thumbnail`). Les images absentes du magasin sont
+         *     listées, celles du brouillon restent.
+         */
+        post: operations["import_steam_assets"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/studio/drafts/{id}/assets/{kind}": {
         parameters: {
             query?: never;
@@ -2086,6 +2127,17 @@ export interface components {
             /** Format: int64 */
             expires_in: number;
             token_type: string;
+        };
+        ActionRequest: {
+            /** @description Paramètres déclarés par l'action ; un paramètre absent prend sa valeur par défaut. */
+            params?: Record<string, unknown>;
+        };
+        ActionResultDto: {
+            /** Format: int64 */
+            exit_code: number;
+            /** @description Sortie du processus (stdout et stderr), tronquée par le nœud à 4 Kio. */
+            output: string;
+            truncated: boolean;
         };
         AddressRequest: {
             ipv4?: string | null;
@@ -2759,7 +2811,7 @@ export interface components {
             token: string;
         };
         /** @enum {string} */
-        ErrorCode: "validation_failed" | "invalid_body" | "invalid_parameter" | "empty_patch" | "not_found" | "unauthorized" | "forbidden" | "internal_error" | "rate_limited" | "request_timeout" | "invalid_credentials" | "invalid_challenge" | "invalid_code" | "totp_already_enabled" | "totp_setup_not_started" | "invalid_email" | "invalid_display_name" | "weak_password" | "password_unchanged" | "email_taken" | "cannot_disable_self" | "cannot_delete_self" | "cannot_change_own_roles" | "use_own_password_change" | "cannot_reset_own_totp" | "insufficient_permissions_for_target" | "insufficient_permissions_for_role" | "cannot_grant_permissions_you_lack" | "last_super_admin" | "unknown_role" | "invalid_role_name" | "invalid_description" | "invalid_color" | "role_name_taken" | "system_role" | "unknown_permission" | "permission_not_assignable" | "invalid_node_name" | "node_name_taken" | "unknown_region" | "invalid_region_slug" | "invalid_region_name" | "region_slug_taken" | "region_not_empty" | "invalid_coordinates" | "invalid_location" | "invalid_reason" | "node_not_pending" | "node_already_revoked" | "node_not_enrolled" | "invalid_token" | "invalid_csr" | "already_enrolled" | "client_certificate_required" | "unknown_node" | "node_revoked" | "invalid_port_range" | "invalid_ip" | "no_free_allocation" | "unknown_allocation" | "allocation_taken" | "allocation_in_use" | "node_has_servers" | "unknown_prefab" | "invalid_prefab" | "prefab_exists" | "prefab_in_use" | "invalid_setting" | "setting_not_editable" | "invalid_server_name" | "invalid_resources" | "node_offline" | "console_held_elsewhere" | "node_not_for_trials" | "prefab_draft_needs_test_node" | "dns_not_configured" | "invalid_domain" | "invalid_dns_label" | "dns_label_taken" | "invalid_sites_domain" | "sites_domain_not_configured" | "invalid_ip_address" | "unknown_dns_provider" | "dns_token_required" | "dns_provider_unauthorized" | "dns_zone_not_found" | "dns_provider_unavailable" | "upgrade_blocked" | "upgrade_not_newer" | "oauth_no_scope" | "server_busy" | "server_not_running" | "invalid_command" | "invalid_path" | "file_not_found" | "file_exists" | "file_conflict" | "file_not_text" | "file_too_large" | "backup_not_found" | "invalid_backup_name" | "backups_disabled" | "backup_limit_reached" | "backup_in_progress" | "backup_not_ready" | "backup_locked" | "schedule_not_found" | "invalid_schedule_name" | "invalid_cron" | "invalid_timezone" | "invalid_schedule_step" | "schedule_limit_reached" | "schedule_running" | "resource_above_ceiling" | "resource_below_prefab_minimum" | "disk_quota_exceeded" | "server_suspended" | "content_slot_not_found" | "content_not_supported" | "game_version_not_pinned" | "content_not_found" | "content_already_installed" | "content_incompatible" | "content_required" | "content_up_to_date" | "provider_unavailable" | "modpack_installed" | "content_in_modpack" | "invalid_modpack" | "content_distribution_forbidden" | "content_source_unsupported" | "upload_not_accepted" | "content_value_required" | "invalid_content_value" | "unknown_content_source" | "content_source_not_configured" | "content_source_key_required" | "content_source_unauthorized" | "steam_account_required" | "steam_account_not_configured" | "steam_account_username_invalid" | "steam_account_password_invalid" | "value_out_of_range" | "daemon_timeout" | "daemon_error";
+        ErrorCode: "validation_failed" | "invalid_body" | "invalid_parameter" | "empty_patch" | "not_found" | "unauthorized" | "forbidden" | "internal_error" | "rate_limited" | "request_timeout" | "invalid_credentials" | "invalid_challenge" | "invalid_code" | "totp_already_enabled" | "totp_setup_not_started" | "invalid_email" | "invalid_display_name" | "weak_password" | "password_unchanged" | "email_taken" | "cannot_disable_self" | "cannot_delete_self" | "cannot_change_own_roles" | "use_own_password_change" | "cannot_reset_own_totp" | "insufficient_permissions_for_target" | "insufficient_permissions_for_role" | "cannot_grant_permissions_you_lack" | "last_super_admin" | "unknown_role" | "invalid_role_name" | "invalid_description" | "invalid_color" | "role_name_taken" | "system_role" | "unknown_permission" | "permission_not_assignable" | "invalid_node_name" | "node_name_taken" | "unknown_region" | "invalid_region_slug" | "invalid_region_name" | "region_slug_taken" | "region_not_empty" | "invalid_coordinates" | "invalid_location" | "invalid_reason" | "node_not_pending" | "node_already_revoked" | "node_not_enrolled" | "invalid_token" | "invalid_csr" | "already_enrolled" | "client_certificate_required" | "unknown_node" | "node_revoked" | "invalid_port_range" | "invalid_ip" | "no_free_allocation" | "unknown_allocation" | "allocation_taken" | "allocation_in_use" | "node_has_servers" | "unknown_prefab" | "invalid_prefab" | "prefab_exists" | "prefab_in_use" | "invalid_setting" | "setting_not_editable" | "invalid_server_name" | "invalid_resources" | "node_offline" | "daemon_too_old" | "console_held_elsewhere" | "node_not_for_trials" | "prefab_draft_needs_test_node" | "dns_not_configured" | "invalid_domain" | "invalid_dns_label" | "dns_label_taken" | "invalid_sites_domain" | "sites_domain_not_configured" | "invalid_ip_address" | "unknown_dns_provider" | "dns_token_required" | "dns_provider_unauthorized" | "dns_zone_not_found" | "dns_provider_unavailable" | "upgrade_blocked" | "upgrade_not_newer" | "oauth_no_scope" | "server_busy" | "server_not_running" | "invalid_command" | "unknown_action" | "invalid_action_param" | "action_not_schedulable" | "invalid_path" | "file_not_found" | "file_exists" | "file_conflict" | "file_not_text" | "file_too_large" | "backup_not_found" | "invalid_backup_name" | "backups_disabled" | "backup_limit_reached" | "backup_in_progress" | "backup_not_ready" | "backup_locked" | "schedule_not_found" | "invalid_schedule_name" | "invalid_cron" | "invalid_timezone" | "invalid_schedule_step" | "schedule_limit_reached" | "schedule_running" | "resource_above_ceiling" | "resource_below_prefab_minimum" | "disk_quota_exceeded" | "server_suspended" | "content_slot_not_found" | "content_not_supported" | "game_version_not_pinned" | "content_not_found" | "content_already_installed" | "content_incompatible" | "content_required" | "content_up_to_date" | "provider_unavailable" | "modpack_installed" | "content_in_modpack" | "invalid_modpack" | "content_distribution_forbidden" | "content_source_unsupported" | "upload_not_accepted" | "content_value_required" | "invalid_content_value" | "unknown_content_source" | "content_source_not_configured" | "content_source_key_required" | "content_source_unauthorized" | "steam_account_required" | "steam_account_not_configured" | "steam_account_username_invalid" | "steam_account_password_invalid" | "steam_game_missing" | "steam_game_not_found" | "value_out_of_range" | "daemon_timeout" | "daemon_error";
         FacetValueDto: {
             count: number;
             /** @description Libellé : nom du nœud, ou dernière version du prefab (pour son icône). */
@@ -2975,7 +3027,7 @@ export interface components {
             sensitive: boolean;
         };
         /** @enum {string} */
-        PermissionKey: "iam.users.read" | "iam.users.create" | "iam.users.update" | "iam.users.delete" | "iam.users.credentials" | "iam.roles.read" | "iam.roles.manage" | "iam.roles.assign" | "audit.read" | "nodes.read" | "nodes.create" | "nodes.update" | "nodes.regions.manage" | "nodes.enrollment" | "nodes.revoke" | "nodes.delete" | "nodes.allocations.read" | "nodes.allocations.manage" | "servers.read" | "servers.create" | "servers.update" | "servers.delete" | "servers.power" | "servers.reinstall" | "servers.upgrade" | "servers.console.read" | "servers.console.write" | "servers.files.read" | "servers.files.write" | "servers.backups.read" | "servers.backups.create" | "servers.backups.restore" | "servers.backups.delete" | "servers.backups.download" | "servers.schedules.read" | "servers.schedules.manage" | "servers.content.read" | "servers.content.manage" | "servers.suspend" | "servers.transfer" | "prefabs.read" | "prefabs.manage" | "customers.read" | "customers.update" | "customers.suspend" | "customers.impersonate" | "system.settings.read" | "system.settings.update" | "system.dns.manage" | "system.content_sources.manage" | "system.steam_accounts.manage";
+        PermissionKey: "iam.users.read" | "iam.users.create" | "iam.users.update" | "iam.users.delete" | "iam.users.credentials" | "iam.roles.read" | "iam.roles.manage" | "iam.roles.assign" | "audit.read" | "nodes.read" | "nodes.create" | "nodes.update" | "nodes.regions.manage" | "nodes.enrollment" | "nodes.revoke" | "nodes.delete" | "nodes.allocations.read" | "nodes.allocations.manage" | "servers.read" | "servers.create" | "servers.update" | "servers.delete" | "servers.power" | "servers.reinstall" | "servers.upgrade" | "servers.console.read" | "servers.console.write" | "servers.actions.run" | "servers.files.read" | "servers.files.write" | "servers.backups.read" | "servers.backups.create" | "servers.backups.restore" | "servers.backups.delete" | "servers.backups.download" | "servers.schedules.read" | "servers.schedules.manage" | "servers.content.read" | "servers.content.manage" | "servers.suspend" | "servers.transfer" | "prefabs.read" | "prefabs.manage" | "customers.read" | "customers.update" | "customers.suspend" | "customers.impersonate" | "system.settings.read" | "system.settings.update" | "system.dns.manage" | "system.content_sources.manage" | "system.steam_accounts.manage";
         /** @enum {string} */
         PowerActionDto: "start" | "stop" | "restart" | "kill";
         PowerRequest: {
@@ -3498,8 +3550,36 @@ export interface components {
             /** @description Compte dédié aux serveurs, sans Steam Guard. */
             username: string;
         };
+        /** @description Images importées du magasin Steam. */
+        SteamImportDto: {
+            /**
+             * Format: int32
+             * @description Application Steam du jeu, lue dans le manifest enregistré (`steam.app`).
+             * @example 730
+             */
+            app: number;
+            /** @description Images posées : `icon`, `cover` (bannière), `thumbnail` (jaquette). */
+            imported: string[];
+            /** @description Introuvables ou refusées (format, taille) : les images du brouillon restent. */
+            missing: string[];
+            /**
+             * @description Nom du jeu sur le magasin.
+             * @example Counter-Strike 2
+             */
+            name: string;
+            /**
+             * @description Source de chaque image posée : `steamgriddb` (si sa clé est réglée) ou `steam`.
+             * @example {
+             *       "cover": "steam",
+             *       "icon": "steamgriddb"
+             *     }
+             */
+            sources: {
+                [key: string]: string;
+            };
+        };
         /** @enum {string} */
-        StepActionDto: "command" | "power" | "backup";
+        StepActionDto: "command" | "power" | "backup" | "action";
         StepDto: {
             action: components["schemas"]["StepActionDto"];
             /** @description Poursuivre la tâche si cette étape échoue. */
@@ -5928,6 +6008,76 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                /** @description Clé de l'action dans le prefab */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResultDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Serveur ou action inconnus */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Serveur arrêté, suspendu, occupé, ou daemon trop ancien */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Paramètre refusé */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9308,6 +9458,61 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    import_steam_assets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SteamImportDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Aucun jeu Steam déclaré, ou inconnu du magasin */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Steam injoignable */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

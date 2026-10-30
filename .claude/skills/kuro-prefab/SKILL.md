@@ -41,6 +41,7 @@ il ne recopie pas le schéma : en cas de doute, le schéma et la validation gagn
 | Valider sans écrire | `validate_prefab_files` avec tous les fichiers |
 | Enregistrer | `save_prefab_draft` (remplace **tous** les fichiers du brouillon) |
 | Relire | `get_prefab_draft` |
+| Images d'un jeu Steam | `import_prefab_draft_steam_images` (lit `steam.app` du manifest **enregistré** ; SteamGridDB d'abord si sa clé est réglée, sinon le magasin Steam) |
 
 Pièges :
 - `from` crée la **version suivante du même prefab** (`1.0.0` → `1.0.1`). Pour un nouveau jeu,
@@ -97,7 +98,7 @@ schéma, le format est en cours d'évolution ; ne pas l'inventer.
 
 **Identité** : `schema: kuro.prefab/v1`, `id`, `version`, `category` (`game`, `web`, `database`,
 `tool`, `other`), `tags`, `authors`, `requires.kuro`, `requires.resources.memory_mb` /
-`disk_mb` (`min` et `recommended`, ADR-0031 : un serveur sous le minimum est refusé).
+`disk_mb` (`min` et `recommended`, ADR-0031 : un serveur sous le minimum est refusé). Jeu vendu sur Steam : `steam: { app: <id> }`, l'identifiant **du jeu** sur le magasin (Valheim 892970, pas son serveur 896660), vérifiable par `IStoreBrowseService/GetItems` ; il permet d'importer ses images.
 
 **Services** :
 - `image` épinglée : tag daté ou `@sha256:` (jamais `latest`, ni un tag qui bouge comme

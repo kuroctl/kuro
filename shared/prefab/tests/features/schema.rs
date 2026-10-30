@@ -383,7 +383,74 @@ fn web_ports_are_tcp_private_and_unique() {
         matches!(no_web_port.load(), Err(LoadError::Invalid(_))),
         "web_url without web port: accepted"
     );
+    // Même règle pour le nom d'hôte seul (ADR-0039).
+    let host_without_web_port = Variant::of("minecraft-java", |text| {
+        text.replacen(
+            "      EULA: \"TRUE\"\n",
+            "      EULA: \"TRUE\"\n      KURO_HOST: \"{{ server.web_host }}\"\n",
+            1,
+        )
+    });
+    assert!(
+        matches!(host_without_web_port.load(), Err(LoadError::Invalid(_))),
+        "web_host without web port: accepted"
+    );
 
     assert!(official("wordpress").manifest.web_port().is_some());
+    assert!(schema().is_valid(&manifest_json(&prefabs_dir().join("wordpress"))));
+}
+
+/// Actions (ADR-0039) : ce que la validation refuse. Le JSON Schema ne connaît pas ces règles.
+#[test]
+fn actions_are_checked() {
+    let fix_owner = "    command: [chown, -R, \"33:33\", \"{{ params.path }}\"]\n";
+    for (name, from, to) in [
+        (
+            "unknown service",
+            "  fix-owner:\n    service: web\n",
+            "  fix-owner:\n    service: nope\n",
+        ),
+        (
+            "parameter concatenated",
+            fix_owner,
+            "    command: [chown, -R, \"33:33\", \"/srv/{{ params.path }}\"]\n",
+        ),
+        (
+            "unknown parameter",
+            fix_owner,
+            "    command: [chown, -R, \"33:33\", \"{{ params.nope }}\"]\n",
+        ),
+        (
+            "string parameter without pattern",
+            "pattern: \"^/var/www/html(/[A-Za-z0-9._-]+)*$\", ",
+            "",
+        ),
+        (
+            "timeout too long",
+            "    timeout: 120\n",
+            "    timeout: 900\n",
+        ),
+        (
+            "schedulable with a required parameter",
+            "    schedulable: true\n",
+            "    schedulable: true\n    params:\n      id: { type: string, pattern: \"^[a-z]+$\", required: true }\n",
+        ),
+        (
+            "secret parameter",
+            "{ type: string, pattern:",
+            "{ type: secret, pattern:",
+        ),
+        (
+            "params outside an action",
+            "      WORDPRESS_DB_HOST: db\n",
+            "      WORDPRESS_DB_HOST: \"{{ params.path }}\"\n",
+        ),
+    ] {
+        let variant = Variant::of("wordpress", |text| text.replacen(from, to, 1));
+        assert!(
+            matches!(variant.load(), Err(LoadError::Invalid(_))),
+            "{name}: accepted"
+        );
+    }
     assert!(schema().is_valid(&manifest_json(&prefabs_dir().join("wordpress"))));
 }

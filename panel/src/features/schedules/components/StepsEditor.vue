@@ -15,12 +15,23 @@ import type { ScheduleStep } from '../schedules.api'
 const MAX_STEPS = 10
 const POWER = ['start', 'stop', 'restart', 'kill'] as const
 
-const props = defineProps<{ allowed: ScheduleStep['action'][]; disabled?: boolean; errors: Record<string, string> }>()
+const props = defineProps<{
+  allowed: ScheduleStep['action'][]
+  disabled?: boolean
+  errors: Record<string, string>
+  /** Actions planifiables du prefab (ADR-0039) : clé et libellé. */
+  actions?: { key: string; label: string }[]
+}>()
 const steps = defineModel<ScheduleStep[]>({ required: true })
 const { t, locale } = useI18n()
 
 function defaultValue(action: ScheduleStep['action']): string | null {
+  if (action === 'action') return props.actions?.[0]?.key ?? ''
   return action === 'power' ? 'restart' : action === 'command' ? '' : null
+}
+
+function actionLabel(key: string | null | undefined): string {
+  return props.actions?.find((action) => action.key === key)?.label ?? key ?? ''
 }
 
 function update(index: number, patch: Partial<ScheduleStep>) {
@@ -95,6 +106,17 @@ function remove(index: number) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem v-for="action in POWER" :key="action" :value="action">{{ t(`servers.power.${action}`) }}</SelectItem>
+                </SelectContent>
+              </Select>
+            </template>
+            <template v-else-if="step.action === 'action'">
+              <Label :for="`step-${index}-value`">{{ t('schedules.editor.prefabAction') }}</Label>
+              <Select :model-value="step.value ?? ''" :disabled="disabled" @update:model-value="(value) => update(index, { value: String(value) })">
+                <SelectTrigger :id="`step-${index}-value`" class="w-full" :aria-invalid="!!errors[`steps.${index}.value`]">
+                  <SelectValue>{{ actionLabel(step.value) }}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="action in actions ?? []" :key="action.key" :value="action.key">{{ action.label }}</SelectItem>
                 </SelectContent>
               </Select>
             </template>

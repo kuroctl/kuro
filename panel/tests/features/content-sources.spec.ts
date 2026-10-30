@@ -79,6 +79,29 @@ describe('content sources', () => {
     expect(await screen.findByText('Sans clé')).toBeTruthy()
   })
 
+  it('offers a SteamGridDB key for the Studio images, with its own console', async () => {
+    let path = ''
+    server.use(
+      ...signedIn(),
+      http.get(SOURCES, () => HttpResponse.json([...sources(true), { provider: 'steamgriddb', configured: false, updated_at: null }])),
+      http.put(`${SOURCES}/:provider`, ({ params }) => {
+        path = String(params.provider)
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { user } = await renderApp(PAGE)
+
+    const grid = await screen.findByRole('region', { name: 'SteamGridDB' })
+    expect(within(grid).getByText('Sans clé')).toBeTruthy()
+    expect(within(grid).getByRole('link', { name: 'www.steamgriddb.com' }).getAttribute('href')).toBe(
+      'https://www.steamgriddb.com/profile/preferences/api',
+    )
+    await user.type(within(grid).getByLabelText('Clé d’API'), 'grid-key')
+    await user.click(within(grid).getByRole('button', { name: 'Enregistrer la clé' }))
+
+    await waitFor(() => expect(path).toBe('steamgriddb'))
+  })
+
   it('keeps a key per source, Steam Workshop with its own console', async () => {
     let path = ''
     server.use(

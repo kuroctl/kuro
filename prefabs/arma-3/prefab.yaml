@@ -23,6 +23,8 @@ assets:
   cover: assets/banner.webp
   thumbnail: assets/thumbnail.webp
 x-status: "draft: not yet tried on a real node with a Steam account"
+# Jeu sur le magasin Steam : le Studio en importe les images (ADR-0039).
+steam: { app: 107410 }
 
 services:
   server:

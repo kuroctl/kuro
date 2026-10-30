@@ -122,7 +122,7 @@ pub async fn import_dir_as(
         let mut tx = AuditedTx::begin(pool, context).await?;
         match PrefabRepository::get(&mut tx, &id, &version).await? {
             Some(stored) => {
-                let same = same_except_assets(&stored.manifest, &manifest)
+                let same = same_except_cosmetics(&stored.manifest, &manifest)
                     && stored.locales == locales
                     && stored.templates == templates;
                 // Contenu différent : la version stockée est gardée telle quelle. Ses images
@@ -469,14 +469,15 @@ pub async fn server_counts(pool: &PgPool) -> Result<HashMap<(String, String), i6
         .collect())
 }
 
-/// Même manifest à la rubrique `assets` près : les images sont cosmétiques, hors de
-/// l'immuabilité de `id` + `version` (ADR-0011). Déclarer une bannière ou une vignette ne change
-/// donc pas la version ; la rubrique stockée garde sa forme d'origine.
+/// Même manifest aux rubriques `assets` et `steam` près : les images, et le jeu Steam d'où le
+/// Studio les tire (ADR-0039), sont cosmétiques, hors de l'immuabilité de `id` + `version`
+/// (ADR-0011). Les déclarer ne change donc pas la version ; le manifest stocké garde sa forme
+/// d'origine.
 ///
 /// Les deux côtés sont relus par le modèle actuel : un champ facultatif ajouté au modèle après
 /// l'import (`backup`, `game_version`…) est absent du manifest stocké et vide dans l'actuel, sans
 /// que le prefab ait changé.
-fn same_except_assets(stored: &str, current: &str) -> bool {
+fn same_except_cosmetics(stored: &str, current: &str) -> bool {
     let strip = |text: &str| {
         serde_json::from_str::<Manifest>(text)
             .ok()
@@ -485,6 +486,7 @@ fn same_except_assets(stored: &str, current: &str) -> bool {
             .map(|mut value| {
                 if let Some(object) = value.as_object_mut() {
                     object.remove("assets");
+                    object.remove("steam");
                 }
                 value
             })

@@ -76,6 +76,8 @@ pub enum StepAction {
     Power(PowerAction),
     /// Sauvegarde, nommée ou datée ; l'étape attend sa fin.
     Backup(Option<String>),
+    /// Action du prefab, par sa clé (ADR-0039) ; planifiable, sans paramètre obligatoire.
+    Action(String),
 }
 
 impl StepAction {
@@ -84,6 +86,7 @@ impl StepAction {
             Self::Command(_) => "command",
             Self::Power(_) => "power",
             Self::Backup(_) => "backup",
+            Self::Action(_) => "action",
         }
     }
 
@@ -93,6 +96,7 @@ impl StepAction {
             Self::Command(line) => Some(line.clone()),
             Self::Power(action) => Some(power_key(*action).to_owned()),
             Self::Backup(name) => name.clone(),
+            Self::Action(key) => Some(key.clone()),
         }
     }
 
@@ -102,6 +106,7 @@ impl StepAction {
             ("command", Some(line)) => Some(Self::Command(line.to_owned())),
             ("power", Some(action)) => power_from_key(action).map(Self::Power),
             ("backup", name) => Some(Self::Backup(name.map(str::to_owned))),
+            ("action", Some(key)) => Some(Self::Action(key.to_owned())),
             _ => None,
         }
     }

@@ -259,6 +259,71 @@ impl Manager {
         Ok(())
     }
 
+    /// Action d'un prefab (ADR-0039) : la commande, déjà rendue par l'API, s'exécute dans le
+    /// conteneur du service en marche avec l'utilisateur du service, dans la durée demandée.
+    /// Refusée pendant une autre opération, sur un serveur arrêté, ou vers un service que la
+    /// spécification déployée ne déclare pas.
+    pub async fn action(
+        &self,
+        action: kuro_protocol::api::server::ServerAction,
+    ) -> Result<kuro_protocol::daemon::ActionResult, CommandError> {
+        let server_id = action.server_id;
+        let deploy = self.spec(server_id)?;
+        let service = deploy
+            .services
+            .iter()
+            .find(|s| s.name == action.service)
+            .ok_or_else(|| {
+                CommandError::InvalidSpec(format!("unknown service `{}`", action.service))
+            })?;
+        if action.command.is_empty()
+            || action
+                .command
+                .iter()
+                .any(|arg| arg.contains('\0') || arg.len() > 4096)
+        {
+            return Err(CommandError::InvalidSpec(
+                "invalid action command".to_owned(),
+            ));
+        }
+        let timeout = Duration::from_secs(u64::from(
+            action
+                .timeout_secs
+                .clamp(1, kuro_protocol::limits::MAX_ACTION_TIMEOUT_SECS),
+        ));
+        let guard = self.acquire(server_id)?;
+        let docker = &self.inner.docker;
+        let container = container_name(server_id, &service.name);
+        let running = docker
+            .status(&container)
+            .await
+            .map_err(|e| CommandError::Internal(e.to_string()))?
+            .is_some_and(|s| s.running);
+        if !running {
+            return Err(CommandError::NotRunning);
+        }
+        tracing::info!(%server_id, action = %action.action, service = %service.name, "running prefab action");
+        let outcome = tokio::time::timeout(
+            timeout,
+            docker.exec(&container, action.command, Some(&service.user)),
+        )
+        .await;
+        drop(guard);
+        match outcome {
+            Ok(Ok(outcome)) => Ok(kuro_protocol::daemon::ActionResult {
+                server_id,
+                exit_code: outcome.exit_code,
+                output: outcome.output,
+                truncated: outcome.truncated,
+            }),
+            Ok(Err(error)) => Err(CommandError::Internal(error.to_string())),
+            Err(_) => Err(CommandError::Internal(format!(
+                "action timed out after {} s",
+                timeout.as_secs()
+            ))),
+        }
+    }
+
     pub async fn power(&self, server_id: Uuid, action: PowerAction) -> Result<(), CommandError> {
         let deploy = self.spec(server_id)?;
         if matches!(action, PowerAction::Start | PowerAction::Restart) {
@@ -582,14 +647,24 @@ impl Manager {
             }
             StopSpec::Signal(signal) => {
                 docker
-                    .stop(&main, signal.as_str(), lifecycle.stop_timeout_secs)
+                    .stop(&main, Some(signal.as_str()), lifecycle.stop_timeout_secs)
+                    .await?;
+            }
+            // Le `STOPSIGNAL` de l'image (ADR-0039) : Docker le connaît, pas le daemon.
+            StopSpec::Image => {
+                docker
+                    .stop(&main, None, lifecycle.stop_timeout_secs)
                     .await?;
             }
         }
         let order = spec::start_order(deploy).unwrap_or_default();
         for service in order.into_iter().rev().filter(|s| *s != lifecycle.service) {
             docker
-                .stop(&container_name(id, service), "SIGTERM", SECONDARY_STOP_SECS)
+                .stop(
+                    &container_name(id, service),
+                    Some("SIGTERM"),
+                    SECONDARY_STOP_SECS,
+                )
                 .await?;
         }
         self.report(id, ServerState::Offline, None);

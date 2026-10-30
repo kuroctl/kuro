@@ -99,6 +99,22 @@
         }
       }
     },
+    "steam": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "app"
+      ],
+      "description": "Jeu sur Steam (ADR-0039) : métadonnée, sans effet sur le déploiement. Le Studio en tire les images du prefab.",
+      "properties": {
+        "app": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295,
+          "description": "Identifiant d'application du jeu sur le magasin Steam (730 pour Counter-Strike 2), pas celui de son serveur dédié."
+        }
+      }
+    },
     "services": {
       "type": "object",
       "minProperties": 1,
@@ -147,6 +163,16 @@
     },
     "lifecycle": {
       "$ref": "#/definitions/lifecycle"
+    },
+    "actions": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/definitions/slug"
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/action"
+      },
+      "description": "Actions ponctuelles (ADR-0039) : commande typée exécutée dans un service en marche, à la demande ou planifiée."
     },
     "migrations": {
       "type": "array",
@@ -596,9 +622,23 @@
           "type": "object",
           "minProperties": 1,
           "additionalProperties": {
-            "$ref": "#/definitions/template"
+            "oneOf": [
+              { "$ref": "#/definitions/template" },
+              { "type": "number" },
+              { "type": "boolean" },
+              {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    { "$ref": "#/definitions/template" },
+                    { "type": "number" },
+                    { "type": "boolean" }
+                  ]
+                }
+              }
+            ]
           },
-          "description": "managed-keys : clé (ou `section.clé` en ini) → valeur réécrite au démarrage."
+          "description": "managed-keys : clé (`section.clé` en ini, chemin `a.b.c` en json et yaml) → valeur réécrite au démarrage. Une chaîne est un gabarit ; nombre, booléen et liste gardent leur type en json et yaml."
         },
         "editable": {
           "type": "boolean",
@@ -1019,6 +1059,48 @@
         }
       }
     },
+    "action": {
+      "type": "object",
+      "required": [
+        "service",
+        "command"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "service": {
+          "$ref": "#/definitions/key"
+        },
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/template"
+          },
+          "description": "Liste d'arguments, jamais une ligne de shell ; un paramètre est un argument entier : \"{{ params.nom }}\"."
+        },
+        "params": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/definitions/key"
+          },
+          "additionalProperties": {
+            "$ref": "#/definitions/field"
+          },
+          "description": "Paramètres typés comme les settings : string (motif obligatoire), int, float, bool, enum."
+        },
+        "timeout": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300,
+          "default": 30
+        },
+        "schedulable": {
+          "type": "boolean",
+          "default": false,
+          "description": "Peut être une étape de tâche planifiée (sans paramètre obligatoire)."
+        }
+      }
+    },
     "lifecycle": {
       "type": "object",
       "required": [
@@ -1059,8 +1141,12 @@
               "enum": [
                 "SIGTERM",
                 "SIGINT",
-                "SIGQUIT"
-              ]
+                "SIGQUIT",
+                "SIGWINCH",
+                "SIGHUP",
+                "image"
+              ],
+              "description": "Signal d'arrêt du service principal ; `image` : le STOPSIGNAL déclaré par l'image (SIGTERM à défaut)."
             }
           }
         },

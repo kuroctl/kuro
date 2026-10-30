@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Sources de contenu (ADR-0029, ADR-0030) : Modrinth, ouverte, puis une carte par source qui
-// demande la clé d'API de l'installation (CurseForge, Steam Workshop).
+// demande la clé d'API de l'installation (CurseForge, Steam Workshop), et SteamGridDB pour les
+// images du Studio (ADR-0040).
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -17,6 +18,7 @@ import { Skeleton } from '@/shared/ui/skeleton'
 const CONSOLES: Record<string, string> = {
   curseforge: 'https://console.curseforge.com/',
   'steam-workshop': 'https://steamcommunity.com/dev/apikey',
+  steamgriddb: 'https://www.steamgriddb.com/profile/preferences/api',
 }
 
 const { t } = useI18n()

@@ -8,6 +8,7 @@ export type Server = Schemas['ServerDto']
 export type PowerAction = Schemas['PowerActionDto']
 export type ReinstallMode = Schemas['ReinstallModeDto']
 export type ServerPage = Schemas['ServerPageDto']
+export type ActionResult = Schemas['ActionResultDto']
 export type BulkAction = Schemas['BulkActionDto']
 export type BulkOutcome = Schemas['BulkOutcomeDto']
 /** Critères de `GET /servers/search` (ADR-0025) : valeurs multiples séparées par des virgules. */
@@ -47,5 +48,8 @@ export function useServersApi() {
       http.post<Schemas['ConsoleTicketDto']>(`${BASE}/${id}/console/ticket`).then((response) => response.data),
 
     command: (id: string, line: string) => http.post<void>(`${BASE}/${id}/command`, { line }).then(() => undefined),
+
+    runAction: (id: string, key: string, params: Record<string, unknown>) =>
+      http.post<ActionResult>(`${BASE}/${id}/actions/${key}`, { params }).then((response) => response.data),
   }
 }

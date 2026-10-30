@@ -1,14 +1,19 @@
 //! Les prefabs livrés avec Kuro se chargent et passent toutes les validations.
 
+use std::collections::HashSet;
+
 use kuro_prefab::manifest::{FieldType, Section};
 
 use crate::support::{OFFICIAL, official};
 
 #[test]
 fn every_official_prefab_loads() {
-    for id in OFFICIAL {
-        let package = official(id);
-        assert_eq!(package.manifest.id, *id);
+    let mut seen = HashSet::new();
+    for dir in OFFICIAL {
+        let package = official(dir);
+        // Deux dossiers au même `id@version` entrent en conflit au rechargement du catalogue.
+        let label = format!("{}@{}", package.manifest.id, package.manifest.version);
+        assert!(seen.insert(label.clone()), "{dir}: {label} already used");
         assert!(package.locales.contains_key("en"));
         assert!(package.locales.contains_key("fr"));
     }

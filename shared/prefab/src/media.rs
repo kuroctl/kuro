@@ -16,10 +16,11 @@ use crate::assets::{AssetKind, MAX_ASSET_BYTES};
 /// Qualité d'un JPEG réencodé (seulement quand il est redimensionné).
 const JPEG_QUALITY: u8 = 90;
 
-/// Dimensions convenues (largeur, hauteur) par type d'image.
+/// Dimensions convenues (largeur, hauteur) par type d'image. L'icône s'affiche en 56 px au plus :
+/// 64 px suffisent, et c'est la taille des icônes que publie Steam (32 ou 184 px).
 pub fn target(kind: AssetKind) -> (u32, u32) {
     match kind {
-        AssetKind::Icon => (512, 512),
+        AssetKind::Icon => (64, 64),
         AssetKind::Cover => (1600, 600),
         AssetKind::Thumbnail => (600, 800),
     }
@@ -182,8 +183,8 @@ mod tests {
 
     #[test]
     fn a_small_image_is_cropped_but_never_enlarged() {
-        let (fitted, small) = fit(&blank(250, 300), target(AssetKind::Icon));
-        assert_eq!(fitted.dimensions(), (250, 250));
+        let (fitted, small) = fit(&blank(32, 40), target(AssetKind::Icon));
+        assert_eq!(fitted.dimensions(), (32, 32));
         assert!(small);
     }
 
@@ -208,7 +209,7 @@ mod tests {
         let first = optimize(&png(1000, 1000), AssetKind::Icon)
             .unwrap()
             .unwrap();
-        assert_eq!((first.after.width, first.after.height), (512, 512));
+        assert_eq!((first.after.width, first.after.height), (64, 64));
         assert!(optimize(&first.data, AssetKind::Icon).unwrap().is_none());
     }
 

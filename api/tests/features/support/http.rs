@@ -83,6 +83,8 @@ pub async fn get_with_panel(panel: Option<&std::path::Path>, path: &str) -> Test
             modrinth: std::sync::Arc::new(super::content::FakeModrinth::default()),
             curseforge: std::sync::Arc::new(super::content::FakeSource::curseforge()),
             steam: std::sync::Arc::new(super::content::FakeSource::steam()),
+            steam_store: std::sync::Arc::new(super::content::FakeSteamStore::default()),
+            steam_grid: std::sync::Arc::new(super::content::FakeSteamGrid::default()),
         },
     };
     let content_sources = kuro_api::content::settings::ContentSourcesState {

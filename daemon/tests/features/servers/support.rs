@@ -76,7 +76,7 @@ pub fn single(server_id: Uuid) -> ServerDeploy {
             path: "/data/app.properties".to_owned(),
             format: FileFormat::Properties,
             content: FileContent::ManagedKeys {
-                keys: BTreeMap::from([("motd".to_owned(), "hello".to_owned())]),
+                keys: BTreeMap::from([("motd".to_owned(), serde_json::json!("hello"))]),
             },
         }],
         lifecycle: LifecycleSpec {

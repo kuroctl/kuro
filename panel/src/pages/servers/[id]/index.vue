@@ -15,6 +15,7 @@ import { belowMinimum } from '@/features/prefabs/needs'
 import { useCatalogEntry } from '@/features/prefabs/prefabs.queries'
 import ServerConsolePreview from '@/features/servers/components/ServerConsolePreview.vue'
 import ServerDiskUsage from '@/features/servers/components/ServerDiskUsage.vue'
+import ServerActions from '@/features/servers/components/ServerActions.vue'
 import ServerPowerActions from '@/features/servers/components/ServerPowerActions.vue'
 import PendingRestartBanner from '@/features/servers/components/PendingRestartBanner.vue'
 import { useServer } from '@/features/servers/servers.queries'
@@ -63,6 +64,7 @@ const underMinimum = computed(() => (server.value ? belowMinimum(entry.value, se
       </Alert>
       <ServerUpgrade :server="server" />
       <ServerPowerActions :server="server" />
+      <ServerActions :server="server" />
       <PendingRestartBanner :server="server" />
       <Alert v-if="server.state === 'failed' && server.state_reason" variant="destructive">
         <CircleAlert />{{ t('servers.failedReason', { reason: server.state_reason }) }}

@@ -17,7 +17,8 @@ pub use file::{FileContent, FileEntry, FileKind, FileListing};
 pub use heartbeat::Heartbeat;
 pub use hello::{Hello, HostInfo};
 pub use server::{
-    CertificateState, CommandResult, ProxyState, ServerDisk, ServerStateReport, WebStatus,
+    ActionResult, CertificateState, CommandResult, ProxyState, ServerDisk, ServerStateReport,
+    WebStatus,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -49,4 +50,6 @@ pub enum DaemonMessage {
     BackupChunk(BackupChunk),
     #[serde(rename = "content.done")]
     ContentDone(ContentDone),
+    #[serde(rename = "action.result")]
+    ActionResult(ActionResult),
 }

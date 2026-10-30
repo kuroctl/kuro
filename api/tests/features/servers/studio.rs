@@ -6,9 +6,13 @@ use std::io::Write;
 use std::path::Path;
 
 use axum::http::{Method, StatusCode};
+use kuro_api::content::steam_store::StoreGame;
+use kuro_api::content::steamgriddb::GridImage;
 use kuro_api::iam::domain::Permission;
+use kuro_prefab::assets::AssetKind;
 use serde_json::{Value, json};
 
+use crate::support::content::GRID_KEY;
 use crate::support::platform::Platform;
 
 const PNG: &[u8] = &[
@@ -373,6 +377,7 @@ async fn the_studio_requires_the_manage_permission_but_the_schema_is_readable() 
         (Method::GET, path(&draft), None),
         (Method::DELETE, path(&draft), None),
         (Method::POST, format!("{}/publish", path(&draft)), None),
+        (Method::POST, format!("{}/assets/steam", path(&draft)), None),
     ] {
         let refused = admin.call(method.clone(), &path, Some(&token), body).await;
         assert_eq!(refused.status, StatusCode::FORBIDDEN, "{method} {path}");
@@ -495,4 +500,209 @@ async fn converting_a_compose_requires_the_manage_permission() {
         .await;
 
     assert_eq!(refused.status, StatusCode::FORBIDDEN);
+}
+
+/// Brouillon vierge enregistré avec `steam: { app }` dans son manifest.
+async fn steam_draft(platform: &Platform, app: u32) -> Value {
+    let draft = blank(platform).await;
+    let body = with_manifest(&draft, |manifest| {
+        manifest.replace(
+            "category: game
+",
+            &format!(
+                "category: game
+steam:
+  app: {app}
+"
+            ),
+        )
+    });
+    let saved = platform.call(Method::PUT, &path(&draft), Some(body)).await;
+    assert_eq!(saved.status, StatusCode::OK, "{}", saved.json);
+    assert_eq!(
+        saved.json["check"]["valid"], true,
+        "{}",
+        saved.json["check"]
+    );
+    draft
+}
+
+/// CS2 sur le magasin simulé : jaquette et petite icône publiées ; ni bannière, ni grande
+/// icône (premier choix), ni logo.
+fn counter_strike(platform: &Platform) {
+    let store = &platform.admin.steam_store;
+    let paths = |list: &[&str]| list.iter().map(|p| (*p).to_owned()).collect::<Vec<_>>();
+    store.games.lock().unwrap().insert(
+        730,
+        StoreGame {
+            name: "Counter-Strike 2".to_owned(),
+            images: vec![
+                (AssetKind::Thumbnail, paths(&["capsule.jpg"])),
+                (AssetKind::Cover, paths(&["hero.jpg"])),
+                (
+                    AssetKind::Icon,
+                    paths(&["icon_full.jpg", "icon.jpg", "logo.png"]),
+                ),
+            ],
+        },
+    );
+    let mut images = store.images.lock().unwrap();
+    images.insert("capsule.jpg".to_owned(), PNG.to_vec());
+    images.insert("icon.jpg".to_owned(), PNG.to_vec());
+}
+
+#[tokio::test]
+async fn the_images_of_the_declared_steam_game_are_imported_and_audited() {
+    let platform = Platform::start().await;
+    counter_strike(&platform);
+    let draft = steam_draft(&platform, 730).await;
+
+    let imported = platform
+        .call(
+            Method::POST,
+            &format!("{}/assets/steam", path(&draft)),
+            None,
+        )
+        .await;
+
+    assert_eq!(imported.status, StatusCode::OK, "{}", imported.json);
+    assert_eq!(imported.json["app"], 730);
+    assert_eq!(imported.json["name"], "Counter-Strike 2");
+    assert_eq!(imported.json["imported"], json!(["icon", "thumbnail"]));
+    assert_eq!(imported.json["missing"], json!(["cover"]));
+    let icon = platform
+        .call(Method::GET, &format!("{}/assets/icon", path(&draft)), None)
+        .await;
+    assert_eq!(icon.content_type.as_deref(), Some("image/png"));
+    let refreshed = platform.call(Method::GET, &path(&draft), None).await;
+    assert_eq!(refreshed.json["assets"], json!(["icon", "thumbnail"]));
+    // Grande icône absente : la petite suffit, le logo n'est pas demandé.
+    let fetched = platform.admin.steam_store.fetched.lock().unwrap().clone();
+    assert!(fetched.contains(&"icon.jpg".to_owned()), "{fetched:?}");
+    assert!(!fetched.contains(&"logo.png".to_owned()), "{fetched:?}");
+    let event = platform.admin.last_audit("prefab_draft.updated").await;
+    assert_eq!(event.details["steam_app"], 730);
+    assert_eq!(event.details["draft"], draft["id"]);
+}
+
+#[tokio::test]
+async fn steam_images_need_a_game_declared_and_known_by_the_store() {
+    let platform = Platform::start().await;
+    counter_strike(&platform);
+    let undeclared = blank(&platform).await;
+    let unknown = steam_draft(&platform, 896_660).await;
+    let known = steam_draft(&platform, 730).await;
+    let import = |draft: &Value| format!("{}/assets/steam", path(draft));
+
+    let missing = platform
+        .call(Method::POST, &import(&undeclared), None)
+        .await;
+    assert_eq!(missing.status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(missing.json["code"], "steam_game_missing");
+
+    let not_found = platform.call(Method::POST, &import(&unknown), None).await;
+    assert_eq!(not_found.status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(not_found.json["code"], "steam_game_not_found");
+
+    *platform.admin.steam_store.unavailable.lock().unwrap() = true;
+    let down = platform.call(Method::POST, &import(&known), None).await;
+    assert_eq!(down.status, StatusCode::BAD_GATEWAY);
+    assert_eq!(down.json["code"], "provider_unavailable");
+    let untouched = platform.call(Method::GET, &path(&known), None).await;
+    assert_eq!(untouched.json["assets"], json!([]));
+}
+
+/// Clé SteamGridDB réglée ; une icône de la communauté publiée pour le jeu.
+async fn steamgriddb_with_an_icon(platform: &Platform) {
+    let refused = platform
+        .call(
+            Method::PUT,
+            "/settings/content-sources/steamgriddb",
+            Some(json!({ "api_key": "wrong" })),
+        )
+        .await;
+    assert_eq!(refused.status, StatusCode::UNPROCESSABLE_ENTITY);
+    let saved = platform
+        .call(
+            Method::PUT,
+            "/settings/content-sources/steamgriddb",
+            Some(json!({ "api_key": GRID_KEY })),
+        )
+        .await;
+    assert_eq!(saved.status, StatusCode::NO_CONTENT, "{}", saved.json);
+    assert_eq!(platform.admin.steam_grid.key().as_deref(), Some(GRID_KEY));
+    let url = "https://cdn2.steamgriddb.com/icon/abc.png";
+    platform.admin.steam_grid.images.lock().unwrap().insert(
+        AssetKind::Icon,
+        vec![GridImage {
+            id: 11,
+            url: url.to_owned(),
+            author: Some("artist".to_owned()),
+        }],
+    );
+    platform
+        .admin
+        .steam_grid
+        .files
+        .lock()
+        .unwrap()
+        .insert(url.to_owned(), PNG.to_vec());
+}
+
+#[tokio::test]
+async fn steamgriddb_images_come_first_and_steam_fills_the_rest() {
+    let platform = Platform::start().await;
+    counter_strike(&platform);
+    steamgriddb_with_an_icon(&platform).await;
+    let draft = steam_draft(&platform, 730).await;
+
+    let imported = platform
+        .call(
+            Method::POST,
+            &format!("{}/assets/steam", path(&draft)),
+            None,
+        )
+        .await;
+
+    assert_eq!(imported.status, StatusCode::OK, "{}", imported.json);
+    assert_eq!(imported.json["imported"], json!(["icon", "thumbnail"]));
+    assert_eq!(
+        imported.json["sources"],
+        json!({ "icon": "steamgriddb", "thumbnail": "steam" })
+    );
+    assert_eq!(imported.json["missing"], json!(["cover"]));
+    // L'icône de SteamGridDB suffit : celles du magasin ne sont pas demandées.
+    let fetched = platform.admin.steam_store.fetched.lock().unwrap().clone();
+    assert!(
+        !fetched.iter().any(|p| p.starts_with("icon")),
+        "{fetched:?}"
+    );
+    let event = platform.admin.last_audit("prefab_draft.updated").await;
+    assert_eq!(event.details["asset"], "icon");
+    assert_eq!(event.details["source"], "steamgriddb");
+    assert_eq!(event.details["steamgriddb_image"], 11);
+    assert_eq!(event.details["author"], "artist");
+}
+
+#[tokio::test]
+async fn a_steamgriddb_outage_falls_back_to_steam() {
+    let platform = Platform::start().await;
+    counter_strike(&platform);
+    steamgriddb_with_an_icon(&platform).await;
+    *platform.admin.steam_grid.unavailable.lock().unwrap() = true;
+    let draft = steam_draft(&platform, 730).await;
+
+    let imported = platform
+        .call(
+            Method::POST,
+            &format!("{}/assets/steam", path(&draft)),
+            None,
+        )
+        .await;
+
+    assert_eq!(imported.status, StatusCode::OK, "{}", imported.json);
+    assert_eq!(
+        imported.json["sources"],
+        json!({ "icon": "steam", "thumbnail": "steam" })
+    );
 }

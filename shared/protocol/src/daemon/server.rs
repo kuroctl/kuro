@@ -112,6 +112,17 @@ pub enum ServerState {
     Deleted,
 }
 
+/// Issue d'une action de prefab (ADR-0039), en réponse à `server.action`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ActionResult {
+    pub server_id: Uuid,
+    pub exit_code: i64,
+    /// stdout et stderr, tronqués à [`crate::limits::MAX_ACTION_OUTPUT_BYTES`].
+    pub output: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub truncated: bool,
+}
+
 /// Espace disque occupé par un serveur : volumes et sauvegardes (ADR-0019).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServerDisk {

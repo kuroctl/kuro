@@ -11,6 +11,8 @@ mod provider;
 pub mod settings;
 mod sources;
 pub mod steam;
+pub mod steam_store;
+pub mod steamgriddb;
 
 pub use provider::{
     Category, Compat, ContentProvider, Dependency, InstalledRef, Loader, Project, ProjectHit,

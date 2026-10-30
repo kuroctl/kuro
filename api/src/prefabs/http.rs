@@ -495,7 +495,7 @@ pub struct OptimizeReportDto {
     pub failed: Vec<FailedAssetDto>,
 }
 
-/// Met les images de la version aux dimensions convenues (icône 512×512, bannière 1600×600,
+/// Met les images de la version aux dimensions convenues (icône 64×64, bannière 1600×600,
 /// vignette 600×800 ; recadrées au centre, jamais agrandies) et les compresse sans perte.
 /// Permission : `prefabs.manage`.
 #[utoipa::path(post, path = "/api/admin/v1/prefabs/{id}/{version}/assets/optimize", tag = "admin-prefabs",

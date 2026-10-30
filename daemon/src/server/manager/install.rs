@@ -257,6 +257,7 @@ impl Manager {
                 );
                 let user = numeric_owner(&service_of(deploy, spec)?.user);
                 let extras = Extras {
+                    clear_entrypoint: false,
                     file: script.as_deref().map(|script| ContainerFile {
                         dir: STEAM_LOGIN_DIR,
                         name: STEAM_LOGIN_FILE,
@@ -296,7 +297,13 @@ impl Manager {
                 let image = image.as_deref().unwrap_or(&spec.image);
                 let command = vec!["sh".to_owned(), "-c".to_owned(), run.clone()];
                 let env = vec!["HOME=/tmp".to_owned()];
-                self.run_container(deploy, spec, image, command, env, &Extras::default())
+                // Le point d'entrée de l'image est effacé : `sh -c` s'exécute tel quel, même
+                // dans une image dont le point d'entrée est un binaire (ADR-0039).
+                let extras = Extras {
+                    clear_entrypoint: true,
+                    ..Extras::default()
+                };
+                self.run_container(deploy, spec, image, command, env, &extras)
                     .await?;
             }
         }
@@ -353,6 +360,7 @@ impl Manager {
                 server_id: id,
                 image,
                 command,
+                clear_entrypoint: extras.clear_entrypoint,
                 env,
                 user: &service.user,
                 mounts,
@@ -494,6 +502,8 @@ pub(super) fn segments(
 /// Ce qu'une étape en conteneur ajoute à sa commande.
 #[derive(Default)]
 struct Extras<'a> {
+    /// Point d'entrée de l'image effacé : la commande s'exécute telle quelle (`script`).
+    clear_entrypoint: bool,
     /// Fichier déposé avant le démarrage.
     file: Option<ContainerFile<'a>>,
     /// Masqué dans chaque ligne relayée.

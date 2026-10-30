@@ -20,6 +20,8 @@ assets:
   icon: assets/icon.png
   cover: assets/banner.webp
   thumbnail: assets/thumbnail.webp
+# Jeu sur le magasin Steam : le Studio en importe les images (ADR-0039).
+steam: { app: 892970 }
 
 services:
   server:

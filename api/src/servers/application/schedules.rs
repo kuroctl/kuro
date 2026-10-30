@@ -34,6 +34,7 @@ pub enum StepKind {
     Command,
     Power,
     Backup,
+    Action,
 }
 
 /// Étape demandée, validée par [`create`] ou [`update`].
@@ -62,6 +63,7 @@ pub fn step_permission(action: &StepAction) -> Permission {
         StepAction::Command(_) => Permission::ServersConsoleWrite,
         StepAction::Power(_) => Permission::ServersPower,
         StepAction::Backup(_) => Permission::ServersBackupsCreate,
+        StepAction::Action(_) => Permission::ServersActionsRun,
     }
 }
 
@@ -123,6 +125,9 @@ fn validate_steps(inputs: &[StepInput]) -> Result<Vec<Step>, ServersError> {
                     if crate::validation::is_display_text(name, 1, MAX_NAME_CHARS) =>
                 {
                     StepAction::Backup(Some(name.to_owned()))
+                }
+                (StepKind::Action, Some(key)) if kuro_prefab::template::is_slug(key) => {
+                    StepAction::Action(key.to_owned())
                 }
                 _ => return Err(invalid(field("value"), ErrorCode::InvalidScheduleStep)),
             };
@@ -243,6 +248,41 @@ fn audit_details(validated: &Validated, enabled: bool) -> serde_json::Value {
     })
 }
 
+/// Une étape « action » vise une action planifiable du prefab du serveur (ADR-0039).
+async fn check_action_steps(
+    state: &ServersState,
+    server_id: Uuid,
+    steps: &[Step],
+) -> Result<(), ServersError> {
+    let keys: Vec<(usize, &str)> = steps
+        .iter()
+        .enumerate()
+        .filter_map(|(index, step)| match &step.action {
+            StepAction::Action(key) => Some((index, key.as_str())),
+            _ => None,
+        })
+        .collect();
+    if keys.is_empty() {
+        return Ok(());
+    }
+    let server = super::get(state, server_id).await?.server;
+    let package = crate::prefabs::application::package(
+        &state.pool,
+        &server.prefab_id,
+        &server.prefab_version,
+    )
+    .await?;
+    for (index, key) in keys {
+        if !super::actions::is_schedulable(&package.manifest, key) {
+            return Err(invalid(
+                format!("steps.{index}.value"),
+                ErrorCode::ActionNotSchedulable,
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub async fn create(
     state: &ServersState,
     context: &AuditContext,
@@ -252,6 +292,7 @@ pub async fn create(
 ) -> Result<ScheduleView, ServersError> {
     let validated = validate(input)?;
     require_steps(authority, &validated.steps)?;
+    check_action_steps(state, server_id, &validated.steps).await?;
     let mut tx = AuditedTx::begin(&state.pool, context).await?;
     if !ServerRepository::lock(&mut tx, server_id).await? {
         return Err(ServersError::NotFound);

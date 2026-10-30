@@ -19,7 +19,8 @@ pub mod validate;
 pub use manifest::Manifest;
 pub use package::{LoadError, Package};
 pub use resolve::{
-    BackupPlan, ContentPlan, ContentSource, Deployment, ResolveError, SteamAccountRequired,
-    resolve, resolve_backup, resolve_content, resolve_install, with_steam_login,
+    ActionError, BackupPlan, ContentPlan, ContentSource, Deployment, ResolveError, ResolvedAction,
+    SteamAccountRequired, resolve, resolve_action, resolve_backup, resolve_content,
+    resolve_install, with_steam_login,
 };
 pub use validate::Issue;

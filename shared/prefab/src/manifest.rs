@@ -31,6 +31,9 @@ pub struct Manifest {
     pub requires: Requires,
     #[serde(default)]
     pub assets: Assets,
+    /// Jeu sur Steam (ADR-0039) : métadonnée, sans effet sur le déploiement.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub steam: Option<SteamGame>,
     pub services: IndexMap<String, Service>,
     #[serde(default)]
     pub settings: Settings,
@@ -42,6 +45,10 @@ pub struct Manifest {
     pub backup: Option<Backup>,
     #[serde(default)]
     pub content: IndexMap<String, ContentSlot>,
+    /// Actions ponctuelles (ADR-0039) : une commande typée, exécutée dans un service en marche
+    /// à la demande d'un admin, ou par une tâche planifiée si elle est `schedulable`.
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub actions: IndexMap<String, ActionDecl>,
     pub lifecycle: Lifecycle,
     #[serde(default)]
     pub migrations: Vec<Migration>,
@@ -135,6 +142,14 @@ pub struct Assets {
     /// Vignette portrait (jaquette), pour les cartes du catalogue.
     #[serde(default)]
     pub thumbnail: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SteamGame {
+    /// Identifiant d'application **du jeu** sur le magasin Steam (730 pour Counter-Strike 2),
+    /// pas celui de son serveur dédié : le Studio en tire les images du prefab.
+    pub app: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -375,8 +390,11 @@ pub struct FileDecl {
     pub mode: FileMode,
     #[serde(default)]
     pub template: Option<String>,
+    /// `managed-keys` : clé (ou chemin `a.b.c` en JSON et YAML) → valeur. Une chaîne est un
+    /// gabarit ; un nombre, un booléen ou une liste de scalaires gardent leur type en JSON et
+    /// YAML (ADR-0039).
     #[serde(default)]
-    pub keys: IndexMap<String, String>,
+    pub keys: IndexMap<String, Value>,
     #[serde(default = "default_true")]
     pub editable: bool,
 }
@@ -737,6 +755,31 @@ pub enum Ready {
     Healthcheck(bool),
 }
 
+/// Action d'un prefab (ADR-0039). La commande est une liste d'arguments, jamais une ligne de
+/// shell ; un paramètre n'y entre que comme argument entier (`"{{ params.id }}"`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ActionDecl {
+    pub service: String,
+    pub command: Vec<String>,
+    /// Paramètres typés comme les settings (`string` à motif, `int` borné, `bool`, `enum`).
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub params: IndexMap<String, Field>,
+    /// Durée maximale en secondes (30 par défaut, 300 au plus).
+    #[serde(default = "default_action_timeout")]
+    pub timeout: u32,
+    /// Peut être une étape de tâche planifiée (ADR-0022) : sans paramètre obligatoire.
+    #[serde(default)]
+    pub schedulable: bool,
+}
+
+fn default_action_timeout() -> u32 {
+    30
+}
+
+/// Durée maximale d'une action.
+pub const MAX_ACTION_TIMEOUT_SECS: u32 = 300;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Stop {
@@ -752,6 +795,14 @@ pub enum Signal {
     Int,
     #[serde(rename = "SIGQUIT")]
     Quit,
+    /// Arrêt en douceur d'Apache (images officielles), ADR-0039.
+    #[serde(rename = "SIGWINCH")]
+    Winch,
+    #[serde(rename = "SIGHUP")]
+    Hup,
+    /// Le `STOPSIGNAL` déclaré par l'image (SIGTERM à défaut), ADR-0039.
+    #[serde(rename = "image")]
+    Image,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

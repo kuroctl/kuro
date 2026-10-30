@@ -144,6 +144,66 @@ fn wordpress_splits_resources_between_its_services() {
 }
 
 #[test]
+fn the_host_of_the_site_is_available_alone() {
+    // Domaines de confiance (Nextcloud, Django…) : le nom sans schéma (ADR-0039).
+    let variant = Variant::of("wordpress", |text| {
+        text.replacen(
+            "      WORDPRESS_DB_HOST: db\n",
+            "      WORDPRESS_DB_HOST: db\n      KURO_TRUSTED_HOST: \"{{ server.web_host }}\"\n",
+            1,
+        )
+    });
+    let package = variant.load().unwrap();
+    let mut settings = apply(&package.manifest, None, &Map::new()).unwrap();
+    settings.insert("db_password".to_owned(), json!("x"));
+    let allocations = BTreeMap::new();
+    let mut deployment = deployment(&settings, &allocations);
+    deployment.web_url = Some(WEB_URL.to_owned());
+
+    let deploy = resolve(&package, &deployment).unwrap();
+
+    let web = deploy.services.iter().find(|s| s.name == "web").unwrap();
+    assert_eq!(web.env["KURO_TRUSTED_HOST"], "abc123defg.web.kuroctl.test");
+}
+
+#[test]
+fn the_stop_signal_of_the_image_and_sigwinch_are_accepted() {
+    for (signal, expected) in [
+        ("image", StopSpec::Image),
+        (
+            "SIGWINCH",
+            StopSpec::Signal(kuro_protocol::api::server::StopSignal::Winch),
+        ),
+        (
+            "SIGHUP",
+            StopSpec::Signal(kuro_protocol::api::server::StopSignal::Hup),
+        ),
+    ] {
+        let variant = Variant::of("wordpress", |text| {
+            text.replacen(
+                "stop: { signal: SIGTERM }",
+                &format!("stop: {{ signal: {signal} }}"),
+                1,
+            )
+        });
+        let package = variant.load().unwrap();
+        let mut settings = apply(&package.manifest, None, &Map::new()).unwrap();
+        settings.insert("db_password".to_owned(), json!("x"));
+        let allocations = BTreeMap::new();
+        let mut deployment = deployment(&settings, &allocations);
+        deployment.web_url = Some(WEB_URL.to_owned());
+
+        let deploy = resolve(&package, &deployment).unwrap();
+
+        assert_eq!(deploy.lifecycle.stop, expected, "{signal}");
+    }
+    let killer = Variant::of("wordpress", |text| {
+        text.replacen("stop: { signal: SIGTERM }", "stop: { signal: SIGKILL }", 1)
+    });
+    assert!(killer.load().is_err(), "SIGKILL accepted");
+}
+
+#[test]
 fn a_web_prefab_needs_the_address_of_its_site() {
     // Sans domaine des sites dans la zone DNS, l'API refuse le serveur avant d'en arriver là ;
     // la résolution reste explicite si elle est atteinte.
@@ -418,4 +478,155 @@ fn active_packs_are_registered_in_the_world_by_type() {
         file("world_resource_packs.json"),
         [json!([{ "pack_id": "r-1", "version": [1, 2, 0] }])]
     );
+}
+
+/// WordPress avec un fichier JSON à clés gérées : chemins, types et listes (ADR-0039).
+fn wordpress_with_json_keys(keys: &str, format: &str) -> Variant {
+    let variant = Variant::copy("wordpress");
+    let manifest_path = variant.path().join("prefab.yaml");
+    let manifest = std::fs::read_to_string(&manifest_path).unwrap();
+    let manifest = manifest.replacen(
+        "files:
+",
+        &format!(
+            "files:
+  kuro-json:
+    service: web
+    path: /var/www/html/kuro.{format}
+    format: {format}
+    mode: managed-keys
+    keys:
+{keys}"
+        ),
+        1,
+    );
+    std::fs::write(&manifest_path, manifest).unwrap();
+    for lang in ["fr", "en"] {
+        let path = variant.path().join("locales").join(format!("{lang}.json"));
+        let mut locale: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        locale["files"]["kuro-json"] = json!({ "description": "Kuro keys" });
+        std::fs::write(&path, serde_json::to_string_pretty(&locale).unwrap()).unwrap();
+    }
+    variant
+}
+
+#[test]
+fn managed_keys_keep_their_types_in_json_and_render_their_templates() {
+    let variant = wordpress_with_json_keys(
+        "      gateway.port: 8080
+      gateway.debug: false
+      gateway.origin: \"{{ server.web_url }}\"
+      gateway.trusted: [\"10.0.0.0/8\", \"{{ server.web_host }}\"]
+",
+        "json",
+    );
+    let package = variant.load().unwrap();
+    let mut settings = apply(&package.manifest, None, &Map::new()).unwrap();
+    settings.insert("db_password".to_owned(), json!("x"));
+    let allocations = BTreeMap::new();
+    let mut deployment = deployment(&settings, &allocations);
+    deployment.web_url = Some(WEB_URL.to_owned());
+
+    let deploy = resolve(&package, &deployment).unwrap();
+
+    let file = deploy
+        .files
+        .iter()
+        .find(|f| f.path == "/var/www/html/kuro.json")
+        .unwrap();
+    let FileContent::ManagedKeys { keys } = &file.content else {
+        panic!("{:?}", file.content);
+    };
+    assert_eq!(keys["gateway.port"], json!(8080));
+    assert_eq!(keys["gateway.debug"], json!(false));
+    assert_eq!(keys["gateway.origin"], json!(WEB_URL));
+    assert_eq!(
+        keys["gateway.trusted"],
+        json!(["10.0.0.0/8", "abc123defg.web.kuroctl.test"])
+    );
+}
+
+#[test]
+fn managed_keys_refuse_objects_bad_paths_and_lists_in_flat_formats() {
+    for (name, keys, format) in [
+        (
+            "nested object",
+            "      gateway: { port: 8080 }
+",
+            "json",
+        ),
+        (
+            "bad path",
+            "      \"gateway..port\": 8080
+",
+            "json",
+        ),
+        (
+            "list in properties",
+            "      trusted: [\"a\", \"b\"]
+",
+            "properties",
+        ),
+        (
+            "number in ini",
+            "      port: 8080
+",
+            "ini",
+        ),
+    ] {
+        let variant = wordpress_with_json_keys(keys, format);
+        assert!(variant.load().is_err(), "{name}: accepted");
+    }
+    let yaml = wordpress_with_json_keys(
+        "      server.port: 9000
+",
+        "yaml",
+    );
+    assert!(yaml.load().is_ok(), "yaml with a number refused");
+}
+
+#[test]
+fn actions_render_their_parameters_as_whole_arguments() {
+    use kuro_prefab::{ActionError, resolve_action};
+
+    let package = official("wordpress");
+    let mut settings = apply(&package.manifest, None, &Map::new()).unwrap();
+    settings.insert("db_password".to_owned(), json!("x"));
+    let allocations = BTreeMap::new();
+    let mut deployment = deployment(&settings, &allocations);
+    deployment.web_url = Some(WEB_URL.to_owned());
+
+    // Paramètre par défaut.
+    let action = resolve_action(&package, &deployment, "fix-owner", &Map::new()).unwrap();
+    assert_eq!(action.service, "web");
+    assert_eq!(action.command, ["chown", "-R", "33:33", "/var/www/html"]);
+    assert_eq!(action.timeout_secs, 120);
+
+    // Paramètre fourni, validé par son motif ; jamais concaténé : un seul argument.
+    let mut params = Map::new();
+    params.insert("path".to_owned(), json!("/var/www/html/wp-content/uploads"));
+    let action = resolve_action(&package, &deployment, "fix-owner", &params).unwrap();
+    assert_eq!(action.command[3], "/var/www/html/wp-content/uploads");
+    assert_eq!(action.command.len(), 4);
+
+    params.insert("path".to_owned(), json!("/etc; rm -rf /"));
+    assert!(matches!(
+        resolve_action(&package, &deployment, "fix-owner", &params),
+        Err(ActionError::InvalidParam { name, .. }) if name == "path"
+    ));
+    params.clear();
+    params.insert("nope".to_owned(), json!("x"));
+    assert!(matches!(
+        resolve_action(&package, &deployment, "fix-owner", &params),
+        Err(ActionError::UnknownParam(name)) if name == "nope"
+    ));
+    assert!(matches!(
+        resolve_action(&package, &deployment, "nope", &Map::new()),
+        Err(ActionError::UnknownAction(_))
+    ));
+
+    let cron = resolve_action(&package, &deployment, "cron", &Map::new()).unwrap();
+    assert_eq!(cron.command, ["php", "-f", "/var/www/html/wp-cron.php"]);
+    assert!(package.manifest.actions["cron"].schedulable);
 }

@@ -85,7 +85,7 @@ async fn the_workshop_waits_for_its_steam_key() {
         .iter()
         .map(|s| s["provider"].as_str().unwrap())
         .collect();
-    assert_eq!(providers, ["curseforge", "steam-workshop"]);
+    assert_eq!(providers, ["curseforge", "steam-workshop", "steamgriddb"]);
 
     let refused = platform
         .call(

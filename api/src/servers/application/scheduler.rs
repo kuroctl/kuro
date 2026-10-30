@@ -263,6 +263,18 @@ async fn run_step(
                 .map_err(|error| reason_code(&error))?;
             wait_for_backup(state, server_id, backup.id).await
         }
+        // Action du prefab, sans paramètre : un code de sortie non nul est un échec.
+        StepAction::Action(key) => {
+            let outcome =
+                super::actions::run(state, context, server_id, key, &serde_json::Map::new())
+                    .await
+                    .map_err(|error| reason_code(&error))?;
+            if outcome.exit_code == 0 {
+                Ok(())
+            } else {
+                Err(format!("exit_code_{}", outcome.exit_code))
+            }
+        }
     }
 }
 

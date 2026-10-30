@@ -1,7 +1,8 @@
 //! Gabarits `{{ référence | filtre }}`, sans logique (ADR-0011).
 //!
 //! Références : `settings.<champ>`, `ports.<nom>.host` / `.container`, `resources.memory_mb` /
-//! `.cpu_percent`, `server.id` / `.name` / `.web_url` (ADR-0038), `content.<emplacement>.ids`,
+//! `.cpu_percent`, `server.id` / `.name` / `.web_url` / `.web_host` (ADR-0038, ADR-0039),
+//! `content.<emplacement>.ids`, `params.<nom>` (dans la commande d'une action seulement),
 //! `content.<emplacement>.values.<champ>` (ADR-0030).
 //! Filtres : `join("sep")`, `prefix("…")` (chaque élément d'une liste), `lower`, `upper`,
 //! `default("…")`. Rien d'autre : un prefab ne peut
@@ -40,9 +41,14 @@ pub enum Reference {
     ServerName,
     /// `https://<identifiant>.<domaine des sites>` d'un serveur web (ADR-0038).
     ServerWebUrl,
+    /// Le nom d'hôte seul (`<identifiant>.<domaine des sites>`, ADR-0039) : domaines de
+    /// confiance, `ALLOWED_HOSTS`…
+    ServerWebHost,
     ContentIds(String),
     /// Valeurs d'un champ de l'emplacement, pour tous ses contenus actifs.
     ContentValues(String, String),
+    /// Paramètre d'une action (ADR-0039), argument entier d'une commande.
+    Param(String),
 }
 
 impl Reference {
@@ -65,10 +71,12 @@ impl Reference {
             ["server", "id"] => Ok(Self::ServerId),
             ["server", "name"] => Ok(Self::ServerName),
             ["server", "web_url"] => Ok(Self::ServerWebUrl),
+            ["server", "web_host"] => Ok(Self::ServerWebHost),
             ["content", slot, "ids"] => Ok(Self::ContentIds(name(slot)?)),
             ["content", slot, "values", field] => {
                 Ok(Self::ContentValues(name(slot)?, name(field)?))
             }
+            ["params", param] => Ok(Self::Param(name(param)?)),
             _ => Err(invalid()),
         }
     }
@@ -85,8 +93,10 @@ impl fmt::Display for Reference {
             Self::ServerId => f.write_str("server.id"),
             Self::ServerName => f.write_str("server.name"),
             Self::ServerWebUrl => f.write_str("server.web_url"),
+            Self::ServerWebHost => f.write_str("server.web_host"),
             Self::ContentIds(slot) => write!(f, "content.{slot}.ids"),
             Self::ContentValues(slot, field) => write!(f, "content.{slot}.values.{field}"),
+            Self::Param(param) => write!(f, "params.{param}"),
         }
     }
 }
@@ -231,9 +241,13 @@ pub struct Context<'a> {
     /// Adresse du site, pour un serveur dont le prefab a un port web et dont la zone DNS a un
     /// domaine des sites ; absente sinon (`server.web_url` est alors sans valeur).
     pub server_web_url: Option<String>,
+    /// Nom d'hôte du site, dérivé de l'adresse.
+    pub server_web_host: Option<String>,
     pub content: BTreeMap<String, Vec<String>>,
     /// `<emplacement>.<champ>` → valeurs des contenus actifs, dans l'ordre d'ajout.
     pub content_values: BTreeMap<String, Vec<String>>,
+    /// Paramètres d'une action, validés (ADR-0039) ; vides hors d'une action.
+    pub params: BTreeMap<String, Value>,
 }
 
 enum Rendered {
@@ -271,6 +285,7 @@ fn render_expr(
         Reference::ServerId => Some(Rendered::Text(context.server_id.clone())),
         Reference::ServerName => Some(Rendered::Text(context.server_name.clone())),
         Reference::ServerWebUrl => context.server_web_url.clone().map(Rendered::Text),
+        Reference::ServerWebHost => context.server_web_host.clone().map(Rendered::Text),
         Reference::ContentIds(slot) => Some(Rendered::List(
             context.content.get(slot).cloned().unwrap_or_default(),
         )),
@@ -281,6 +296,10 @@ fn render_expr(
                 .cloned()
                 .unwrap_or_default(),
         )),
+        Reference::Param(param) => context
+            .params
+            .get(param)
+            .map(|value| Rendered::Text(scalar(value))),
     };
 
     for filter in filters {
@@ -335,7 +354,7 @@ pub(crate) fn is_key(text: &str) -> bool {
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
 }
 
-pub(crate) fn is_slug(text: &str) -> bool {
+pub fn is_slug(text: &str) -> bool {
     let mut chars = text.chars();
     matches!(chars.next(), Some('a'..='z' | '0'..='9'))
         && text.len() <= 63
