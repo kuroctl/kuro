@@ -125,6 +125,7 @@ pub async fn enroll(options: &EnrollOptions) -> Result<Enrolled, EnrollError> {
             filter: "info".to_owned(),
         },
         servers: crate::config::ServersConfig::default(),
+        web: crate::web::WebConfig::default(),
     };
     files.write(
         &response.ca_pem,

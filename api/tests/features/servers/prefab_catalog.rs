@@ -313,7 +313,7 @@ async fn reloading_ignores_fields_added_to_the_model_and_adds_images_even_on_con
     assert_eq!(reloaded.json["conflicts"], json!(["terraria@1.0.0"]));
     let unchanged = reloaded.json["unchanged"].as_array().unwrap();
     assert!(
-        unchanged.contains(&json!("wordpress@1.0.0")),
+        unchanged.contains(&json!("wordpress@1.1.0")),
         "{unchanged:?}"
     );
     let added = reloaded.json["assets_added"].as_array().unwrap();

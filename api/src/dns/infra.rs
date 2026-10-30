@@ -11,6 +11,8 @@ pub struct ZoneRecord {
     pub provider: String,
     pub base_domain: String,
     pub nodes_label: String,
+    /// Domaine des sites web (ADR-0038) ; absent : aucun prefab web n'est déployable.
+    pub sites_domain: Option<String>,
     pub provider_zone: String,
     /// Jeton chiffré.
     pub token: Vec<u8>,
@@ -23,6 +25,7 @@ pub struct ZoneFields<'a> {
     pub provider: &'a str,
     pub base_domain: &'a str,
     pub nodes_label: &'a str,
+    pub sites_domain: Option<&'a str>,
     pub provider_zone: &'a str,
     pub token: &'a [u8],
     pub ttl: i32,
@@ -58,6 +61,8 @@ pub struct ServerName {
     pub prefab_id: String,
     pub prefab_version: String,
     pub dns_label: Option<String>,
+    /// Identifiant du site (ADR-0038), pour les serveurs dont le prefab a un port web.
+    pub web_id: Option<String>,
 }
 
 pub struct DnsRepository;
@@ -67,7 +72,8 @@ impl DnsRepository {
     pub async fn zone(conn: &mut PgConnection) -> Result<Option<ZoneRecord>, sqlx::Error> {
         sqlx::query_as!(
             ZoneRecord,
-            "SELECT id, provider, base_domain, nodes_label, provider_zone, token, ttl, enabled, updated_at
+            "SELECT id, provider, base_domain, nodes_label, sites_domain, provider_zone, token, ttl,
+                    enabled, updated_at
              FROM dns_zones ORDER BY created_at LIMIT 1"
         )
         .fetch_optional(conn)
@@ -80,8 +86,9 @@ impl DnsRepository {
         fields: &ZoneFields<'_>,
     ) -> Result<(), sqlx::Error> {
         sqlx::query!(
-            "INSERT INTO dns_zones (id, provider, base_domain, nodes_label, provider_zone, token, ttl, enabled)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+            "INSERT INTO dns_zones (id, provider, base_domain, nodes_label, provider_zone, token, ttl,
+                                    enabled, sites_domain)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
             id,
             fields.provider,
             fields.base_domain,
@@ -90,6 +97,7 @@ impl DnsRepository {
             fields.token,
             fields.ttl,
             fields.enabled,
+            fields.sites_domain,
         )
         .execute(conn)
         .await?;
@@ -103,7 +111,8 @@ impl DnsRepository {
     ) -> Result<(), sqlx::Error> {
         sqlx::query!(
             "UPDATE dns_zones SET provider = $2, base_domain = $3, nodes_label = $4,
-                provider_zone = $5, token = $6, ttl = $7, enabled = $8, updated_at = now()
+                provider_zone = $5, token = $6, ttl = $7, enabled = $8, sites_domain = $9,
+                updated_at = now()
              WHERE id = $1",
             id,
             fields.provider,
@@ -113,6 +122,7 @@ impl DnsRepository {
             fields.token,
             fields.ttl,
             fields.enabled,
+            fields.sites_domain,
         )
         .execute(conn)
         .await?;
@@ -223,7 +233,8 @@ impl DnsRepository {
     pub async fn servers(conn: &mut PgConnection) -> Result<Vec<ServerName>, sqlx::Error> {
         sqlx::query_as!(
             ServerName,
-            "SELECT s.id, s.name, n.name AS node_name, s.prefab_id, s.prefab_version, s.dns_label
+            "SELECT s.id, s.name, n.name AS node_name, s.prefab_id, s.prefab_version, s.dns_label,
+                    s.web_id
              FROM servers s JOIN nodes n ON n.id = s.node_id
              WHERE s.state <> 'deleting'"
         )

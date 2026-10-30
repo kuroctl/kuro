@@ -113,6 +113,11 @@ pub async fn create(
     }
     let (public, secrets) = split(&package.manifest, values);
     let sealed = seal_secrets(state, &secrets)?;
+    // Site web (ADR-0038) : un identifiant sous le domaine des sites, exigé par le prefab.
+    let web_id = match package.manifest.web_port() {
+        Some(_) => Some(super::web::new_web_id(&state.pool).await?),
+        None => None,
+    };
 
     let public_ports: Vec<String> = package
         .manifest
@@ -165,6 +170,7 @@ pub async fn create(
             disk_mb: resources.disk_mb,
             start_when_installed: input.start_when_installed,
             backup_limit: resources.backup_limit,
+            web_id: web_id.as_deref(),
         },
     )
     .await?;
@@ -205,6 +211,7 @@ pub async fn create(
                 "cpu_percent": resources.cpu_percent,
                 "disk_mb": resources.disk_mb,
                 "ports": ports,
+                "web_id": web_id,
                 "start_when_installed": input.start_when_installed,
                 "backup_limit": resources.backup_limit,
             })),

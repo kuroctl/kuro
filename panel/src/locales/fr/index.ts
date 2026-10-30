@@ -1125,6 +1125,8 @@ export default {
       baseDomainHelp: 'Un serveur nommé « survie » devient survie.{domain}. Le domaine doit appartenir à une zone du fournisseur.',
       nodesLabel: 'Sous-domaine des nœuds',
       nodesLabelHelp: 'Les nœuds sont publiés sous ce sous-domaine, par exemple {example}.',
+      sitesDomain: 'Domaine des sites web',
+      sitesDomainHelp: 'Facultatif. Chaque site web (WordPress…) est servi en HTTPS à une adresse aléatoire sous ce domaine, comme abc123defg.{domain}. Dans la même zone, à l’écart du domaine des serveurs et des nœuds. Sans lui, un prefab web n’est pas déployable.',
       token: 'Jeton d’API',
       tokenStored: 'enregistré',
       tokenKeep: 'Laissez vide pour garder le jeton enregistré. Il n’est jamais réaffiché.',
@@ -1171,6 +1173,13 @@ export default {
       saved: 'Nom DNS enregistré.',
       cleared: 'Nom DNS retiré.',
       copy: 'Copier {address}',
+    },
+    site: {
+      label: '(site web)',
+      noDomain: 'Site web sans adresse : renseignez le domaine des sites web dans Paramètres › DNS, puis redéployez.',
+      unknown: 'En attente du nœud : l’état du site n’est pas encore connu.',
+      proxyUnavailable: 'Le proxy du nœud est indisponible, le site ne répond pas.',
+      certificatePending: 'Certificat en cours d’obtention : le site répondra dès qu’il sera délivré (le nom doit joindre le nœud sur les ports 80 et 443).',
     },
   },
   nodes: {

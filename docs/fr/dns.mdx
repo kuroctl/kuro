@@ -49,3 +49,42 @@ main.
 
 Les enregistrements apparaissent dans la minute, en « DNS uniquement » (nuage gris) : le trafic
 d'un jeu ne passe pas par le proxy Cloudflare.
+
+## Sites web
+
+Un prefab web (WordPress…) n'est pas publié sur un port : chaque site reçoit une adresse HTTPS
+sous le **domaine des sites web** de vos paramètres DNS, par exemple
+`abcdefg234.web.example.com`. L'identifiant est aléatoire : ni collision, ni nom trompeur. Sur
+chaque nœud qui héberge un site, Kuro lance un proxy (Caddy) qui obtient les certificats
+Let's Encrypt et relaie vers le conteneur du site, sans rien exposer d'autre.
+
+<Steps>
+  <Step title="Choisir le domaine">
+    Dans **Paramètres › DNS**, renseignez le domaine des sites web : dans la même zone que le
+    domaine des serveurs, à l'écart de celui-ci et du sous-domaine des nœuds (`web.example.com`
+    avec `play.example.com`, par exemple). Sans lui, un prefab web ne se déploie pas.
+  </Step>
+  <Step title="Ouvrir les ports 80 et 443 du nœud">
+    Le proxy écoute sur les ports 80 et 443 de chaque nœud qui sert des sites. Derrière un NAT,
+    redirigez-les vers le nœud : Let's Encrypt doit joindre le nom sur le port 80 pour délivrer
+    le certificat. L'installeur ouvre ces ports dans le pare-feu du rôle `node`.
+  </Step>
+  <Step title="Vérifier">
+    Sur la page du serveur, l'adresse du site est cliquable et son état indique si le proxy
+    tourne et si le certificat est obtenu.
+  </Step>
+</Steps>
+
+<Warning>
+  **Même domaine que le panel.** Un site hébergé sous votre domaine est « même site » que le
+  panel pour un navigateur. Kuro s'en protège (cookie `__Host-`, origine vérifiée), mais un
+  hébergeur qui ouvre des sites à des tiers gagne à inscrire son domaine des sites sur la
+  [Public Suffix List](https://publicsuffix.org/) : chaque site devient alors un domaine à part
+  entière pour les navigateurs comme pour les limites de Let's Encrypt (50 certificats par
+  semaine et par domaine enregistré). L'inscription prend plusieurs semaines.
+</Warning>
+
+Une machine qui porte l'API et un nœud a déjà Caddy sur les ports 80 et 443 : ne servez pas de
+sites depuis ce nœud, ou changez les ports du proxy (`[web]` dans `daemon.toml`,
+`http_port` et `https_port`) derrière une redirection. Sous Docker rootless, l'installeur règle
+`net.ipv4.ip_unprivileged_port_start` pour que le proxy puisse lier ces ports.

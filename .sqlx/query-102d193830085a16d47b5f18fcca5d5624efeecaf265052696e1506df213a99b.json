@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE dns_zones SET provider = $2, base_domain = $3, nodes_label = $4,\n                provider_zone = $5, token = $6, ttl = $7, enabled = $8, sites_domain = $9,\n                updated_at = now()\n             WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Bytea",
+        "Int4",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "102d193830085a16d47b5f18fcca5d5624efeecaf265052696e1506df213a99b"
+}

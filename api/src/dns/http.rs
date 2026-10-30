@@ -59,6 +59,13 @@ impl From<DnsError> for ApiError {
                 return Problem::invalid(FieldError::new("label", ErrorCode::InvalidDnsLabel))
                     .into();
             }
+            DnsError::InvalidSitesDomain => {
+                return Problem::invalid(FieldError::new(
+                    "sites_domain",
+                    ErrorCode::InvalidSitesDomain,
+                ))
+                .into();
+            }
             DnsError::LabelTaken => {
                 return Problem::invalid(FieldError::new("label", ErrorCode::DnsLabelTaken)).into();
             }
@@ -99,6 +106,8 @@ pub struct PublicZoneDto {
     /// `play.kuroctl.com` ; absent sans DNS configuré ou activé.
     pub base_domain: Option<String>,
     pub nodes_label: Option<String>,
+    /// Domaine des sites web (`web.kuroctl.com`, ADR-0038) ; absent : aucun site publié.
+    pub sites_domain: Option<String>,
 }
 
 /// Domaine des serveurs. Permission : `servers.read`.
@@ -113,7 +122,8 @@ pub async fn public_zone(
     let zone = dns::zone(&state).await?.filter(|z| z.enabled);
     Ok(Json(PublicZoneDto {
         base_domain: zone.as_ref().map(|z| z.base_domain.clone()),
-        nodes_label: zone.map(|z| z.nodes_label),
+        nodes_label: zone.as_ref().map(|z| z.nodes_label.clone()),
+        sites_domain: zone.and_then(|z| z.sites_domain),
     }))
 }
 
@@ -142,6 +152,8 @@ pub struct DnsSettingsDto {
     pub provider: Option<String>,
     pub base_domain: Option<String>,
     pub nodes_label: Option<String>,
+    /// Domaine des sites web (ADR-0038) ; absent : aucun prefab web n'est déployable.
+    pub sites_domain: Option<String>,
     pub ttl: Option<i32>,
     pub enabled: bool,
     /// Un jeton est enregistré ; sa valeur n'est jamais renvoyée.
@@ -165,6 +177,7 @@ async fn settings_dto(state: &DnsState) -> Result<DnsSettingsDto, ApiError> {
         provider: zone.as_ref().map(|z| z.provider.clone()),
         base_domain: zone.as_ref().map(|z| z.base_domain.clone()),
         nodes_label: zone.as_ref().map(|z| z.nodes_label.clone()),
+        sites_domain: zone.as_ref().and_then(|z| z.sites_domain.clone()),
         ttl: zone.as_ref().map(|z| z.ttl),
         enabled: zone.as_ref().is_some_and(|z| z.enabled),
         has_token: zone.is_some(),
@@ -206,6 +219,10 @@ pub struct DnsSettingsRequest {
     /// Sous-domaine des nœuds (`nodes` par défaut).
     #[serde(default)]
     pub nodes_label: Option<String>,
+    /// Domaine des sites web (`web.kuroctl.com`, ADR-0038), dans la même zone ; vide ou absent :
+    /// aucun prefab web n'est déployable.
+    #[serde(default)]
+    pub sites_domain: Option<String>,
     /// Jeton d'API ; absent : celui enregistré est gardé.
     #[serde(default)]
     pub token: Option<String>,
@@ -240,6 +257,7 @@ pub async fn put_settings(
             provider: request.provider,
             base_domain: request.base_domain,
             nodes_label: request.nodes_label.unwrap_or_else(|| "nodes".to_owned()),
+            sites_domain: request.sites_domain,
             token: request.token,
             ttl: request.ttl,
             enabled: request.enabled,

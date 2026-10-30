@@ -113,3 +113,54 @@ PATH=/tmp"
         assert!(check(&spec).is_err(), "{name}: accepted");
     }
 }
+
+/// Routes web (ADR-0038) : un nom d'hôte valide vers un port TCP déclaré d'un service du serveur.
+#[test]
+fn web_routes_point_to_a_declared_tcp_port() {
+    use kuro_protocol::api::server::{PortProtocol, PortSpec, WebRoute};
+
+    let mut spec = single(Uuid::now_v7());
+    spec.services[0].ports.push(PortSpec {
+        name: "http".to_owned(),
+        container_port: 8080,
+        protocol: PortProtocol::Tcp,
+        published: None,
+    });
+    let route = |host: &str, service: &str, port: u16| WebRoute {
+        host: host.to_owned(),
+        service: service.to_owned(),
+        container_port: port,
+    };
+
+    spec.web = vec![route("abcdefg234.web.kuroctl.test", "app", 8080)];
+    assert!(kuro_daemon::server::spec::check(&spec).is_ok());
+
+    for (name, routes) in [
+        (
+            "unknown service",
+            vec![route("abcdefg234.web.kuroctl.test", "nope", 8080)],
+        ),
+        (
+            "undeclared port",
+            vec![route("abcdefg234.web.kuroctl.test", "app", 80)],
+        ),
+        (
+            "invalid host",
+            vec![route("Abc.web.kuroctl.test", "app", 8080)],
+        ),
+        ("single label host", vec![route("localhost", "app", 8080)]),
+        (
+            "duplicate host",
+            vec![
+                route("abcdefg234.web.kuroctl.test", "app", 8080),
+                route("abcdefg234.web.kuroctl.test", "app", 8080),
+            ],
+        ),
+    ] {
+        spec.web = routes;
+        assert!(
+            kuro_daemon::server::spec::check(&spec).is_err(),
+            "{name}: accepted"
+        );
+    }
+}

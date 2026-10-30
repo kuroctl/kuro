@@ -13,3 +13,4 @@ mod spec_rules;
 mod specs;
 mod support;
 mod upload;
+mod web;

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // DNS des serveurs et des nœuds (ADR-0026) : zone chez le fournisseur, jeton d'API (jamais
-// renvoyé : un champ vide garde celui enregistré), test, synchronisation immédiate, suppression
-// de la zone, et liste des enregistrements créés par Kuro.
+// renvoyé : un champ vide garde celui enregistré), domaine des sites web (ADR-0038), test,
+// synchronisation immédiate, suppression de la zone, et liste des enregistrements créés par Kuro.
 import { CircleAlert, Info, RefreshCw, Trash2, Wifi } from '@lucide/vue'
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -36,7 +36,7 @@ const PROVIDERS = ['cloudflare'] as const
 const DEFAULT_NODES_LABEL = 'nodes'
 const DEFAULT_TTL = 300
 /** Champs que l'API peut refuser ; `label` désigne le sous-domaine des nœuds. */
-const FIELDS = ['base_domain', 'label', 'token', 'ttl'] as const
+const FIELDS = ['base_domain', 'label', 'sites_domain', 'token', 'ttl'] as const
 /** Refus du fournisseur : affichés sur place, avec leur explication. */
 const PROVIDER_ERRORS = ['dns_provider_unauthorized', 'dns_zone_not_found', 'dns_provider_unavailable', 'unknown_dns_provider']
 
@@ -52,6 +52,7 @@ const form = reactive({
   provider: 'cloudflare' as string,
   baseDomain: '',
   nodesLabel: DEFAULT_NODES_LABEL,
+  sitesDomain: '',
   token: '',
   ttl: DEFAULT_TTL as number | undefined,
   enabled: true,
@@ -66,6 +67,7 @@ function load(value: DnsSettings) {
   form.provider = value.provider ?? 'cloudflare'
   form.baseDomain = value.base_domain ?? ''
   form.nodesLabel = value.nodes_label ?? DEFAULT_NODES_LABEL
+  form.sitesDomain = value.sites_domain ?? ''
   form.ttl = value.ttl ?? DEFAULT_TTL
   form.enabled = value.configured ? value.enabled : true
   form.token = ''
@@ -102,6 +104,8 @@ const save = () =>
       provider: form.provider,
       base_domain: form.baseDomain.trim(),
       nodes_label: form.nodesLabel.trim() || DEFAULT_NODES_LABEL,
+      // Vide : aucun site (le champ est effacé côté API).
+      sites_domain: form.sitesDomain.trim() || null,
       ttl: form.ttl == null || Number.isNaN(form.ttl) ? null : form.ttl,
       enabled: form.enabled,
     }
@@ -193,6 +197,19 @@ const remove = () =>
                   <p v-else class="text-xs text-muted-foreground">
                     {{ t('dns.fields.nodesLabelHelp', { example: `node-1.${form.nodesLabel || DEFAULT_NODES_LABEL}.${form.baseDomain || 'play.example.com'}` }) }}
                   </p>
+                </div>
+                <div class="grid content-start gap-1.5">
+                  <Label for="dns-sites-domain">{{ t('dns.fields.sitesDomain') }}</Label>
+                  <Input
+                    id="dns-sites-domain"
+                    v-model="form.sitesDomain"
+                    placeholder="web.example.com"
+                    autocomplete="off"
+                    spellcheck="false"
+                    :aria-invalid="!!errors.sites_domain"
+                  />
+                  <p v-if="errors.sites_domain" class="text-xs text-destructive">{{ errors.sites_domain }}</p>
+                  <p v-else class="text-xs text-muted-foreground">{{ t('dns.fields.sitesDomainHelp', { domain: form.sitesDomain || 'web.example.com' }) }}</p>
                 </div>
                 <div class="grid content-start gap-1.5">
                   <Label for="dns-token">{{ t('dns.fields.token') }}</Label>

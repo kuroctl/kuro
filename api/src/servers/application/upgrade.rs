@@ -326,6 +326,12 @@ async fn apply(
         }
     }
     let (public, secrets) = split(&package.manifest, values);
+    // Prefab devenu web (ADR-0038) : le serveur reçoit son identifiant de site, ou l'adresse
+    // manque et la mise à jour est refusée.
+    let web_id = match (package.manifest.web_port(), &server.web_id) {
+        (Some(_), None) => Some(super::web::new_web_id(&state.pool).await?),
+        _ => None,
+    };
 
     let mut tx = AuditedTx::begin(&state.pool, context).await?;
     if !ServerRepository::lock(&mut tx, id).await? {
@@ -347,6 +353,9 @@ async fn apply(
             .ok_or(ServersError::Conflict(ErrorCode::NoFreeAllocation))?;
         AllocationRepository::assign(&mut tx, allocation.0, id, port).await?;
         assigned.push(allocation.0);
+    }
+    if let Some(web_id) = &web_id {
+        ServerRepository::set_web_id(&mut tx, id, web_id).await?;
     }
     ServerRepository::upgrade(
         &mut tx,

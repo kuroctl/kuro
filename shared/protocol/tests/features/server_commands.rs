@@ -7,6 +7,7 @@ use kuro_protocol::api::server::{
     FileContent, FileFormat, FileSpec, HealthcheckSpec, LifecycleSpec, Limits, PortProtocol,
     PortSpec, PowerAction, PublishedPort, ReadySpec, ServerDelete, ServerDeploy, ServerLimits,
     ServerPower, ServerSuspend, ServerSync, ServiceSpec, StopSignal, StopSpec, VolumeSpec,
+    WebRoute,
 };
 use kuro_protocol::{ApiMessage, Envelope, decode};
 use serde_json::json;
@@ -114,6 +115,7 @@ fn server_deploy_wire_format() {
             disk_bytes: 10_737_418_240,
             suspended: true,
             defer: false,
+            web: Vec::new(),
         }),
     };
 
@@ -198,6 +200,45 @@ fn deploy_from_an_older_api_has_no_quota_and_is_not_suspended() {
     };
     assert_eq!(deploy.disk_bytes, 0);
     assert!(!deploy.suspended);
+}
+
+#[test]
+fn a_web_route_is_carried_by_the_deploy_and_absent_without_a_site() {
+    let mut deploy = ServerDeploy {
+        server_id: server_id(),
+        services: vec![service("web")],
+        files: Vec::new(),
+        lifecycle: LifecycleSpec {
+            service: "web".to_owned(),
+            ready: None,
+            stop: StopSpec::Signal(StopSignal::Term),
+            stop_timeout_secs: 20,
+        },
+        install: None,
+        disk_bytes: 0,
+        suspended: false,
+        defer: false,
+        web: vec![WebRoute {
+            host: "abcdefg234.web.kuroctl.test".to_owned(),
+            service: "web".to_owned(),
+            container_port: 80,
+        }],
+    };
+    let encoded = serde_json::to_value(&deploy).unwrap();
+    assert_eq!(
+        encoded["web"],
+        json!([{ "host": "abcdefg234.web.kuroctl.test", "service": "web", "container_port": 80 }])
+    );
+    let decoded: ServerDeploy = serde_json::from_value(encoded).unwrap();
+    assert_eq!(decoded, deploy);
+
+    // Sans site, et pour une API antérieure qui ne connaît pas le champ.
+    deploy.web.clear();
+    let mut encoded = serde_json::to_value(&deploy).unwrap();
+    assert!(encoded.get("web").is_none());
+    encoded.as_object_mut().unwrap().remove("web");
+    let decoded: ServerDeploy = serde_json::from_value(encoded).unwrap();
+    assert!(decoded.web.is_empty());
 }
 
 #[test]

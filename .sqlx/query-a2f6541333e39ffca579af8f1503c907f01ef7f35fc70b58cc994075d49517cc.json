@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT s.id, s.name, n.name AS node_name, s.prefab_id, s.prefab_version, s.dns_label\n             FROM servers s JOIN nodes n ON n.id = s.node_id\n             WHERE s.state <> 'deleting'",
+  "query": "SELECT s.id, s.name, n.name AS node_name, s.prefab_id, s.prefab_version, s.dns_label,\n                    s.web_id\n             FROM servers s JOIN nodes n ON n.id = s.node_id\n             WHERE s.state <> 'deleting'",
   "describe": {
     "columns": [
       {
@@ -68,6 +68,17 @@
             "name": "dns_label"
           }
         }
+      },
+      {
+        "ordinal": 6,
+        "name": "web_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "web_id"
+          }
+        }
       }
     ],
     "parameters": {
@@ -79,8 +90,9 @@
       false,
       false,
       false,
+      true,
       true
     ]
   },
-  "hash": "e4e98f8770effb77201831c4c4021f13dbc3ef483080c28a5d5ec9f37f6bd935"
+  "hash": "a2f6541333e39ffca579af8f1503c907f01ef7f35fc70b58cc994075d49517cc"
 }

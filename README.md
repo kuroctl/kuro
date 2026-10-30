@@ -1,7 +1,7 @@
 <p align="center">
   <a href="https://kuroctl.com">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="site/public/assets/dark.png">
+      <source media="(prefers-color-scheme: dark)" srcset="site/public/assets/light-bg.png">
       <img src="site/public/assets/dark-bg.png" alt="Kuroctl" height="150">
     </picture>
   </a>

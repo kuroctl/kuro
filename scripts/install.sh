@@ -206,6 +206,7 @@ docker_needed=false
 if has_role node; then docker_needed=true; fi
 if has_role api && $api_first_install && [ -z "$database_url" ]; then docker_needed=true; fi
 docker_present=false
+docker_installed_now=false
 docker info >/dev/null 2>&1 && docker_present=true
 
 ssh_port() {
@@ -237,6 +238,8 @@ print_plan() {
     echo "  firewall ufw: deny incoming, allow SSH on port $(ssh_port) (rate limited)"
     if has_role api; then
       echo "  firewall ufw: allow 80/tcp, 443/tcp (Caddy) and $daemon_port/tcp (daemons)"
+    elif has_role node; then
+      echo "  firewall ufw: allow 80/tcp, 443/tcp (web sites proxy)"
     fi
     if has_role node; then
       if [ -n "$ports" ]; then
@@ -330,11 +333,39 @@ configure_firewall() {
     ufw allow 443/tcp >/dev/null
     ufw allow "$daemon_port/tcp" >/dev/null
   fi
+  if has_role node; then
+    # Proxy des sites web du nœud (ADR-0038) : HTTPS et défis ACME.
+    ufw allow 80/tcp >/dev/null
+    ufw allow 443/tcp >/dev/null
+  fi
   if has_role node && [ -n "$ports" ]; then
     ufw allow "${ports/-/:}/tcp" >/dev/null
     ufw allow "${ports/-/:}/udp" >/dev/null
   fi
   ufw --force enable >/dev/null
+}
+
+# Réglages de Docker pour un nœud qui sert des sites web (ADR-0038) : des réseaux par serveur en
+# nombre (les pools par défaut s'arrêtent vers trente), et sous Docker rootless le droit de lier
+# les ports 80 et 443. Jamais sur un Docker déjà configuré : son `daemon.json` est à son admin.
+tune_docker_for_node() {
+  if $docker_installed_now && [ ! -e /etc/docker/daemon.json ]; then
+    step "configuring docker address pools for per-server networks"
+    install -d -m 0755 /etc/docker
+    cat >/etc/docker/daemon.json <<'EOF'
+{
+  "default-address-pools": [
+    { "base": "10.200.0.0/16", "size": 24 }
+  ]
+}
+EOF
+    systemctl restart docker
+  fi
+  if docker info --format '{{.SecurityOptions}}' 2>/dev/null | grep -q rootless; then
+    step "allowing rootless docker to bind ports 80 and 443 (web sites proxy)"
+    echo "net.ipv4.ip_unprivileged_port_start=80" >/etc/sysctl.d/90-kuro-web.conf
+    sysctl -q --system >/dev/null 2>&1 || true
+  fi
 }
 
 harden_ssh() {
@@ -382,6 +413,7 @@ install_docker() {
   systemctl enable --quiet --now docker
   docker info >/dev/null 2>&1 || fail "Docker did not start: journalctl -u docker"
   docker_present=true
+  docker_installed_now=true
 }
 
 install_caddy() {
@@ -691,6 +723,7 @@ if has_role api; then
   fi
 fi
 if has_role node; then
+  tune_docker_for_node
   install_node
 fi
 

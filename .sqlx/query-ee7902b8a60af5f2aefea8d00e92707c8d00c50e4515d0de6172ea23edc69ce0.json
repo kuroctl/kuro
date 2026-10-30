@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO servers (id, name, node_id, prefab_id, prefab_version, settings, secrets,\n                                  memory_mb, cpu_percent, disk_mb, start_when_installed,\n                                  backup_limit, web_id, state)\n             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'deploying')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Bytea",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Bool",
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ee7902b8a60af5f2aefea8d00e92707c8d00c50e4515d0de6172ea23edc69ce0"
+}

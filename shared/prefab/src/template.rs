@@ -1,7 +1,7 @@
 //! Gabarits `{{ référence | filtre }}`, sans logique (ADR-0011).
 //!
 //! Références : `settings.<champ>`, `ports.<nom>.host` / `.container`, `resources.memory_mb` /
-//! `.cpu_percent`, `server.id` / `.name`, `content.<emplacement>.ids`,
+//! `.cpu_percent`, `server.id` / `.name` / `.web_url` (ADR-0038), `content.<emplacement>.ids`,
 //! `content.<emplacement>.values.<champ>` (ADR-0030).
 //! Filtres : `join("sep")`, `prefix("…")` (chaque élément d'une liste), `lower`, `upper`,
 //! `default("…")`. Rien d'autre : un prefab ne peut
@@ -38,6 +38,8 @@ pub enum Reference {
     CpuPercent,
     ServerId,
     ServerName,
+    /// `https://<identifiant>.<domaine des sites>` d'un serveur web (ADR-0038).
+    ServerWebUrl,
     ContentIds(String),
     /// Valeurs d'un champ de l'emplacement, pour tous ses contenus actifs.
     ContentValues(String, String),
@@ -62,6 +64,7 @@ impl Reference {
             ["resources", "cpu_percent"] => Ok(Self::CpuPercent),
             ["server", "id"] => Ok(Self::ServerId),
             ["server", "name"] => Ok(Self::ServerName),
+            ["server", "web_url"] => Ok(Self::ServerWebUrl),
             ["content", slot, "ids"] => Ok(Self::ContentIds(name(slot)?)),
             ["content", slot, "values", field] => {
                 Ok(Self::ContentValues(name(slot)?, name(field)?))
@@ -81,6 +84,7 @@ impl fmt::Display for Reference {
             Self::CpuPercent => f.write_str("resources.cpu_percent"),
             Self::ServerId => f.write_str("server.id"),
             Self::ServerName => f.write_str("server.name"),
+            Self::ServerWebUrl => f.write_str("server.web_url"),
             Self::ContentIds(slot) => write!(f, "content.{slot}.ids"),
             Self::ContentValues(slot, field) => write!(f, "content.{slot}.values.{field}"),
         }
@@ -224,6 +228,9 @@ pub struct Context<'a> {
     pub cpu_percent: u32,
     pub server_id: String,
     pub server_name: String,
+    /// Adresse du site, pour un serveur dont le prefab a un port web et dont la zone DNS a un
+    /// domaine des sites ; absente sinon (`server.web_url` est alors sans valeur).
+    pub server_web_url: Option<String>,
     pub content: BTreeMap<String, Vec<String>>,
     /// `<emplacement>.<champ>` → valeurs des contenus actifs, dans l'ordre d'ajout.
     pub content_values: BTreeMap<String, Vec<String>>,
@@ -263,6 +270,7 @@ fn render_expr(
         Reference::CpuPercent => Some(Rendered::Text(context.cpu_percent.to_string())),
         Reference::ServerId => Some(Rendered::Text(context.server_id.clone())),
         Reference::ServerName => Some(Rendered::Text(context.server_name.clone())),
+        Reference::ServerWebUrl => context.server_web_url.clone().map(Rendered::Text),
         Reference::ContentIds(slot) => Some(Rendered::List(
             context.content.get(slot).cloned().unwrap_or_default(),
         )),

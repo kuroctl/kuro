@@ -330,3 +330,60 @@ fn an_extracted_slot_routes_under_a_volume_and_registers_item_values() {
         "{describe:?}"
     );
 }
+
+/// Port web (ADR-0038) : TCP, ni public ni SRV, un seul par prefab, et `server.web_url`
+/// réservé aux prefabs qui en ont un. Le JSON Schema ne sait pas exprimer ces règles : Kuro seul
+/// les refuse.
+#[test]
+fn web_ports_are_tcp_private_and_unique() {
+    let web_port = "http: { container: 80, protocol: tcp, web: true }";
+    let refused = [
+        (
+            "public web port",
+            "http: { container: 80, protocol: tcp, web: true, public: true }",
+        ),
+        (
+            "udp web port",
+            "http: { container: 80, protocol: udp, web: true }",
+        ),
+        (
+            "web port with srv",
+            "http: { container: 80, protocol: tcp, web: true, srv: _http._tcp }",
+        ),
+    ];
+    for (name, port) in refused {
+        let variant = Variant::of("wordpress", |text| text.replacen(web_port, port, 1));
+        assert!(
+            matches!(variant.load(), Err(LoadError::Invalid(_))),
+            "{name}: accepted"
+        );
+    }
+
+    let two = Variant::of("wordpress", |text| {
+        text.replacen(
+            "    volumes:\n      data: { path: /var/lib/mysql }",
+            "    ports:\n      admin: { container: 3306, web: true }\n    volumes:\n      data: { path: /var/lib/mysql }",
+            1,
+        )
+    });
+    assert!(
+        matches!(two.load(), Err(LoadError::Invalid(_))),
+        "two web ports: accepted"
+    );
+
+    // `server.web_url` sans port web : le prefab n'aura jamais d'adresse.
+    let no_web_port = Variant::of("wordpress", |text| {
+        text.replacen(
+            web_port,
+            "http: { container: 80, protocol: tcp, public: true }",
+            1,
+        )
+    });
+    assert!(
+        matches!(no_web_port.load(), Err(LoadError::Invalid(_))),
+        "web_url without web port: accepted"
+    );
+
+    assert!(official("wordpress").manifest.web_port().is_some());
+    assert!(schema().is_valid(&manifest_json(&prefabs_dir().join("wordpress"))));
+}

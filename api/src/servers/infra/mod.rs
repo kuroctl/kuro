@@ -47,6 +47,11 @@ pub struct ServerRecord {
     pub expires_at: Option<OffsetDateTime>,
     /// Nom dans la zone DNS (ADR-0026).
     pub dns_label: Option<String>,
+    /// Identifiant du site web (`<web_id>.<domaine des sites>`, ADR-0038) ; attribué à la
+    /// création d'un serveur dont le prefab a un port web.
+    pub web_id: Option<String>,
+    /// État du proxy et du certificat du site, rapporté par le daemon (`WebStatus` du protocole).
+    pub web_status: Option<Value>,
 }
 
 /// Nouveau serveur, inséré en état `deploying`.
@@ -65,6 +70,8 @@ pub struct NewServerRow<'a> {
     /// Démarrer le serveur dès la fin de son premier déploiement (installation comprise).
     pub start_when_installed: bool,
     pub backup_limit: i32,
+    /// Identifiant du site (ADR-0038), pour un prefab à port web.
+    pub web_id: Option<&'a str>,
 }
 
 /// Colonnes légères d'un serveur, pour chercher, filtrer, trier et compter sans charger ses
@@ -111,7 +118,8 @@ impl ServerRepository {
                       s.prefab_id, s.prefab_version, s.settings, s.secrets,
                       s.memory_mb, s.cpu_percent, s.disk_mb, s.backup_limit, s.state, s.state_reason,
                       s.suspended_at, s.disk_used_bytes, s.disk_measured_at,
-                      s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label
+                      s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label,
+                      s.web_id, s.web_status
                FROM servers s JOIN nodes n ON n.id = s.node_id
                ORDER BY s.name, s.id
                LIMIT $1 OFFSET $2"#,
@@ -133,7 +141,8 @@ impl ServerRepository {
                       s.prefab_id, s.prefab_version, s.settings, s.secrets,
                       s.memory_mb, s.cpu_percent, s.disk_mb, s.backup_limit, s.state, s.state_reason,
                       s.suspended_at, s.disk_used_bytes, s.disk_measured_at,
-                      s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label
+                      s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label,
+                      s.web_id, s.web_status
                FROM servers s JOIN nodes n ON n.id = s.node_id
                WHERE s.prefab_id = $1
                ORDER BY s.name, s.id"#,
@@ -166,7 +175,8 @@ impl ServerRepository {
                       s.prefab_id, s.prefab_version, s.settings, s.secrets,
                       s.memory_mb, s.cpu_percent, s.disk_mb, s.backup_limit, s.state, s.state_reason,
                       s.suspended_at, s.disk_used_bytes, s.disk_measured_at,
-                      s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label
+                      s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label,
+                      s.web_id, s.web_status
                FROM servers s JOIN nodes n ON n.id = s.node_id
                WHERE s.id = ANY($1)"#,
             ids,
@@ -185,7 +195,8 @@ impl ServerRepository {
                       s.prefab_id, s.prefab_version, s.settings, s.secrets,
                       s.memory_mb, s.cpu_percent, s.disk_mb, s.backup_limit, s.state, s.state_reason,
                       s.suspended_at, s.disk_used_bytes, s.disk_measured_at,
-                      s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label
+                      s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label,
+                      s.web_id, s.web_status
                FROM servers s JOIN nodes n ON n.id = s.node_id
                WHERE s.id = $1"#,
             id,
@@ -249,8 +260,8 @@ impl ServerRepository {
         sqlx::query!(
             "INSERT INTO servers (id, name, node_id, prefab_id, prefab_version, settings, secrets,
                                   memory_mb, cpu_percent, disk_mb, start_when_installed,
-                                  backup_limit, state)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'deploying')",
+                                  backup_limit, web_id, state)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'deploying')",
             row.id,
             row.name,
             row.node_id,
@@ -263,6 +274,23 @@ impl ServerRepository {
             row.disk_mb,
             row.start_when_installed,
             row.backup_limit,
+            row.web_id,
+        )
+        .execute(conn)
+        .await?;
+        Ok(())
+    }
+
+    /// Donne son identifiant de site à un serveur dont le prefab devient web (ADR-0038).
+    pub async fn set_web_id(
+        conn: &mut PgConnection,
+        id: Uuid,
+        web_id: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            "UPDATE servers SET web_id = $2, updated_at = now() WHERE id = $1",
+            id,
+            web_id,
         )
         .execute(conn)
         .await?;
@@ -510,6 +538,24 @@ impl ServerRepository {
         .execute(conn)
         .await?;
         Ok(updated.rows_affected() == 1)
+    }
+
+    /// État du site web rapporté par le nœud du serveur (ADR-0038).
+    pub async fn set_web_status_if_owned(
+        conn: &mut PgConnection,
+        id: Uuid,
+        node_id: Uuid,
+        status: &Value,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            "UPDATE servers SET web_status = $3 WHERE id = $1 AND node_id = $2",
+            id,
+            node_id,
+            status,
+        )
+        .execute(conn)
+        .await?;
+        Ok(())
     }
 
     /// Suppression confirmée par le nœud du serveur : ses ports sont libérés, puis il disparaît.

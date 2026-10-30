@@ -32,6 +32,20 @@ pub struct ServerDeploy {
     /// prochain démarrage (changement de contenu, ADR-0030) ; serveur arrêté : sans effet.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub defer: bool,
+    /// Sites web du serveur (ADR-0038) : le proxy du nœud sert chaque nom en HTTPS et le relaie
+    /// vers le conteneur du service, sur le réseau privé du serveur. Vide : aucun site.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub web: Vec<WebRoute>,
+}
+
+/// Un nom servi par le proxy du nœud, vers un port d'un service du serveur.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WebRoute {
+    /// Nom d'hôte public (`abcdefg234.web.kuroctl.com`).
+    pub host: String,
+    pub service: String,
+    /// Port HTTP du conteneur, déclaré par le service ; jamais publié sur l'hôte.
+    pub container_port: u16,
 }
 
 /// Un conteneur du serveur.

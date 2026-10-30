@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO dns_zones (id, provider, base_domain, nodes_label, provider_zone, token, ttl,\n                                    enabled, sites_domain)\n             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Bytea",
+        "Int4",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "445271adacf9e8c98571aa0a0215375a9c61d29e4dced2f97c6117263def6ea8"
+}

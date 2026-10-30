@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use super::domain::{
     Desired, SrvPort, ZoneNames, node_records, server_records, suggest_label, valid_domain,
-    valid_label,
+    valid_label, valid_sites_domain,
 };
 use super::infra::{DnsRepository, RecordRow, ZoneFields, ZoneRecord};
 use super::provider::{DnsProvider, ProviderError, ZoneAccess};
@@ -37,6 +37,8 @@ pub enum DnsError {
     InvalidDomain,
     #[error("invalid label")]
     InvalidLabel,
+    #[error("invalid sites domain")]
+    InvalidSitesDomain,
     #[error("label already taken")]
     LabelTaken,
     #[error("invalid ip address")]
@@ -104,6 +106,8 @@ pub struct ZoneInput {
     pub provider: String,
     pub base_domain: String,
     pub nodes_label: String,
+    /// Domaine des sites web (ADR-0038) ; vide ou absent : aucun site.
+    pub sites_domain: Option<String>,
     pub token: Option<String>,
     pub ttl: Option<i32>,
     pub enabled: bool,
@@ -133,6 +137,16 @@ pub async fn configure(
     if !valid_label(&nodes_label) {
         return Err(DnsError::InvalidLabel);
     }
+    let sites = input
+        .sites_domain
+        .as_deref()
+        .map(|s| s.trim().trim_end_matches('.').to_ascii_lowercase())
+        .filter(|s| !s.is_empty());
+    if let Some(sites) = &sites
+        && !valid_sites_domain(sites, &base, &nodes_label)
+    {
+        return Err(DnsError::InvalidSitesDomain);
+    }
     if !PROVIDERS.contains(&input.provider.as_str()) {
         return Err(DnsError::UnknownProvider);
     }
@@ -151,11 +165,21 @@ pub async fn configure(
         (None, None) => return Err(DnsError::TokenRequired),
     };
     let provider_zone = state.provider.find_zone(&token, &base).await?;
+    // Le domaine des sites vit dans la même zone du fournisseur que celui des jeux (un seul
+    // jeton) ; un domaine séparé viendra comme seconde zone (ADR-0038).
+    if let Some(sites) = &sites {
+        match state.provider.find_zone(&token, sites).await {
+            Ok(zone) if zone == provider_zone => {}
+            Ok(_) | Err(ProviderError::ZoneNotFound) => return Err(DnsError::InvalidSitesDomain),
+            Err(error) => return Err(error.into()),
+        }
+    }
     let sealed = secret_box::seal(&state.key, token.as_bytes())?;
     let fields = ZoneFields {
         provider: &input.provider,
         base_domain: &base,
         nodes_label: &nodes_label,
+        sites_domain: sites.as_deref(),
         provider_zone: &provider_zone,
         token: &sealed,
         ttl,
@@ -180,6 +204,7 @@ pub async fn configure(
                 "provider": input.provider,
                 "base_domain": base,
                 "nodes_label": nodes_label,
+                "sites_domain": sites,
                 "ttl": ttl,
                 "enabled": input.enabled,
                 "token_changed": input.token.is_some(),
@@ -366,7 +391,13 @@ async fn desired(
                     Vec::new()
                 }
             };
-        for record in server_records(names, &label, &server.node_name, &srv) {
+        for record in server_records(
+            names,
+            &label,
+            &server.node_name,
+            &srv,
+            server.web_id.as_deref(),
+        ) {
             out.push(("server", server.id, record));
         }
     }
@@ -426,6 +457,7 @@ async fn reconcile_locked(state: &DnsState) -> Result<Report, DnsError> {
     let names = ZoneNames {
         base: zone.base_domain.clone(),
         nodes_label: zone.nodes_label.clone(),
+        sites: zone.sites_domain.clone(),
     };
     let wanted = desired(state, &names).await?;
     let remote_ids: HashSet<String> = state
@@ -577,5 +609,6 @@ pub fn names(zone: &ZoneRecord) -> ZoneNames {
     ZoneNames {
         base: zone.base_domain.clone(),
         nodes_label: zone.nodes_label.clone(),
+        sites: zone.sites_domain.clone(),
     }
 }

@@ -73,6 +73,7 @@ fn save_spec(data_root: &Path, server_id: Uuid) {
         disk_bytes: 0,
         suspended: false,
         defer: false,
+        web: Vec::new(),
     };
     ServerDir::new(data_root, server_id)
         .save_spec(&deploy)

@@ -121,6 +121,7 @@ fn installing_state_wire_format() {
             server_id: server_id(),
             state: ServerState::Installing,
             reason: None,
+            web: None,
         }),
     };
 

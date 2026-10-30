@@ -28,11 +28,14 @@ fn deployment<'a>(
         memory_mb: 4096,
         cpu_percent: 200,
         allocations,
+        web_url: None,
         content: BTreeMap::new(),
         content_values: BTreeMap::new(),
         packages: BTreeMap::new(),
     }
 }
+
+const WEB_URL: &str = "https://abc123defg.web.kuroctl.test";
 
 #[test]
 fn minecraft_resolves_into_one_hardened_service() {
@@ -102,12 +105,30 @@ fn wordpress_splits_resources_between_its_services() {
     let package = official("wordpress");
     let mut settings = apply(&package.manifest, None, &Map::new()).unwrap();
     settings.insert("db_password".to_owned(), json!("shared-secret"));
-    let allocations = BTreeMap::from([("http".to_owned(), ("0.0.0.0".to_owned(), 8081))]);
+    let allocations = BTreeMap::new();
+    let mut deployment = deployment(&settings, &allocations);
+    deployment.web_url = Some(WEB_URL.to_owned());
 
-    let deploy = resolve(&package, &deployment(&settings, &allocations)).unwrap();
+    let deploy = resolve(&package, &deployment).unwrap();
 
     let web = deploy.services.iter().find(|s| s.name == "web").unwrap();
     let db = deploy.services.iter().find(|s| s.name == "db").unwrap();
+    // Port web (ADR-0038) : exposé dans le conteneur, jamais publié sur l'hôte ; l'adresse du
+    // site entre dans la configuration de WordPress, derrière le proxy TLS du nœud.
+    assert_eq!(web.ports.len(), 1);
+    assert_eq!(web.ports[0].container_port, 80);
+    assert_eq!(web.ports[0].published, None);
+    let extra = &web.env["WORDPRESS_CONFIG_EXTRA"];
+    assert!(
+        extra.contains(&format!("define('WP_HOME', '{WEB_URL}');")),
+        "{extra}"
+    );
+    assert!(extra.contains("HTTP_X_FORWARDED_PROTO"), "{extra}");
+    // La route du site : le nom de l'adresse, vers le port web du service.
+    assert_eq!(deploy.web.len(), 1);
+    assert_eq!(deploy.web[0].host, "abc123defg.web.kuroctl.test");
+    assert_eq!(deploy.web[0].service, "web");
+    assert_eq!(deploy.web[0].container_port, 80);
     assert_eq!(web.limits.memory_bytes, 4096 * 1024 * 1024 * 60 / 100);
     assert_eq!(db.limits.memory_bytes, 4096 * 1024 * 1024 * 40 / 100);
     assert_eq!(web.limits.cpu_millis, 1200);
@@ -120,6 +141,23 @@ fn wordpress_splits_resources_between_its_services() {
     assert!(db.healthcheck.is_some());
     assert_eq!(deploy.lifecycle.stop, StopSpec::Signal(StopSignal::Term));
     assert_eq!(deploy.lifecycle.ready, None);
+}
+
+#[test]
+fn a_web_prefab_needs_the_address_of_its_site() {
+    // Sans domaine des sites dans la zone DNS, l'API refuse le serveur avant d'en arriver là ;
+    // la résolution reste explicite si elle est atteinte.
+    let package = official("wordpress");
+    let mut settings = apply(&package.manifest, None, &Map::new()).unwrap();
+    settings.insert("db_password".to_owned(), json!("x"));
+    let none = BTreeMap::new();
+
+    let error = resolve(&package, &deployment(&settings, &none)).unwrap_err();
+
+    assert!(
+        matches!(&error, ResolveError::Template { at, .. } if at == "services.web.env.WORDPRESS_CONFIG_EXTRA"),
+        "{error}"
+    );
 }
 
 #[test]

@@ -20,6 +20,7 @@ pub mod search;
 pub mod steam_account;
 pub mod tickets;
 pub mod upgrade;
+pub mod web;
 
 use std::sync::Arc;
 

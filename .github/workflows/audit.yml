@@ -1,0 +1,28 @@
+# Audit hebdomadaire des dépendances : une faille publiée après coup sur une dépendance existante
+# doit être vue sans attendre une modification de `Cargo.lock` (la CI ne lance `cargo audit` que
+# dans ce cas, voir ci.yml).
+name: audit
+
+on:
+  schedule:
+    # Lundi 06:00 UTC.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  audit:
+    name: Dépendances (cargo deny advisories, cargo audit)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-audit
+      - run: cargo deny check advisories
+      - run: cargo audit

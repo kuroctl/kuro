@@ -181,7 +181,7 @@ impl Manager {
     }
 
     /// Serveurs déployés sur ce nœud (une spécification gardée).
-    fn deployed(&self) -> Vec<Uuid> {
+    pub(super) fn deployed(&self) -> Vec<Uuid> {
         let Ok(entries) = std::fs::read_dir(&self.inner.data_root) else {
             return Vec::new();
         };

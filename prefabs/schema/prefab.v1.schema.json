@@ -296,6 +296,11 @@
                 "type": "string",
                 "pattern": "^_[a-z0-9][a-z0-9-]{0,61}\\._(tcp|udp)$",
                 "description": "Enregistrement SRV que lit le jeu (_minecraft._tcp), publié avec le nom du serveur vers ce port (port public seulement)."
+              },
+              "web": {
+                "type": "boolean",
+                "default": false,
+                "description": "Port HTTP d'un site web (ADR-0038) : servi en HTTPS par le proxy du nœud à l'adresse {{ server.web_url }}, jamais publié sur l'hôte. TCP, ni public ni srv, un seul par prefab."
               }
             }
           }

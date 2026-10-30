@@ -87,6 +87,50 @@ pub struct ServerDto {
     /// Nom dans la zone DNS (`survie` pour `survie.<domaine>`, ADR-0026) ; attribué à la
     /// première synchronisation.
     pub dns_label: Option<String>,
+    /// Identifiant du site web (`https://<web_id>.<domaine des sites>`, ADR-0038) ; présent pour
+    /// un serveur dont le prefab a un port web.
+    pub web_id: Option<String>,
+    /// État du site rapporté par le nœud ; absent tant que le nœud n'a rien dit.
+    pub web_status: Option<ServerWebStatusDto>,
+}
+
+/// État du site web d'un serveur (ADR-0038), tel que son nœud le rapporte.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ServerWebStatusDto {
+    pub proxy: WebProxyStateDto,
+    pub certificate: WebCertificateStateDto,
+    /// Pourquoi le proxy est indisponible.
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum WebProxyStateDto {
+    Ready,
+    Unavailable,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum WebCertificateStateDto {
+    Pending,
+    Issued,
+}
+
+fn web_status_dto(status: Option<&Value>) -> Option<ServerWebStatusDto> {
+    use kuro_protocol::daemon::server::{CertificateState, ProxyState, WebStatus};
+    let status: WebStatus = serde_json::from_value(status?.clone()).ok()?;
+    Some(ServerWebStatusDto {
+        proxy: match status.proxy {
+            ProxyState::Ready => WebProxyStateDto::Ready,
+            ProxyState::Unavailable => WebProxyStateDto::Unavailable,
+        },
+        certificate: match status.certificate {
+            CertificateState::Pending => WebCertificateStateDto::Pending,
+            CertificateState::Issued => WebCertificateStateDto::Issued,
+        },
+        message: status.message,
+    })
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -140,6 +184,8 @@ pub(super) fn dto(state: &ServersState, view: ServerView) -> ServerDto {
         created_at: server.created_at,
         updated_at: server.updated_at,
         dns_label: server.dns_label.clone(),
+        web_id: server.web_id.clone(),
+        web_status: web_status_dto(server.web_status.as_ref()),
         trial: server.expires_at.map(|expires_at| ServerTrialDto {
             draft_id: server.trial_draft_id,
             expires_at,

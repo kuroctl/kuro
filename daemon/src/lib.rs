@@ -17,3 +17,4 @@ pub mod install;
 pub mod link;
 pub mod server;
 pub mod stats;
+pub mod web;

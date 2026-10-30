@@ -1,5 +1,5 @@
 //! Règles du DNS (ADR-0026) : noms valides, label proposé, enregistrements voulus pour un nœud
-//! et pour un serveur. Sans base ni réseau.
+//! et pour un serveur ; domaine et identifiants des sites web (ADR-0038). Sans base ni réseau.
 
 use std::net::{Ipv4Addr, Ipv6Addr};
 
@@ -95,6 +95,8 @@ pub struct ZoneNames {
     pub base: String,
     /// `nodes` : les nœuds sont publiés sous `<nœud>.nodes.<base>`.
     pub nodes_label: String,
+    /// Domaine des sites web (`web.kuroctl.com`, ADR-0038) ; absent : aucun site publié.
+    pub sites: Option<String>,
 }
 
 impl ZoneNames {
@@ -105,6 +107,53 @@ impl ZoneNames {
     pub fn server_host(&self, label: &str) -> String {
         format!("{label}.{}", self.base)
     }
+
+    /// `<identifiant>.<domaine des sites>`, quand la zone a un domaine des sites.
+    pub fn site_host(&self, web_id: &str) -> Option<String> {
+        self.sites.as_ref().map(|sites| format!("{web_id}.{sites}"))
+    }
+}
+
+/// Premières étiquettes interdites au domaine des sites : elles désignent le panel, l'API, la
+/// documentation ou des services classiques de la zone.
+pub const RESERVED_SITE_LABELS: &[&str] = &["app", "api", "get", "docs", "www", "mail"];
+
+/// Domaine des sites web (ADR-0038) : un domaine valide d'au moins trois étiquettes (jamais la
+/// racine de la zone), à l'écart du domaine des jeux et du sous-domaine des nœuds (ni l'un
+/// d'eux, ni au-dessus, ni au-dessous : un site ne doit pas pouvoir se faire passer pour un
+/// serveur ou un nœud), et dont la première étiquette n'est pas réservée.
+pub fn valid_sites_domain(sites: &str, base: &str, nodes_label: &str) -> bool {
+    let under = |child: &str, parent: &str| child.ends_with(&format!(".{parent}"));
+    let nodes = format!("{nodes_label}.{base}");
+    let first = sites.split('.').next().unwrap_or_default();
+    valid_domain(sites)
+        && sites.split('.').count() >= 3
+        && !RESERVED_SITE_LABELS.contains(&first)
+        && sites != base
+        && !under(sites, base)
+        && !under(base, sites)
+        && sites != nodes
+        && !under(sites, &nodes)
+}
+
+/// Longueur d'un identifiant de site.
+pub const WEB_ID_LEN: usize = 10;
+/// Base32 minuscule (RFC 4648), lisible et valide comme étiquette DNS.
+const WEB_ID_ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz234567";
+
+/// Identifiant de site tiré de `WEB_ID_LEN` octets aléatoires au moins (générateur
+/// cryptographique) : 50 bits, ni collision ni énumération en pratique, et l'index unique de
+/// `servers.web_id` tranche le reste. 256 est un multiple de 32 : aucun biais.
+pub fn web_id_from(random: &[u8]) -> String {
+    random
+        .iter()
+        .take(WEB_ID_LEN)
+        .map(|byte| char::from(WEB_ID_ALPHABET[usize::from(*byte) % WEB_ID_ALPHABET.len()]))
+        .collect()
+}
+
+pub fn valid_web_id(web_id: &str) -> bool {
+    web_id.len() == WEB_ID_LEN && web_id.bytes().all(|b| WEB_ID_ALPHABET.contains(&b))
 }
 
 /// `A` et `AAAA` d'un nœud vers son adresse publique.
@@ -143,9 +192,16 @@ pub struct SrvPort {
     pub port: u16,
 }
 
-/// `CNAME` d'un serveur vers son nœud, et un `SRV` par port qui en déclare un. La cible d'un SRV
-/// est le nom du nœud (jamais un alias, RFC 2782).
-pub fn server_records(zone: &ZoneNames, label: &str, node: &str, srv: &[SrvPort]) -> Vec<Desired> {
+/// `CNAME` d'un serveur vers son nœud, un `SRV` par port qui en déclare un, et le `CNAME` de son
+/// site (`<identifiant>.<domaine des sites>`, ADR-0038) s'il en a un et que la zone a un domaine
+/// des sites. La cible d'un SRV est le nom du nœud (jamais un alias, RFC 2782).
+pub fn server_records(
+    zone: &ZoneNames,
+    label: &str,
+    node: &str,
+    srv: &[SrvPort],
+    web_id: Option<&str>,
+) -> Vec<Desired> {
     if !valid_label(label) || !valid_label(node) {
         return Vec::new();
     }
@@ -163,6 +219,16 @@ pub fn server_records(zone: &ZoneNames, label: &str, node: &str, srv: &[SrvPort]
             content: format!("0 0 {} {target}", entry.port),
         });
     }
+    if let Some(site) = web_id
+        .filter(|id| valid_web_id(id))
+        .and_then(|id| zone.site_host(id))
+    {
+        records.push(Desired {
+            kind: RecordKind::Cname,
+            name: site,
+            content: target,
+        });
+    }
     records
 }
 
@@ -174,7 +240,87 @@ mod tests {
         ZoneNames {
             base: "play.kuroctl.com".to_owned(),
             nodes_label: "nodes".to_owned(),
+            sites: None,
         }
+    }
+
+    #[test]
+    fn a_web_server_gets_the_cname_of_its_site_when_the_zone_has_a_sites_domain() {
+        let without = server_records(&zone(), "blog", "node-1", &[], Some("abcdefg234"));
+        assert_eq!(without.len(), 1, "no sites domain: no site record");
+
+        let mut with_sites = zone();
+        with_sites.sites = Some("web.kuroctl.com".to_owned());
+        let records = server_records(&with_sites, "blog", "node-1", &[], Some("abcdefg234"));
+        assert_eq!(
+            records,
+            vec![
+                Desired {
+                    kind: RecordKind::Cname,
+                    name: "blog.play.kuroctl.com".to_owned(),
+                    content: "node-1.nodes.play.kuroctl.com".to_owned(),
+                },
+                Desired {
+                    kind: RecordKind::Cname,
+                    name: "abcdefg234.web.kuroctl.com".to_owned(),
+                    content: "node-1.nodes.play.kuroctl.com".to_owned(),
+                },
+            ]
+        );
+        // Un serveur de jeu n'a pas de site ; un identifiant forgé n'est pas publié.
+        assert_eq!(
+            server_records(&with_sites, "blog", "node-1", &[], None).len(),
+            1
+        );
+        assert_eq!(
+            server_records(&with_sites, "blog", "node-1", &[], Some("evil.example")).len(),
+            1
+        );
+    }
+
+    #[test]
+    fn the_sites_domain_stays_apart_from_servers_nodes_and_reserved_names() {
+        let ok = |sites: &str| valid_sites_domain(sites, "play.kuroctl.com", "nodes");
+        assert!(ok("web.kuroctl.com"));
+        assert!(ok("sites.hosting.kuroctl.com"));
+        // La racine de la zone, les noms réservés.
+        assert!(!ok("kuroctl.com"));
+        assert!(!ok("app.kuroctl.com"));
+        assert!(!ok("www.kuroctl.com"));
+        assert!(!ok("API.kuroctl.com".to_ascii_lowercase().as_str()));
+        // Le domaine des jeux, au-dessus, au-dessous ; le sous-domaine des nœuds.
+        assert!(!ok("play.kuroctl.com"));
+        assert!(!ok("web.play.kuroctl.com"));
+        assert!(!valid_sites_domain(
+            "kuroctl.com",
+            "eu.play.kuroctl.com",
+            "nodes"
+        ));
+        assert!(!valid_sites_domain(
+            "play.kuroctl.com",
+            "eu.play.kuroctl.com",
+            "nodes"
+        ));
+        assert!(!ok("nodes.play.kuroctl.com"));
+        assert!(!ok("x.nodes.play.kuroctl.com"));
+        // Pas un domaine.
+        assert!(!ok("web_sites.kuroctl.com"));
+        assert!(!ok("web.kuroctl.com."));
+    }
+
+    #[test]
+    fn a_web_id_is_ten_base32_characters() {
+        let id = web_id_from(&[0, 1, 25, 26, 31, 32, 255, 7, 8, 9, 10, 11]);
+        assert_eq!(
+            id, "abz27a7hij",
+            "ten characters, the extra bytes are ignored"
+        );
+        assert_eq!(id.len(), WEB_ID_LEN);
+        assert!(valid_web_id(&id));
+        assert!(valid_label(&id), "usable as a DNS label");
+        assert!(!valid_web_id("abc"));
+        assert!(!valid_web_id("abc123defG"));
+        assert!(!valid_web_id("abc123def1"), "0, 1, 8 and 9 are not base32");
     }
 
     #[test]
@@ -233,6 +379,7 @@ mod tests {
                 service: "_minecraft._tcp".to_owned(),
                 port: 25568,
             }],
+            None,
         );
         assert_eq!(records[0].kind, RecordKind::Cname);
         assert_eq!(records[0].name, "survie.play.kuroctl.com");

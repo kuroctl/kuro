@@ -10,9 +10,10 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use bollard::models::{
-    ContainerCreateBody, ContainerStatsResponse, ContainerUpdateBody, EndpointSettings,
+    ContainerCreateBody, ContainerStatsResponse, ContainerUpdateBody, EndpointSettings, ExecConfig,
     HealthConfig, HealthStatusEnum, HostConfig, HostConfigLogConfig, Mount, MountTypeEnum,
-    NetworkCreateRequest, NetworkingConfig, PortBinding,
+    NetworkConnectRequest, NetworkCreateRequest, NetworkDisconnectRequest, NetworkingConfig,
+    PortBinding, RestartPolicy, RestartPolicyNameEnum,
 };
 use bollard::query_parameters::{
     AttachContainerOptionsBuilder, CreateContainerOptionsBuilder, CreateImageOptionsBuilder,
@@ -41,6 +42,25 @@ pub enum DockerError {
     Helper(i64),
     #[error("archive: {0}")]
     Archive(#[from] std::io::Error),
+}
+
+/// Conteneur du proxy des sites web (ADR-0038) : durci comme un service, mais avec des ports
+/// publiés choisis par la configuration, redémarré avec Docker, et relié ensuite aux réseaux des
+/// serveurs qu'il sert.
+pub struct ProxyContainer<'a> {
+    pub name: &'a str,
+    pub image: &'a str,
+    pub command: Vec<String>,
+    pub env: Vec<String>,
+    /// `uid:gid`, jamais root.
+    pub user: &'a str,
+    /// (chemin dans le conteneur, dossier hôte, lecture seule).
+    pub mounts: Vec<(String, PathBuf, bool)>,
+    /// (port du conteneur, port de l'hôte), TCP, toutes adresses.
+    pub ports: Vec<(u16, u16)>,
+    pub labels: HashMap<String, String>,
+    pub memory_bytes: u64,
+    pub pids: u32,
 }
 
 /// Fichier déposé dans un conteneur créé, avant son démarrage.
@@ -622,6 +642,175 @@ impl Docker {
     }
 
     /// Serveurs dont des conteneurs Kuro existent sur l'hôte.
+    /// Crée le conteneur du proxy (sans le démarrer), sur le pont par défaut.
+    pub async fn create_proxy(&self, spec: &ProxyContainer<'_>) -> Result<(), DockerError> {
+        let mut exposed = Vec::new();
+        let mut bindings: HashMap<String, Option<Vec<PortBinding>>> = HashMap::new();
+        for (container_port, host_port) in &spec.ports {
+            let key = format!("{container_port}/tcp");
+            exposed.push(key.clone());
+            bindings.insert(
+                key,
+                Some(vec![PortBinding {
+                    host_ip: Some("0.0.0.0".to_owned()),
+                    host_port: Some(host_port.to_string()),
+                }]),
+            );
+        }
+        let host_config = HostConfig {
+            mounts: Some(
+                spec.mounts
+                    .iter()
+                    .map(|(target, source, read_only)| Mount {
+                        target: Some(target.clone()),
+                        source: Some(source.to_string_lossy().into_owned()),
+                        typ: Some(MountTypeEnum::BIND),
+                        read_only: Some(*read_only),
+                        ..Default::default()
+                    })
+                    .collect(),
+            ),
+            tmpfs: Some(HashMap::from([(
+                "/tmp".to_owned(),
+                "rw,nosuid,nodev,noexec".to_owned(),
+            )])),
+            readonly_rootfs: Some(true),
+            // Le binaire de l'image porte la capacité de fichier `cap_net_bind_service` : sous
+            // `no-new-privileges`, le noyau refuse de l'exécuter (`operation not permitted`).
+            // Toutes les capacités sont retirées sauf celle-là, et l'utilisateur n'est pas root.
+            cap_drop: Some(vec!["ALL".to_owned()]),
+            cap_add: Some(vec!["NET_BIND_SERVICE".to_owned()]),
+            memory: i64::try_from(spec.memory_bytes).ok(),
+            memory_swap: i64::try_from(spec.memory_bytes).ok(),
+            pids_limit: Some(i64::from(spec.pids)),
+            port_bindings: Some(bindings),
+            network_mode: Some("bridge".to_owned()),
+            restart_policy: Some(RestartPolicy {
+                name: Some(RestartPolicyNameEnum::UNLESS_STOPPED),
+                maximum_retry_count: None,
+            }),
+            log_config: Some(HostConfigLogConfig {
+                typ: Some("json-file".to_owned()),
+                config: Some(HashMap::from([
+                    ("max-size".to_owned(), "10m".to_owned()),
+                    ("max-file".to_owned(), "3".to_owned()),
+                ])),
+            }),
+            ..Default::default()
+        };
+        let mut labels = spec.labels.clone();
+        labels.insert(LABEL_MANAGED.to_owned(), "proxy".to_owned());
+        let body = ContainerCreateBody {
+            image: Some(spec.image.to_owned()),
+            cmd: Some(spec.command.clone()),
+            env: Some(spec.env.clone()),
+            user: Some(spec.user.to_owned()),
+            labels: Some(labels),
+            exposed_ports: Some(exposed),
+            host_config: Some(host_config),
+            ..Default::default()
+        };
+        let options = CreateContainerOptionsBuilder::new().name(spec.name).build();
+        self.client.create_container(Some(options), body).await?;
+        Ok(())
+    }
+
+    /// Étiquettes d'un conteneur ; `None` s'il n'existe pas.
+    pub async fn labels_of(
+        &self,
+        name: &str,
+    ) -> Result<Option<HashMap<String, String>>, DockerError> {
+        match self.client.inspect_container(name, None).await {
+            Ok(inspect) => Ok(Some(
+                inspect.config.and_then(|c| c.labels).unwrap_or_default(),
+            )),
+            Err(error) if is_not_found(&error) => Ok(None),
+            Err(error) => Err(error.into()),
+        }
+    }
+
+    /// Réseaux auxquels un conteneur est relié (vide s'il n'existe pas).
+    pub async fn networks_of(&self, name: &str) -> Result<Vec<String>, DockerError> {
+        match self.client.inspect_container(name, None).await {
+            Ok(inspect) => Ok(inspect
+                .network_settings
+                .and_then(|settings| settings.networks)
+                .map(|networks| networks.into_keys().collect())
+                .unwrap_or_default()),
+            Err(error) if is_not_found(&error) => Ok(Vec::new()),
+            Err(error) => Err(error.into()),
+        }
+    }
+
+    pub async fn connect_network(&self, container: &str, network: &str) -> Result<(), DockerError> {
+        self.client
+            .connect_network(
+                network,
+                NetworkConnectRequest {
+                    container: container.to_owned(),
+                    endpoint_config: None,
+                },
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn disconnect_network(
+        &self,
+        container: &str,
+        network: &str,
+    ) -> Result<(), DockerError> {
+        match self
+            .client
+            .disconnect_network(
+                network,
+                NetworkDisconnectRequest {
+                    container: container.to_owned(),
+                    force: Some(true),
+                },
+            )
+            .await
+        {
+            Err(error) if !is_not_found(&error) => Err(error.into()),
+            _ => Ok(()),
+        }
+    }
+
+    /// Exécute une commande dans un conteneur en marche : code de sortie et sortie (stdout et
+    /// stderr), tronquée à 4 Kio.
+    pub async fn exec(
+        &self,
+        container: &str,
+        cmd: Vec<String>,
+    ) -> Result<(i64, String), DockerError> {
+        let exec = self
+            .client
+            .create_exec(
+                container,
+                ExecConfig {
+                    cmd: Some(cmd),
+                    attach_stdout: Some(true),
+                    attach_stderr: Some(true),
+                    ..Default::default()
+                },
+            )
+            .await?;
+        let mut output = String::new();
+        if let bollard::exec::StartExecResults::Attached {
+            output: mut stream, ..
+        } = self.client.start_exec(&exec.id, None).await?
+        {
+            while let Some(chunk) = stream.next().await {
+                let chunk = chunk?;
+                if output.len() < 4096 {
+                    output.push_str(&String::from_utf8_lossy(&chunk.into_bytes()));
+                }
+            }
+        }
+        let inspect = self.client.inspect_exec(&exec.id).await?;
+        Ok((inspect.exit_code.unwrap_or(-1), output))
+    }
+
     pub async fn kuro_servers(&self) -> Result<Vec<Uuid>, DockerError> {
         let filters = HashMap::from([("label", vec!["kuro.managed=true"])]);
         let options = ListContainersOptionsBuilder::new()

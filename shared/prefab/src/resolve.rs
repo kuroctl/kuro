@@ -10,7 +10,7 @@ use kuro_protocol::api::install::{InstallSpec, InstallStep, SteamLogin};
 use kuro_protocol::api::server::{
     FileContent, FileFormat as WireFormat, FileSpec, HealthcheckSpec, LifecycleSpec, Limits,
     PortSpec, PublishedPort, ReadySpec, ServerDeploy, ServiceSpec, StopSignal, StopSpec,
-    VolumeSpec,
+    VolumeSpec, WebRoute,
 };
 use uuid::Uuid;
 
@@ -36,6 +36,9 @@ pub struct Deployment<'a> {
     pub cpu_percent: u32,
     /// Port public du prefab → allocation (adresse, port de l'hôte).
     pub allocations: &'a BTreeMap<String, (String, u16)>,
+    /// `https://<identifiant>.<domaine des sites>` (ADR-0038) ; absente pour un serveur sans
+    /// port web. Un prefab web sans adresse ne se résout pas (`server.web_url` sans valeur).
+    pub web_url: Option<String>,
     /// Emplacement de contenu → identifiants (mods…).
     pub content: BTreeMap<String, Vec<String>>,
     /// `<emplacement>.<champ>` → valeurs saisies pour les contenus actifs (ADR-0030).
@@ -87,6 +90,7 @@ fn context<'a>(
         cpu_percent: deployment.cpu_percent,
         server_id: deployment.server_id.to_string(),
         server_name: deployment.server_name.to_owned(),
+        server_web_url: deployment.web_url.clone(),
         content: deployment.content.clone(),
         content_values: deployment.content_values.clone(),
     })
@@ -558,11 +562,25 @@ pub fn resolve(
         });
     }
 
+    // Site web (ADR-0038) : le port `web` du prefab, servi par le proxy du nœud à l'adresse du
+    // serveur. Sans adresse (domaine des sites retiré), aucune route : le site n'est pas servi.
+    let web = match (m.web_port(), &deployment.web_url) {
+        (Some((service, _, decl)), Some(url)) => vec![WebRoute {
+            host: url
+                .trim_start_matches("https://")
+                .trim_end_matches('/')
+                .to_owned(),
+            service: service.to_owned(),
+            container_port: decl.container,
+        }],
+        _ => Vec::new(),
+    };
     let lifecycle = &m.lifecycle;
     Ok(ServerDeploy {
         server_id: deployment.server_id,
         services,
         files,
+        web,
         // Ajoutée par l'appelant à la création seulement (`resolve_install`).
         install: None,
         // Quota et suspension : propres au serveur, ajoutés par l'appelant (ADR-0019).

@@ -188,6 +188,7 @@ impl TestApi {
             },
             log: LogConfig::default(),
             servers: kuro_daemon::config::ServersConfig::default(),
+            web: Default::default(),
         }
     }
 

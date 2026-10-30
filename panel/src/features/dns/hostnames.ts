@@ -12,3 +12,9 @@ export function serverHost(zone: PublicZone | undefined, label: string | null | 
   if (!zone?.base_domain || !label) return null
   return `${label}.${zone.base_domain}`
 }
+
+/** `https://<identifiant>.<domaine des sites>` (ADR-0038), ou `null` sans domaine des sites ou sans site. */
+export function siteUrl(zone: PublicZone | undefined, webId: string | null | undefined): string | null {
+  if (!zone?.sites_domain || !webId) return null
+  return `https://${webId}.${zone.sites_domain}`
+}

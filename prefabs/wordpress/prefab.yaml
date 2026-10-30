@@ -1,8 +1,9 @@
 # yaml-language-server: $schema=../schema/prefab.v1.schema.json
-# WordPress + MariaDB : deux services sur le réseau privé du serveur, seul le web est publié.
+# WordPress + MariaDB : deux services sur le réseau privé du serveur. Le web n'est pas publié sur
+# l'hôte : le proxy du nœud le sert en HTTPS à l'adresse du site (ADR-0038).
 schema: kuro.prefab/v1
 id: wordpress
-version: 1.0.0
+version: 1.1.0
 category: web
 tags: [wordpress, php, cms]
 authors:
@@ -24,10 +25,17 @@ services:
       WORDPRESS_DB_PASSWORD: "{{ settings.db_password }}"
       WORDPRESS_TABLE_PREFIX: "{{ settings.table_prefix }}"
       WORDPRESS_DEBUG: "{{ settings.debug }}"
-      WORDPRESS_CONFIG_EXTRA: "{{ settings.config_extra }}"
+      # Derrière le proxy TLS du nœud : HTTPS vu par WordPress (sinon boucle de redirection),
+      # adresse du site, puis le complément de configuration de l'admin.
+      WORDPRESS_CONFIG_EXTRA: |
+        if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') { $_SERVER['HTTPS'] = 'on'; }
+        define('WP_HOME', '{{ server.web_url }}');
+        define('WP_SITEURL', '{{ server.web_url }}');
+        {{ settings.config_extra }}
     ports:
       # Docker autorise un utilisateur non-root à écouter sur un port < 1024 dans le conteneur.
-      http: { container: 80, protocol: tcp, public: true }
+      # Port web : servi par le proxy du nœud, jamais publié sur l'hôte.
+      http: { container: 80, protocol: tcp, web: true }
     volumes:
       html: { path: /var/www/html }
     writable: [/tmp, /var/run/apache2, /var/lock/apache2]

@@ -13,8 +13,8 @@ use regex::Regex;
 use serde_json::Value;
 
 use crate::manifest::{
-    ContentInstallMode, Field, FieldType, FileFormat, FileMode, Manifest, Ready, SCHEMA_V1,
-    Service, Step,
+    ContentInstallMode, Field, FieldType, FileFormat, FileMode, Manifest, Protocol, Ready,
+    SCHEMA_V1, Service, Step,
 };
 use crate::package::Package;
 use crate::settings;
@@ -69,6 +69,7 @@ pub fn validate(package: &Package) -> Vec<Issue> {
     check.backup(manifest);
     check.content(manifest);
     check.lifecycle(manifest);
+    check.web_ports(manifest);
     check.templates(manifest);
     check.migrations(manifest);
     check.locales(package);
@@ -189,6 +190,25 @@ impl Checker {
                     self.fail(
                         at(&format!("ports.{port}.srv")),
                         "only a public port has an SRV record",
+                    );
+                }
+            }
+            // Port web (ADR-0038) : HTTP dans le conteneur, servi par le proxy du nœud, jamais
+            // publié ni annoncé en SRV.
+            if decl.web {
+                if decl.protocol != Protocol::Tcp {
+                    self.fail(at(&format!("ports.{port}.web")), "a web port is tcp");
+                }
+                if decl.public {
+                    self.fail(
+                        at(&format!("ports.{port}.web")),
+                        "a web port is never public: the node proxy serves it",
+                    );
+                }
+                if decl.srv.is_some() {
+                    self.fail(
+                        at(&format!("ports.{port}.web")),
+                        "a web port has no SRV record",
                     );
                 }
             }
@@ -653,9 +673,29 @@ impl Checker {
         }
     }
 
+    /// Un seul port web par prefab (ADR-0038).
+    fn web_ports(&mut self, m: &Manifest) {
+        let web: Vec<String> = m
+            .services
+            .iter()
+            .flat_map(|(service, s)| {
+                s.ports
+                    .iter()
+                    .filter(|(_, decl)| decl.web)
+                    .map(move |(port, _)| format!("services.{service}.ports.{port}"))
+            })
+            .collect();
+        if web.len() > 1 {
+            for at in web {
+                self.fail(at, "only one web port per prefab");
+            }
+        }
+    }
+
     /// Toutes les valeurs à gabarit : syntaxe et références.
     fn templates(&mut self, m: &Manifest) {
         let fields: BTreeSet<&str> = m.settings.fields().map(|f| f.key).collect();
+        let has_web_port = m.web_port().is_some();
         let public_ports: BTreeSet<&str> = m
             .services
             .values()
@@ -720,6 +760,9 @@ impl Checker {
                     }
                     Reference::PortContainer(port) if !all_ports.contains(port.as_str()) => {
                         Some(format!("unknown port `{port}`"))
+                    }
+                    Reference::ServerWebUrl if !has_web_port => {
+                        Some("`server.web_url` needs a `web: true` port".to_owned())
                     }
                     Reference::ContentIds(slot) if !m.content.contains_key(slot) => {
                         Some(format!("unknown content slot `{slot}`"))

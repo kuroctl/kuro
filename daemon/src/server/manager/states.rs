@@ -89,6 +89,7 @@ mod tests {
             server_id,
             state,
             reason: None,
+            web: None,
         }
     }
 

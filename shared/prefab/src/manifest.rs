@@ -175,6 +175,11 @@ pub struct PortDecl {
     /// serveur (ADR-0026), le joueur n'a alors pas à taper le port.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub srv: Option<String>,
+    /// Port HTTP d'un site web (ADR-0038) : servi en HTTPS par le proxy du nœud à l'adresse
+    /// `{{ server.web_url }}`, jamais publié sur l'hôte. TCP, ni `public` ni `srv`, un seul par
+    /// prefab.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub web: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -454,7 +459,17 @@ impl SteamcmdLogin {
 }
 
 impl Manifest {
-    /// Une étape `steamcmd` exige le compte Steam de l'installation (ADR-0033).
+    /// Le port web du prefab (ADR-0038) : `(service, port, déclaration)`, un au plus.
+    pub fn web_port(&self) -> Option<(&str, &str, &PortDecl)> {
+        self.services.iter().find_map(|(service, s)| {
+            s.ports
+                .iter()
+                .find(|(_, decl)| decl.web)
+                .map(|(port, decl)| (service.as_str(), port.as_str(), decl))
+        })
+    }
+
+    /// Une étape d'installation demande le compte Steam (ADR-0033).
     pub fn needs_steam_account(&self) -> bool {
         self.install.iter().flat_map(|i| &i.steps).any(|step| {
             matches!(

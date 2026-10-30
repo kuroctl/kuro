@@ -48,9 +48,24 @@ async fn main() -> anyhow::Result<()> {
         // Le lien reste ouvert : les commandes échoueront en `failed` jusqu'au retour de Docker.
         tracing::warn!(%error, "docker is not reachable");
     }
-    let (manager, outgoing) = Manager::new(docker, config.servers.data_root.clone());
+    let (manager, outgoing) = Manager::with_options(
+        docker,
+        config.servers.data_root.clone(),
+        Default::default(),
+        config.web.clone(),
+    );
     // Temporaires d'opérations interrompues par l'arrêt précédent.
     manager.clean_up_at_boot().await;
+    // Le proxy des sites web reprend les routes des serveurs déployés (ADR-0038).
+    manager.restore_proxy().await;
+    tokio::spawn({
+        let manager = manager.clone();
+        async move {
+            manager
+                .watch_certificates(std::time::Duration::from_secs(30))
+                .await
+        }
+    });
     tokio::spawn({
         let manager = manager.clone();
         async move { manager.watch_events().await }

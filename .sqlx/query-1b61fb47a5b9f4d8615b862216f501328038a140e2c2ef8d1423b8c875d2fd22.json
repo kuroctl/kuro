@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE servers SET web_status = $3 WHERE id = $1 AND node_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1b61fb47a5b9f4d8615b862216f501328038a140e2c2ef8d1423b8c875d2fd22"
+}

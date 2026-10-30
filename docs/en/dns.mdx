@@ -48,3 +48,42 @@ Kuro **never** touches a record it did not create, and recreates the ones delete
 
 Records appear within a minute, as "DNS only" (grey cloud): game traffic does not go through the
 Cloudflare proxy.
+
+## Web sites
+
+A web prefab (WordPress…) is not published on a port: each site gets an HTTPS address under the
+**web sites domain** of your DNS settings, for example `abcdefg234.web.example.com`. The
+identifier is random: no collision, no misleading name. On every node that hosts a site, Kuro
+runs a proxy (Caddy) that obtains Let's Encrypt certificates and relays to the site's container,
+exposing nothing else.
+
+<Steps>
+  <Step title="Pick the domain">
+    In **Settings › DNS**, set the web sites domain: in the same zone as the server domain,
+    apart from it and from the nodes sub-domain (`web.example.com` next to `play.example.com`,
+    for instance). Without it, a web prefab cannot be deployed.
+  </Step>
+  <Step title="Open ports 80 and 443 on the node">
+    The proxy listens on ports 80 and 443 of every node that serves sites. Behind a NAT, forward
+    them to the node: Let's Encrypt must reach the name on port 80 to issue the certificate. The
+    installer opens these ports in the firewall of the `node` role.
+  </Step>
+  <Step title="Check">
+    On the server page, the site address is clickable and its status tells whether the proxy
+    runs and the certificate is issued.
+  </Step>
+</Steps>
+
+<Warning>
+  **Same domain as the panel.** A site hosted under your domain is "same site" as the panel for
+  a browser. Kuro protects itself (`__Host-` cookie, checked origin), but a host that opens sites
+  to third parties should register its sites domain on the
+  [Public Suffix List](https://publicsuffix.org/): each site then becomes a registrable domain
+  of its own, for browsers as for Let's Encrypt limits (50 certificates per week and registered
+  domain). Registration takes several weeks.
+</Warning>
+
+A machine that runs both the API and a node already has Caddy on ports 80 and 443: do not serve
+sites from that node, or change the proxy ports (`[web]` in `daemon.toml`, `http_port` and
+`https_port`) behind a redirection. Under rootless Docker, the installer sets
+`net.ipv4.ip_unprivileged_port_start` so the proxy can bind these ports.

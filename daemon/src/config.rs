@@ -22,6 +22,9 @@ pub struct Config {
     pub log: LogConfig,
     #[serde(default)]
     pub servers: ServersConfig,
+    /// Proxy des sites web (ADR-0038) : ports publiés, image, certificats.
+    #[serde(default)]
+    pub web: crate::web::WebConfig,
 }
 
 /// Serveurs hébergés par le nœud (ADR-0013).
@@ -99,6 +102,8 @@ pub enum ConfigError {
     InsecureApiUrl(String),
     #[error("servers.disk_measure_interval_secs must be between 15 and 3600 (got {0})")]
     DiskMeasureInterval(u64),
+    #[error("web.http_port and web.https_port must be distinct and non-zero")]
+    WebPorts,
 }
 
 impl Config {
@@ -128,6 +133,10 @@ impl Config {
         let interval = self.servers.disk_measure_interval_secs;
         if !ServersConfig::DISK_MEASURE_INTERVAL.contains(&interval) {
             return Err(ConfigError::DiskMeasureInterval(interval));
+        }
+        let web = &self.web;
+        if web.http_port == 0 || web.https_port == 0 || web.http_port == web.https_port {
+            return Err(ConfigError::WebPorts);
         }
         Ok(())
     }
@@ -182,6 +191,35 @@ key = \"node.key\"
         for interval in [15, 3600] {
             parse(&format!("disk_measure_interval_secs = {interval}")).unwrap();
         }
+    }
+
+    #[test]
+    fn the_web_proxy_listens_on_80_and_443_unless_told_otherwise() {
+        let config = parse("").unwrap();
+        assert_eq!((config.web.http_port, config.web.https_port), (80, 443));
+        assert_eq!(config.web.tls, crate::web::TlsMode::Acme);
+
+        let toml = "[api]
+url = \"wss://api.example.test:8443/api/daemon\"
+[tls]
+ca_cert = \"ca.pem\"
+cert = \"node.pem\"
+key = \"node.key\"
+[web]
+http_port = 18080
+https_port = 18443
+tls = \"internal\"
+";
+        let config = Config::from_figment(Figment::new().merge(Toml::string(toml))).unwrap();
+        assert_eq!(
+            (config.web.http_port, config.web.https_port),
+            (18080, 18443)
+        );
+        assert_eq!(config.web.tls, crate::web::TlsMode::Internal);
+
+        let same = toml.replace("https_port = 18443", "https_port = 18080");
+        let error = Config::from_figment(Figment::new().merge(Toml::string(&same))).unwrap_err();
+        assert!(matches!(error, ConfigError::WebPorts), "{error}");
     }
 
     #[test]

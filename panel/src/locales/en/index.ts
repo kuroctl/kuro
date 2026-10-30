@@ -1126,6 +1126,8 @@ export default {
       baseDomainHelp: 'A server named “survival” becomes survival.{domain}. The domain must belong to a zone of the provider.',
       nodesLabel: 'Nodes sub-domain',
       nodesLabelHelp: 'Nodes are published under this sub-domain, for example {example}.',
+      sitesDomain: 'Web sites domain',
+      sitesDomainHelp: 'Optional. Each web site (WordPress…) is served over HTTPS at a random address under this domain, such as abc123defg.{domain}. In the same zone, apart from the server and node domains. Without it, a web prefab cannot be deployed.',
       token: 'API token',
       tokenStored: 'saved',
       tokenKeep: 'Leave empty to keep the saved token. It is never shown again.',
@@ -1172,6 +1174,13 @@ export default {
       saved: 'DNS name saved.',
       cleared: 'DNS name removed.',
       copy: 'Copy {address}',
+    },
+    site: {
+      label: '(web site)',
+      noDomain: 'Web site without an address: set the web sites domain in Settings › DNS, then redeploy.',
+      unknown: 'Waiting for the node: the site status is not known yet.',
+      proxyUnavailable: 'The node proxy is unavailable, the site does not answer.',
+      certificatePending: 'Certificate being obtained: the site will answer once it is issued (the name must reach the node on ports 80 and 443).',
     },
   },
   nodes: {

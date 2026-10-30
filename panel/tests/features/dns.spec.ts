@@ -12,13 +12,14 @@ import { catalog, node, NODE_ID, SERVER_ID, serverDto } from '../support/servers
 
 type DnsSettings = Schemas['DnsSettingsDto']
 
-const zone = { base_domain: 'play.example.com', nodes_label: 'nodes' }
+const zone = { base_domain: 'play.example.com', nodes_label: 'nodes', sites_domain: null }
 
 const settings: DnsSettings = {
   configured: true,
   provider: 'cloudflare',
   base_domain: 'play.example.com',
   nodes_label: 'nodes',
+  sites_domain: null,
   ttl: 300,
   enabled: true,
   has_token: true,
@@ -79,7 +80,7 @@ describe('dns settings', () => {
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
     await waitFor(() => expect(bodies).toHaveLength(1))
-    expect(bodies[0]).toEqual({ provider: 'cloudflare', base_domain: 'mc.example.com', nodes_label: 'nodes', ttl: 300, enabled: true })
+    expect(bodies[0]).toEqual({ provider: 'cloudflare', base_domain: 'mc.example.com', nodes_label: 'nodes', sites_domain: null, ttl: 300, enabled: true })
     expect(await screen.findByText('Configuration DNS enregistrée.')).toBeTruthy()
 
     await user.type(screen.getByLabelText('Jeton d’API'), 'cf-token')
@@ -87,6 +88,27 @@ describe('dns settings', () => {
 
     await waitFor(() => expect(bodies).toHaveLength(2))
     expect(bodies[1]).toMatchObject({ token: 'cf-token' })
+  })
+
+  it('sends the web sites domain and shows its refusal under the field', async () => {
+    const bodies: unknown[] = []
+    settingsPage()
+    server.use(
+      http.put(`${API}/settings/dns`, async ({ request }) => {
+        bodies.push(await request.json())
+        return problem(422, 'validation_failed', { fields: [{ field: 'sites_domain', code: 'invalid_sites_domain' }] })
+      }),
+    )
+    const { user } = await renderApp('/settings/dns')
+
+    const sites = await screen.findByLabelText('Domaine des sites web')
+    await user.type(sites, 'app.example.com')
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0]).toMatchObject({ sites_domain: 'app.example.com' })
+    expect(await screen.findByText(/Domaine des sites invalide/)).toBeTruthy()
+    expect(sites.getAttribute('aria-invalid')).toBe('true')
   })
 
   it('shows the refusal of the provider on the page', async () => {
@@ -196,6 +218,38 @@ describe('node public address', () => {
 
     await waitFor(() => expect(body).toEqual({ ipv4: '198.51.100.7', ipv6: '2001:db8::7' }))
     expect(await screen.findByText('Adresse publique enregistrée.')).toBeTruthy()
+  })
+})
+
+describe('web site address', () => {
+  /** Vue d'ensemble d'un serveur web, avec ou sans domaine des sites dans la zone. */
+  function sitePage(sitesDomain: string | null, webStatus: Schemas['ServerDto']['web_status'] = null) {
+    const dto = serverDto({ web_id: 'abcdefg234', web_status: webStatus })
+    server.use(
+      ...signedIn(),
+      ...catalog(),
+      http.get(`${API}/servers`, () => HttpResponse.json([dto])),
+      http.get(`${API}/servers/${SERVER_ID}`, () => HttpResponse.json(dto)),
+    )
+    server.use(http.get(`${API}/dns`, () => HttpResponse.json({ ...zone, sites_domain: sitesDomain })))
+  }
+
+  it('shows the site address as a link, with the status reported by the node', async () => {
+    sitePage('web.example.com', { proxy: 'unavailable', certificate: 'pending', message: 'port 443 already in use' })
+    await renderApp(`/servers/${SERVER_ID}`)
+
+    const link = await screen.findByRole('link', { name: /https:\/\/abcdefg234\.web\.example\.com/ })
+    expect(link.getAttribute('href')).toBe('https://abcdefg234.web.example.com')
+    expect(link.getAttribute('target')).toBe('_blank')
+    const status = await screen.findByText(/Le proxy du nœud est indisponible/)
+    expect(status.textContent).toContain('port 443 already in use')
+  })
+
+  it('asks for the sites domain when the zone has none', async () => {
+    sitePage(null)
+    await renderApp(`/servers/${SERVER_ID}`)
+
+    expect(await screen.findByText(/Site web sans adresse/)).toBeTruthy()
   })
 })
 

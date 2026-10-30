@@ -87,6 +87,7 @@ fn server_state_wire_format() {
                 server_id: Uuid::parse_str(SERVER_ID).unwrap(),
                 state,
                 reason: None,
+                web: None,
             }),
         };
 
@@ -110,6 +111,7 @@ fn failed_state_carries_its_reason() {
             server_id: Uuid::parse_str(SERVER_ID).unwrap(),
             state: ServerState::Failed,
             reason: Some("image pull failed".to_owned()),
+            web: None,
         }),
     };
 
@@ -169,4 +171,48 @@ fn server_disk_wire_format() {
             "payload": { "server_id": SERVER_ID, "used_bytes": 1_073_741_824 }
         }),
     );
+}
+
+#[test]
+fn web_status_rides_with_the_state_and_an_older_daemon_sends_none() {
+    use kuro_protocol::daemon::server::{CertificateState, ProxyState, WebStatus};
+
+    let envelope = Envelope {
+        id: id(ID),
+        reply_to: None,
+        message: DaemonMessage::ServerState(ServerStateReport {
+            server_id: Uuid::parse_str(SERVER_ID).unwrap(),
+            state: ServerState::Running,
+            reason: None,
+            web: Some(WebStatus {
+                proxy: ProxyState::Unavailable,
+                certificate: CertificateState::Pending,
+                message: Some("port 443 already in use".to_owned()),
+            }),
+        }),
+    };
+
+    assert_wire_format(
+        &envelope,
+        json!({
+            "id": ID,
+            "type": "server.state",
+            "payload": {
+                "server_id": SERVER_ID,
+                "state": "running",
+                "web": { "proxy": "unavailable", "certificate": "pending", "message": "port 443 already in use" }
+            }
+        }),
+    );
+
+    let older = json!({
+        "id": ID,
+        "type": "server.state",
+        "payload": { "server_id": SERVER_ID, "state": "running" }
+    });
+    let decoded: Envelope<DaemonMessage> = serde_json::from_value(older).unwrap();
+    match decoded.message {
+        DaemonMessage::ServerState(report) => assert_eq!(report.web, None),
+        other => panic!("{other:?}"),
+    }
 }

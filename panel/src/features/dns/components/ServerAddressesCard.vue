@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // Adresses d'un serveur (ADR-0026) : avec le DNS configuré et un nom, `<label>.<base>:<port>`
 // par port public (l'IP reste indiquée dessous), sinon `IP:port`. Un admin avec
-// `servers.update` choisit le nom ; vide, le serveur n'a plus de nom.
-import { Copy, Pencil } from '@lucide/vue'
+// `servers.update` choisit le nom ; vide, le serveur n'a plus de nom. Un site web (ADR-0038) :
+// son adresse `https://…` cliquable, et l'état du proxy du nœud et du certificat.
+import { CircleAlert, Copy, ExternalLink, Pencil } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
@@ -19,7 +20,7 @@ import { Label } from '@/shared/ui/label'
 
 import { useDnsApi } from '../dns.api'
 import { useDnsZone, useInvalidateDns } from '../dns.queries'
-import { serverHost } from '../hostnames'
+import { serverHost, siteUrl } from '../hostnames'
 
 const props = defineProps<{ server: Server }>()
 const { t } = useI18n()
@@ -33,6 +34,15 @@ const { handleError } = useApiError()
 const base = computed(() => zone.value?.base_domain ?? null)
 const host = computed(() => serverHost(zone.value, props.server.dns_label))
 const editable = computed(() => !!base.value && can('servers.update'))
+const site = computed(() => siteUrl(zone.value, props.server.web_id))
+/** Le site répond quand le proxy est prêt et le certificat obtenu ; sinon, pourquoi pas encore. */
+const siteStatus = computed(() => {
+  const status = props.server.web_status
+  if (!status) return { key: 'dns.site.unknown', warning: false }
+  if (status.proxy === 'unavailable') return { key: 'dns.site.proxyUnavailable', warning: true, message: status.message ?? undefined }
+  if (status.certificate === 'pending') return { key: 'dns.site.certificatePending', warning: false }
+  return null
+})
 
 const open = ref(false)
 const label = ref('')
@@ -76,6 +86,29 @@ async function copy(text: string) {
       </Button>
     </CardHeader>
     <CardContent class="grid gap-2 font-mono text-sm">
+      <div v-if="server.web_id" class="grid gap-1">
+        <div v-if="site" class="flex min-w-0 items-center gap-1">
+          <a :href="site" target="_blank" rel="noopener noreferrer" class="flex min-w-0 items-center gap-1 truncate underline-offset-4 hover:underline">
+            <span class="truncate">{{ site }}</span>
+            <ExternalLink class="size-3.5 shrink-0" aria-hidden="true" />
+          </a>
+          <span class="shrink-0 text-xs text-muted-foreground">{{ t('dns.site.label') }}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            class="ml-auto size-7 shrink-0"
+            :aria-label="t('dns.server.copy', { address: site })"
+            @click="copy(site)"
+          >
+            <Copy class="size-3.5" />
+          </Button>
+        </div>
+        <span v-else class="font-sans text-xs text-muted-foreground">{{ t('dns.site.noDomain') }}</span>
+        <p v-if="site && siteStatus" class="flex items-start gap-1 font-sans text-xs" :class="siteStatus.warning ? 'text-destructive' : 'text-muted-foreground'" role="status">
+          <CircleAlert v-if="siteStatus.warning" class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          <span>{{ t(siteStatus.key) }}<template v-if="siteStatus.message">{{ ` ${siteStatus.message}` }}</template></span>
+        </p>
+      </div>
       <div v-for="allocation in server.allocations" :key="allocation.name" class="grid gap-0.5">
         <div class="flex min-w-0 items-center gap-1">
           <span class="truncate">{{ `${host ?? allocation.ip}:${allocation.port}` }}</span>

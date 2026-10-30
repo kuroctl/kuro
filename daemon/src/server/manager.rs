@@ -116,6 +116,8 @@ pub struct Manager {
 struct Inner {
     docker: Docker,
     data_root: PathBuf,
+    /// Proxy des sites web du nœud (ADR-0038).
+    proxy: crate::web::Proxy,
     busy: Mutex<HashSet<Uuid>>,
     /// Dernier état annoncé par serveur : renvoyé tel quel à une reconnexion pendant une
     /// opération (`installing`…), le conteneur principal ne reflétant pas encore son issue.
@@ -161,6 +163,22 @@ impl Manager {
         data_root: PathBuf,
         downloads: DownloadPolicy,
     ) -> (Self, Receivers) {
+        Self::with_options(
+            docker,
+            data_root,
+            downloads,
+            crate::web::WebConfig::default(),
+        )
+    }
+
+    /// Règles de téléchargement et réglages du proxy des sites web (ADR-0038).
+    pub fn with_options(
+        docker: Docker,
+        data_root: PathBuf,
+        downloads: DownloadPolicy,
+        web: crate::web::WebConfig,
+    ) -> (Self, Receivers) {
+        let proxy = crate::web::Proxy::new(docker.clone(), &data_root, web);
         let (events, receiver) = states::channel();
         let (streams, streams_receiver) = mpsc::channel(STREAM_QUEUE);
         let (backups, backups_receiver) = mpsc::channel(64);
@@ -169,6 +187,7 @@ impl Manager {
             inner: Arc::new(Inner {
                 docker,
                 data_root,
+                proxy,
                 busy: Mutex::new(HashSet::new()),
                 announced: Mutex::new(HashMap::new()),
                 archiving: Mutex::new(HashMap::new()),
@@ -380,6 +399,9 @@ impl Manager {
         self.inner.specs().insert(id, kept.clone());
         self.give_volumes(deploy).await?;
         docker.ensure_network(id).await?;
+        // Site web (ADR-0038) : le proxy du nœud reçoit les routes du serveur. Un échec ne retient
+        // pas le déploiement : il est porté par l'état web du serveur.
+        self.inner.proxy.set_routes(id, deploy.web.clone()).await;
 
         let main = container_name(id, &deploy.lifecycle.service);
         let was_running = docker.status(&main).await?.is_some_and(|s| s.running);
@@ -598,6 +620,8 @@ impl Manager {
                     .await?;
             }
         }
+        // Le proxy quitte le réseau du serveur avant que celui-ci soit supprimé.
+        self.inner.proxy.remove(server_id).await;
         docker.remove_network(server_id).await?;
         self.inner.specs().remove(&server_id);
         // Des dizaines de Go à effacer : hors des workers du runtime.
@@ -687,7 +711,42 @@ impl Manager {
             server_id,
             state,
             reason,
+            web: self.inner.proxy.status(server_id),
         });
+    }
+
+    /// Au démarrage : le proxy des sites web reprend les routes des serveurs déployés.
+    pub async fn restore_proxy(&self) {
+        let mut all = Vec::new();
+        for server_id in self.deployed() {
+            match self.spec_opt(server_id) {
+                Ok(Some(spec)) if !spec.web.is_empty() => all.push((server_id, spec.web)),
+                Ok(_) => {}
+                Err(error) => tracing::warn!(%server_id, %error, "spec unreadable at boot"),
+            }
+        }
+        self.inner.proxy.restore(all).await;
+    }
+
+    /// Relit régulièrement les certificats obtenus par le proxy et annonce les sites dont l'état
+    /// change, avec le dernier état connu du serveur.
+    pub async fn watch_certificates(&self, every: Duration) {
+        let mut ticks = tokio::time::interval(every);
+        ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            ticks.tick().await;
+            self.refresh_web_status().await;
+        }
+    }
+
+    /// Une relecture des certificats : les sites dont l'état change sont annoncés.
+    pub async fn refresh_web_status(&self) {
+        for server_id in self.inner.proxy.refresh_certificates().await {
+            let announced = self.inner.announced().get(&server_id).cloned();
+            if let Some((state, reason)) = announced {
+                self.report(server_id, state, reason);
+            }
+        }
     }
 }
 

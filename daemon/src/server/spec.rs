@@ -3,7 +3,7 @@
 
 use std::collections::HashSet;
 
-use kuro_protocol::api::server::{LifecycleSpec, ReadySpec, ServerDeploy};
+use kuro_protocol::api::server::{LifecycleSpec, PortProtocol, ReadySpec, ServerDeploy};
 
 /// Ports publiés : jamais un port privilégié de l'hôte.
 pub(crate) const MIN_HOST_PORT: u16 = 1024;
@@ -100,7 +100,53 @@ pub fn check(spec: &ServerDeploy) -> Result<(), String> {
             ));
         }
     }
+    check_web(spec)?;
     check_lifecycle(spec, &spec.lifecycle)
+}
+
+/// Routes web (ADR-0038) : un nom d'hôte valide, vers un port TCP déclaré d'un service du
+/// serveur ; l'API est de confiance, mais une route vers l'inconnu n'a pas de sens.
+fn check_web(spec: &ServerDeploy) -> Result<(), String> {
+    let mut hosts = HashSet::new();
+    for route in &spec.web {
+        if !is_hostname(&route.host) || !hosts.insert(route.host.as_str()) {
+            return Err(format!(
+                "web route: invalid or duplicate host `{}`",
+                route.host
+            ));
+        }
+        let Some(service) = spec.services.iter().find(|s| s.name == route.service) else {
+            return Err(format!(
+                "web route {}: unknown service `{}`",
+                route.host, route.service
+            ));
+        };
+        let declared = service.ports.iter().any(|port| {
+            port.container_port == route.container_port && port.protocol == PortProtocol::Tcp
+        });
+        if !declared {
+            return Err(format!(
+                "web route {}: service {} declares no tcp port {}",
+                route.host, route.service, route.container_port
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Nom d'hôte DNS : étiquettes de 1 à 63 caractères (minuscules, chiffres, tirets, ni au début
+/// ni à la fin), deux au moins, 253 caractères au plus.
+fn is_hostname(host: &str) -> bool {
+    let label = |label: &str| {
+        let bytes = label.as_bytes();
+        (1..=63).contains(&bytes.len())
+            && bytes
+                .iter()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'-')
+            && bytes.first() != Some(&b'-')
+            && bytes.last() != Some(&b'-')
+    };
+    host.len() <= 253 && host.split('.').count() >= 2 && host.split('.').all(label)
 }
 
 fn check_lifecycle(spec: &ServerDeploy, lifecycle: &LifecycleSpec) -> Result<(), String> {

@@ -16,7 +16,9 @@ pub use content::{ContentDone, ContentOutcome, ExtractedPackage, MAX_DESCRIPTION
 pub use file::{FileContent, FileEntry, FileKind, FileListing};
 pub use heartbeat::Heartbeat;
 pub use hello::{Hello, HostInfo};
-pub use server::{CommandResult, ServerDisk, ServerStateReport};
+pub use server::{
+    CertificateState, CommandResult, ProxyState, ServerDisk, ServerStateReport, WebStatus,
+};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload")]

@@ -90,6 +90,7 @@ pub fn single(server_id: Uuid) -> ServerDeploy {
         disk_bytes: 0,
         suspended: false,
         defer: false,
+        web: Vec::new(),
     }
 }
 

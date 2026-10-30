@@ -1,11 +1,13 @@
 //! DNS des serveurs et des nœuds (ADR-0026) : zone configurée avec un jeton vérifié, noms des
 //! nœuds et des serveurs, SRV déclaré par le prefab, renommage, réparation des écarts, panne du
-//! fournisseur, permissions.
+//! fournisseur, permissions. Sites web (ADR-0038) : domaine des sites, identifiant et CNAME d'un
+//! serveur dont le prefab a un port web.
 
 use axum::http::{Method, StatusCode};
 use kuro_api::dns::application::reconcile;
 use kuro_api::iam::domain::Permission;
 use serde_json::{Value, json};
+use uuid::Uuid;
 
 use crate::support::dns::TOKEN;
 use crate::support::platform::{FakeDaemon, Platform};
@@ -266,4 +268,200 @@ async fn the_zone_needs_its_own_permission() {
         .await;
     assert_eq!(response.status, StatusCode::FORBIDDEN);
     assert_eq!(response.json["params"]["permission"], "system.dns.manage");
+}
+
+/// Serveur WordPress (prefab à port web, sans allocation). Sans adresse, l'API refuse avant tout
+/// déploiement : le nœud ne reçoit rien.
+async fn create_wordpress(platform: &Platform, node: Uuid) -> crate::support::http::TestResponse {
+    platform
+        .call(
+            Method::POST,
+            "/servers",
+            Some(json!({
+                "name": "Blog",
+                "node_id": node,
+                "prefab_id": "wordpress",
+                "memory_mb": 1024,
+                "cpu_percent": 100,
+                "disk_mb": 2048,
+                "settings": {},
+            })),
+        )
+        .await
+}
+
+#[tokio::test]
+async fn a_web_prefab_needs_the_sites_domain_then_gets_its_address_and_cname() {
+    let (platform, mut daemon, _, _) = setup().await;
+    let node = daemon.node.id.as_uuid();
+
+    // Zone sans domaine des sites : un prefab web n'est pas déployable.
+    let refused = create_wordpress(&platform, node).await;
+    assert_eq!(
+        refused.status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "{}",
+        refused.json
+    );
+    assert_eq!(refused.json["code"], "sites_domain_not_configured");
+
+    let zone = configure(
+        &platform,
+        json!({ "provider": "cloudflare", "base_domain": "play.kuroctl.test", "sites_domain": "web.kuroctl.test" }),
+    )
+    .await;
+    assert_eq!(zone.status, StatusCode::OK, "{}", zone.json);
+    assert_eq!(zone.json["sites_domain"], "web.kuroctl.test");
+    let public = platform.call(Method::GET, "/dns", None).await;
+    assert_eq!(public.json["sites_domain"], "web.kuroctl.test");
+    let event = platform.admin.last_audit("dns.zone_updated").await;
+    assert_eq!(event.details["sites_domain"], "web.kuroctl.test");
+
+    let (response, command) = tokio::join!(create_wordpress(&platform, node), daemon.accept());
+    assert_eq!(response.status, StatusCode::CREATED, "{}", response.json);
+    let web_id = response.json["web_id"].as_str().unwrap().to_owned();
+    assert_eq!(web_id.len(), 10);
+    assert!(
+        web_id
+            .bytes()
+            .all(|b| b"abcdefghijklmnopqrstuvwxyz234567".contains(&b)),
+        "{web_id}"
+    );
+    assert!(
+        response.json["allocations"].as_array().unwrap().is_empty(),
+        "a web port has no allocation"
+    );
+    let url = format!("https://{web_id}.web.kuroctl.test");
+    // Le port web n'est pas publié ; l'adresse du site entre dans la configuration de WordPress.
+    let web = command["payload"]["services"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["name"] == "web")
+        .unwrap();
+    assert_eq!(web["ports"][0]["container_port"], 80);
+    assert!(web["ports"][0].get("published").is_none_or(Value::is_null));
+    assert!(
+        web["env"]["WORDPRESS_CONFIG_EXTRA"]
+            .as_str()
+            .unwrap()
+            .contains(&format!("define('WP_HOME', '{url}');")),
+        "{}",
+        web["env"]["WORDPRESS_CONFIG_EXTRA"]
+    );
+    let created = platform.admin.last_audit("server.created").await;
+    assert_eq!(created.details["web_id"], web_id);
+    // La route du site part au nœud : nom, service et port du conteneur (ADR-0038).
+    assert_eq!(
+        command["payload"]["web"],
+        json!([{ "host": format!("{web_id}.web.kuroctl.test"), "service": "web", "container_port": 80 }])
+    );
+
+    // Le nœud rapporte l'état du proxy et du certificat avec l'état du serveur.
+    let server_id = response.json["id"].as_str().unwrap().to_owned();
+    daemon
+        .event(
+            "server.state",
+            json!({
+                "server_id": server_id,
+                "state": "offline",
+                "web": { "proxy": "unavailable", "certificate": "pending", "message": "port 443 already in use" }
+            }),
+        )
+        .await;
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    let web_status = loop {
+        let server = platform
+            .call(Method::GET, &format!("/servers/{server_id}"), None)
+            .await;
+        if !server.json["web_status"].is_null() {
+            break server.json["web_status"].clone();
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "web status never recorded"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    };
+    assert_eq!(
+        web_status,
+        json!({ "proxy": "unavailable", "certificate": "pending", "message": "port 443 already in use" })
+    );
+
+    // Le CNAME du site vise le nœud, comme celui du serveur.
+    reconcile(&platform.admin.dns).await.unwrap();
+    let published = platform.admin.dns_provider.published();
+    assert!(
+        published.contains(&rec(
+            "CNAME",
+            &format!("{web_id}.web.kuroctl.test"),
+            "node-1.nodes.play.kuroctl.test"
+        )),
+        "{published:?}"
+    );
+    assert!(published.contains(&rec(
+        "CNAME",
+        "blog.play.kuroctl.test",
+        "node-1.nodes.play.kuroctl.test"
+    )));
+
+    // Domaine des sites retiré : le CNAME du site disparaît, l'identifiant reste.
+    let without = configure(
+        &platform,
+        json!({ "provider": "cloudflare", "base_domain": "play.kuroctl.test", "sites_domain": "" }),
+    )
+    .await;
+    assert_eq!(without.status, StatusCode::OK, "{}", without.json);
+    assert!(without.json["sites_domain"].is_null());
+    reconcile(&platform.admin.dns).await.unwrap();
+    assert!(
+        !platform
+            .admin
+            .dns_provider
+            .published()
+            .iter()
+            .any(|(_, name, _)| name.ends_with(".web.kuroctl.test"))
+    );
+}
+
+#[tokio::test]
+async fn the_sites_domain_stays_in_the_zone_apart_from_games_nodes_and_reserved_names() {
+    let platform = Platform::start().await;
+    let base =
+        json!({ "provider": "cloudflare", "base_domain": "play.kuroctl.test", "token": TOKEN });
+    for sites in [
+        "kuroctl.test",            // la racine de la zone
+        "app.kuroctl.test",        // nom réservé
+        "play.kuroctl.test",       // le domaine des jeux
+        "web.play.kuroctl.test",   // sous le domaine des jeux : collision avec un serveur
+        "nodes.play.kuroctl.test", // le sous-domaine des nœuds
+        "web.other.test",          // une autre zone du fournisseur
+        "not a domain",
+    ] {
+        let mut body = base.clone();
+        body["sites_domain"] = json!(sites);
+        let refused = configure(&platform, body).await;
+        assert_eq!(
+            refused.status,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "{sites}: {}",
+            refused.json
+        );
+        assert_eq!(
+            refused.json["fields"][0]["field"], "sites_domain",
+            "{sites}"
+        );
+        assert_eq!(
+            refused.json["fields"][0]["code"], "invalid_sites_domain",
+            "{sites}"
+        );
+    }
+    let settings = platform.call(Method::GET, "/settings/dns", None).await;
+    assert_eq!(settings.json["configured"], false, "nothing saved");
+
+    let mut body = base.clone();
+    body["sites_domain"] = json!(" Sites.Kuroctl.test. ");
+    let saved = configure(&platform, body).await;
+    assert_eq!(saved.status, StatusCode::OK, "{}", saved.json);
+    assert_eq!(saved.json["sites_domain"], "sites.kuroctl.test");
 }

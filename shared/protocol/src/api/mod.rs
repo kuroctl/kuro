@@ -27,7 +27,7 @@ pub use install::{
 };
 pub use server::{
     ServerCommand, ServerDelete, ServerDeploy, ServerLimits, ServerPower, ServerSuspend,
-    ServerSync, ServerWatch,
+    ServerSync, ServerWatch, WebRoute,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

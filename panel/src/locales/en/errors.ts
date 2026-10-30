@@ -82,6 +82,8 @@ const codes = {
   invalid_domain: 'Invalid domain name (e.g. play.example.com).',
   invalid_dns_label: 'Invalid name: lowercase letters, digits and dashes, 1 to 63 characters.',
   dns_label_taken: 'This name is already used by another server.',
+  invalid_sites_domain: 'Invalid web sites domain: in the zone, at least three labels, apart from the server and node domains, and never app, api, get, docs, www or mail.',
+  sites_domain_not_configured: 'This prefab is a web site: set the web sites domain in Settings › DNS first.',
   invalid_ip_address: 'Invalid IP address.',
   unknown_dns_provider: 'Unknown DNS provider.',
   dns_token_required: 'An API token is required.',

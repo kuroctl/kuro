@@ -209,6 +209,7 @@ fn restoring_state_wire_format() {
             server_id: uuid(SERVER_ID),
             state: ServerState::Restoring,
             reason: None,
+            web: None,
         }),
     };
 

@@ -61,6 +61,37 @@ pub struct ServerStateReport {
     /// Cause d'un échec, sans secret.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    /// Site web du serveur (ADR-0038) : état du proxy du nœud et de son certificat. Absent pour
+    /// un serveur sans site, ou venant d'un daemon antérieur.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub web: Option<WebStatus>,
+}
+
+/// État du site web d'un serveur, constaté par le daemon.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WebStatus {
+    pub proxy: ProxyState,
+    pub certificate: CertificateState,
+    /// Pourquoi le proxy est indisponible (ports pris, image absente…), sans secret.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProxyState {
+    /// Le proxy du nœud tourne avec la route du site.
+    Ready,
+    /// Le proxy n'a pas pu être lancé ou configuré ; `message` dit pourquoi.
+    Unavailable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CertificateState {
+    /// Pas encore obtenu : défi ACME en cours, ou le nom ne joint pas encore le nœud.
+    Pending,
+    Issued,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

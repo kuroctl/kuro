@@ -1,6 +1,6 @@
 # Prefabs officiels
 
-Modèles de serveurs livrés avec Kuro. Format : [ADR-0011](../docs/decisions/ADR-0011-prefabs.md).
+Modèles de serveurs livrés avec Kuro. Format : [ADR-0011](../docs/private/decisions/ADR-0011-prefabs.md). Pour en écrire un (à la main ou par un agent via le MCP) : [skill `kuro-prefab`](../.claude/skills/kuro-prefab/SKILL.md).
 
 | Prefab | Services | Points illustrés |
 |---|---|---|
@@ -34,6 +34,6 @@ Pour l'éditer avec autocomplétion et validation (VS Code, extension YAML de Re
 # yaml-language-server: $schema=../schema/prefab.v1.schema.json
 ```
 
-Les contrôles qu'un JSON Schema ne peut pas exprimer (références de gabarits, chemins sous les volumes, bornes des valeurs par défaut, clés de traduction) seront faits par la crate `shared/prefab`, à l'import comme dans le Studio.
+Les contrôles qu'un JSON Schema ne peut pas exprimer (références de gabarits, chemins sous les volumes, bornes des valeurs par défaut, clés de traduction) sont faits par la crate `shared/prefab`, à l'import comme dans le Studio.
 
 Images (`assets/`) : visuels des éditeurs (Steam pour les jeux Steam), à remplacer si leur usage n'est pas autorisé pour votre déploiement.

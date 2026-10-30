@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, provider, base_domain, nodes_label, provider_zone, token, ttl, enabled, updated_at\n             FROM dns_zones ORDER BY created_at LIMIT 1",
+  "query": "SELECT id, provider, base_domain, nodes_label, sites_domain, provider_zone, token, ttl,\n                    enabled, updated_at\n             FROM dns_zones ORDER BY created_at LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -49,6 +49,17 @@
       },
       {
         "ordinal": 4,
+        "name": "sites_domain",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "dns_zones",
+            "name": "sites_domain"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
         "name": "provider_zone",
         "type_info": "Text",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "token",
         "type_info": "Bytea",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "ttl",
         "type_info": "Int4",
         "origin": {
@@ -81,7 +92,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "enabled",
         "type_info": "Bool",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -111,6 +122,7 @@
       false,
       false,
       false,
+      true,
       false,
       false,
       false,
@@ -118,5 +130,5 @@
       false
     ]
   },
-  "hash": "d1c6f4024871a5c5ea8fb4ada2b737b5baf6dfc98ac4961dedf8edcdb3da719f"
+  "hash": "2083ed6debdd3070cfee36de37e34c71c589274107f942f7b6db7dbe122e007d"
 }

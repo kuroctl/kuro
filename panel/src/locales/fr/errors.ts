@@ -83,6 +83,8 @@ const codes = {
   invalid_domain: 'Nom de domaine invalide (ex. play.example.com).',
   invalid_dns_label: 'Nom invalide : lettres minuscules, chiffres et tirets, 1 à 63 caractères.',
   dns_label_taken: 'Ce nom est déjà utilisé par un autre serveur.',
+  invalid_sites_domain: 'Domaine des sites invalide : dans la zone, d’au moins trois étiquettes, à l’écart du domaine des serveurs et des nœuds, et jamais app, api, get, docs, www ou mail.',
+  sites_domain_not_configured: 'Ce prefab est un site web : renseignez d’abord le domaine des sites web dans Paramètres › DNS.',
   invalid_ip_address: 'Adresse IP invalide.',
   unknown_dns_provider: 'Fournisseur DNS inconnu.',
   dns_token_required: 'Un jeton d’API est requis.',

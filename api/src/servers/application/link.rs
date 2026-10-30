@@ -71,6 +71,17 @@ impl LinkEvents {
         if owned && report.state == Reported::Starting {
             ServerRepository::clear_pending(&mut conn, report.server_id).await?;
         }
+        // Site web (ADR-0038) : état du proxy et du certificat, tel que le nœud le voit.
+        if owned && let Some(web) = &report.web {
+            let status = serde_json::to_value(web).unwrap_or(serde_json::Value::Null);
+            ServerRepository::set_web_status_if_owned(
+                &mut conn,
+                report.server_id,
+                node_id,
+                &status,
+            )
+            .await?;
+        }
         if !owned && report.state != Reported::Deleted {
             // Serveur d'un autre nœud, inconnu, ou en suppression : un daemon n'agit que sur ses
             // serveurs.
