@@ -25,6 +25,14 @@ globalThis.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 }
+// Graphiques (Unovis, d3) : jsdom n'a ni les transformations SVG ni la mesure des textes.
+Object.defineProperty(SVGElement.prototype, 'transform', {
+  configurable: true,
+  get: () => ({ baseVal: { consolidate: () => null } }),
+})
+const svg = SVGElement.prototype as SVGElement & { getBBox?: () => DOMRect; getComputedTextLength?: () => number }
+svg.getBBox ??= () => ({ x: 0, y: 0, width: 0, height: 0 }) as DOMRect
+svg.getComputedTextLength ??= () => 0
 
 // Menus et listes reka-ui : capture du pointeur et défilement, absents de jsdom.
 Element.prototype.hasPointerCapture ??= () => false
