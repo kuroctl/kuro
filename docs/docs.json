@@ -12,7 +12,6 @@
     "languages": [
       {
         "language": "fr",
-        "default": true,
         "groups": [
           {
             "group": "Démarrer",
@@ -81,7 +80,8 @@
               "en/troubleshooting"
             ]
           }
-        ]
+        ],
+        "default": true
       }
     ]
   },
