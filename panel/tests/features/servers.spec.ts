@@ -206,7 +206,7 @@ describe('servers', () => {
     const entries = within(nav)
       .getAllByRole('link')
       .map((link) => link.textContent?.trim())
-    expect(entries).toEqual(['Vue d’ensemble', 'Console', 'Fichiers', 'Sauvegardes', 'Planification', 'Ressources', 'Serveur', 'Version et loader', 'Sécurité'])
+    expect(entries).toEqual(['Vue d’ensemble', 'Console', 'Statistiques', 'Fichiers', 'Sauvegardes', 'Planification', 'Notifications', 'Ressources', 'Serveur', 'Version et loader', 'Sécurité'])
     expect(within(nav).getByText('Réglages généraux')).toBeTruthy()
     expect(within(nav).getByText('Réglages avancés')).toBeTruthy()
   })

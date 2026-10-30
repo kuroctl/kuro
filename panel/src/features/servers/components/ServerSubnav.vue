@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Panneau d'un serveur : ses pages, puis les groupes de réglages du prefab (sections générale et
 // avancée) et le contenu (mods, plugins) qu'il déclare, chacun en groupe repliable.
-import { Archive, ArrowLeft, CalendarClock, Folder, Gauge, LayoutDashboard, Package, Settings2, SlidersHorizontal, Terminal } from '@lucide/vue'
+import { Activity, Archive, ArrowLeft, Bell, CalendarClock, Folder, Gauge, LayoutDashboard, Package, Settings2, SlidersHorizontal, Terminal } from '@lucide/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
@@ -47,9 +47,11 @@ const entries = computed<NavEntry[]>(() => {
   const list: NavEntry[] = [
     page('overview', LayoutDashboard, base),
     page('console', Terminal, `${base}/console`),
+    page('stats', Activity, `${base}/stats`),
     page('files', Folder, `${base}/files`, true),
     page('backups', Archive, `${base}/backups`),
     page('schedules', CalendarClock, `${base}/schedules`, true),
+    page('notifications', Bell, `${base}/notifications`),
     page('resources', Gauge, `${base}/resources`),
   ]
   for (const section of sections.value) {

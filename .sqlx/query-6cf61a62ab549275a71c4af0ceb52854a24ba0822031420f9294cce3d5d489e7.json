@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO notification_channels (id, name, kind, config, url_hint, language, enabled, created_by, server_id)\n             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Bytea",
+        "Text",
+        "Text",
+        "Bool",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6cf61a62ab549275a71c4af0ceb52854a24ba0822031420f9294cce3d5d489e7"
+}

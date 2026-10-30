@@ -173,6 +173,19 @@ async fn execute(
     };
     tx.commit(event.target("server", schedule.server_id).details(details))
         .await?;
+    // Échec notifié (ADR-0044).
+    if let Outcome::Failed { reason, step } = &outcome {
+        let mut conn = state.pool.acquire().await?;
+        if let Some(server) = ServerRepository::get(&mut conn, schedule.server_id).await? {
+            let event = crate::notifications::domain::Event::now(
+                crate::notifications::domain::EventKind::ServerScheduleFailed,
+            )
+            .server(super::link::server_ref(&server))
+            .reason(reason.clone())
+            .details(serde_json::json!({ "schedule_id": schedule.id, "schedule": schedule.name, "step": step }));
+            crate::notifications::application::emit_detached(&state.pool, event);
+        }
+    }
     Ok(())
 }
 

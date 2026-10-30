@@ -22,6 +22,7 @@ par exemple `KURO_API_HTTP__BIND=127.0.0.1:9000`.
 | `[prefabs]` | `dir` (prefabs officiels), `publish_to_dir` (développement : « Publier » dans le Studio écrit le prefab dans `dir`, à laisser `false` en production) |
 | `[[prefabs.stores]]` | Un bloc par store de prefabs : `name`, `url` (racine HTTPS qui sert `index.json`, sa signature et les archives), `public_key` (clé publique minisign qui signe l'index), `token` (facultatif, store privé). Par défaut le store officiel `kuroctl/prefabs` ; `stores = []` dans `[prefabs]` pour n'en avoir aucun |
 | `[mcp]` | `public_url` (adresse publique, active le serveur MCP), `panel_url` |
+| `[notifications]` | `panel_url` (lien mis dans chaque notification ; sinon celui de `[mcp]`), `allow_private_targets` (webhooks vers des adresses privées, `false` par défaut) |
 | `[log]` | `format` (`json` ou `pretty`), `filter` |
 
 Après une modification : `sudo systemctl restart kuro-api`.

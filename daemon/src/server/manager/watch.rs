@@ -207,7 +207,7 @@ impl Manager {
     }
 }
 
-async fn collect(docker: &Docker, names: &[String]) -> Vec<Sample> {
+pub(super) async fn collect(docker: &Docker, names: &[String]) -> Vec<Sample> {
     let measures =
         futures_util::future::join_all(names.iter().map(|name| docker.stats(name))).await;
     measures

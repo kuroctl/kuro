@@ -347,6 +347,9 @@ async fn serve(
                     Ok(Envelope { message: DaemonMessage::ServerDisk(disk), .. }) => {
                         context.servers.disk_usage(node.id, disk);
                     }
+                    Ok(Envelope { message: DaemonMessage::ServerMetrics(metrics), .. }) => {
+                        context.servers.metrics(node.id, metrics);
+                    }
                     Ok(Envelope { id, message: DaemonMessage::Hello(_), .. }) => {
                         reject(ws, Some(id), ErrorCode::UnexpectedMessage, "hello already received").await;
                     }

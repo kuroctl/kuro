@@ -2,11 +2,13 @@
 
 mod backups;
 mod content;
+mod metrics;
 mod schedules;
 mod tickets;
 
 pub use backups::{BackupRecord, BackupRepository};
 pub use content::{ContentPackage, ContentRecord, ContentRepository, NewContent};
+pub use metrics::{MetricPoint, MetricsRepository};
 pub use schedules::{RunRecord, ScheduleFields, ScheduleRecord, ScheduleRepository, StepRecord};
 pub use tickets::{RedeemedTicket, TicketRepository};
 

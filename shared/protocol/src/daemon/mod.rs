@@ -11,7 +11,7 @@ pub mod server;
 use serde::{Deserialize, Serialize};
 
 pub use backup::{BackupChunk, BackupDone, BackupInfo, BackupListing, BackupOutcome, BackupState};
-pub use console::{ConsoleLine, ConsoleOutput, ServerStats};
+pub use console::{ConsoleLine, ConsoleOutput, ServerMetrics, ServerStats};
 pub use content::{ContentDone, ContentOutcome, ExtractedPackage, MAX_DESCRIPTION_BYTES};
 pub use file::{FileContent, FileEntry, FileKind, FileListing};
 pub use heartbeat::Heartbeat;
@@ -36,6 +36,8 @@ pub enum DaemonMessage {
     ConsoleLine(ConsoleOutput),
     #[serde(rename = "server.stats")]
     ServerStats(ServerStats),
+    #[serde(rename = "server.metrics")]
+    ServerMetrics(ServerMetrics),
     #[serde(rename = "server.disk")]
     ServerDisk(ServerDisk),
     #[serde(rename = "file.listing")]

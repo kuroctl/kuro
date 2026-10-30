@@ -24,6 +24,8 @@ pub struct AppState {
     pub prefabs_dir: crate::prefabs::application::PrefabsDir,
     /// Stores de prefabs (ADR-0042) : index signés, installation à la demande.
     pub stores: crate::prefabs::store::StoresState,
+    /// Notifications et webhooks (ADR-0044).
+    pub notifications: crate::notifications::application::NotificationsState,
     /// Serveur d'autorisation du MCP, si `mcp.public_url` est configurée (ADR-0023).
     pub oauth: Option<crate::oauth::application::OAuthState>,
     /// DNS des serveurs et des nœuds (ADR-0026).
@@ -75,6 +77,12 @@ impl FromRef<AppState> for crate::prefabs::application::PrefabsDir {
 impl FromRef<AppState> for crate::prefabs::store::StoresState {
     fn from_ref(state: &AppState) -> Self {
         state.stores.clone()
+    }
+}
+
+impl FromRef<AppState> for crate::notifications::application::NotificationsState {
+    fn from_ref(state: &AppState) -> Self {
+        state.notifications.clone()
     }
 }
 

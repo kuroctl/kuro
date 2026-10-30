@@ -150,6 +150,13 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/servers/[id]/notifications': RouteRecordInfo<
+      '/servers/[id]/notifications',
+      '/servers/:id/notifications',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
     '/servers/[id]/resources': RouteRecordInfo<
       '/servers/[id]/resources',
       '/servers/:id/resources',
@@ -176,6 +183,13 @@ declare module 'vue-router/auto-routes' {
       '/servers/:id/settings/:section/:group',
       { group: ParamValue<true>, id: ParamValue<true>, section: ParamValue<true> },
       { group: ParamValue<false>, id: ParamValue<false>, section: ParamValue<false> },
+      | never
+    >,
+    '/servers/[id]/stats': RouteRecordInfo<
+      '/servers/[id]/stats',
+      '/servers/:id/stats',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
       | never
     >,
     '/servers/list': RouteRecordInfo<
@@ -244,6 +258,13 @@ declare module 'vue-router/auto-routes' {
     '/settings/dns': RouteRecordInfo<
       '/settings/dns',
       '/settings/dns',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/settings/notifications': RouteRecordInfo<
+      '/settings/notifications',
+      '/settings/notifications',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -439,6 +460,14 @@ declare module 'vue-router/auto-routes' {
       pathParamNames:
         | never
     }
+    'src/pages/servers/[id]/notifications.vue': {
+      routes:
+        | '/servers/[id]/notifications'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
     'src/pages/servers/[id]/resources.vue': {
       routes:
         | '/servers/[id]/resources'
@@ -470,6 +499,14 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | 'group'
+    }
+    'src/pages/servers/[id]/stats.vue': {
+      routes:
+        | '/servers/[id]/stats'
+      views:
+        | never
+      pathParamNames:
+        | never
     }
     'src/pages/servers/list.vue': {
       routes:
@@ -546,6 +583,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/settings/dns.vue': {
       routes:
         | '/settings/dns'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/settings/notifications.vue': {
+      routes:
+        | '/settings/notifications'
       views:
         | never
       pathParamNames:

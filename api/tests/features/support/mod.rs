@@ -7,6 +7,7 @@ pub mod db;
 pub mod dns;
 pub mod http;
 pub mod link;
+pub mod notifications;
 pub mod oauth;
 pub mod pki;
 pub mod platform;

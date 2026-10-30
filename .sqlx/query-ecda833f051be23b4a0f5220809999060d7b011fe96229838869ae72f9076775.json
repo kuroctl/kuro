@@ -1,0 +1,136 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, name, kind, config, url_hint, language, enabled, server_id, created_at, updated_at\n             FROM notification_channels WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "notification_channels",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "notification_channels",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "notification_channels",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "config",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "notification_channels",
+            "name": "config"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "url_hint",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "notification_channels",
+            "name": "url_hint"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "language",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "notification_channels",
+            "name": "language"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "notification_channels",
+            "name": "enabled"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "server_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "notification_channels",
+            "name": "server_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "notification_channels",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "notification_channels",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "ecda833f051be23b4a0f5220809999060d7b011fe96229838869ae72f9076775"
+}

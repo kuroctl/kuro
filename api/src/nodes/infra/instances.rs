@@ -4,16 +4,19 @@
 use std::time::Duration;
 
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use crate::nodes::domain::InstanceId;
 
 /// Ce qu'un balayage a nettoyé.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Swept {
     /// Instances mortes supprimées.
     pub instances: u64,
     /// Nœuds passés `offline` : tenus par une instance morte, ou par aucune.
     pub nodes: u64,
+    /// Ces nœuds, pour les notifier (ADR-0044).
+    pub offline: Vec<(Uuid, String)>,
 }
 
 #[derive(Debug, Clone)]
@@ -24,6 +27,10 @@ pub struct InstanceRepository {
 impl InstanceRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
+    }
+
+    pub fn pool(&self) -> &PgPool {
+        &self.pool
     }
 
     pub async fn register(&self, id: InstanceId) -> Result<(), sqlx::Error> {
@@ -72,19 +79,23 @@ impl InstanceRepository {
         let me = me.as_uuid();
         let dead_after = dead_after.as_secs_f64();
         let mut tx = self.pool.begin().await?;
-        let nodes = sqlx::query!(
+        let offline: Vec<(Uuid, String)> = sqlx::query!(
             "UPDATE nodes SET status = 'offline', instance_id = NULL, updated_at = now()
              WHERE status = 'online'
                AND (instance_id IS NULL
                     OR instance_id IN (SELECT id FROM api_instances
                                        WHERE id <> $1
-                                         AND last_seen_at < now() - $2 * interval '1 second'))",
+                                         AND last_seen_at < now() - $2 * interval '1 second'))
+             RETURNING id, name",
             me,
             dead_after
         )
-        .execute(&mut *tx)
+        .fetch_all(&mut *tx)
         .await?
-        .rows_affected();
+        .into_iter()
+        .map(|row| (row.id, row.name))
+        .collect();
+        let nodes = offline.len() as u64;
         let instances = sqlx::query!(
             "DELETE FROM api_instances
              WHERE id <> $1 AND last_seen_at < now() - $2 * interval '1 second'",
@@ -98,6 +109,10 @@ impl InstanceRepository {
             .execute(&mut *tx)
             .await?;
         tx.commit().await?;
-        Ok(Swept { instances, nodes })
+        Ok(Swept {
+            instances,
+            nodes,
+            offline,
+        })
     }
 }

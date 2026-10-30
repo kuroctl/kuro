@@ -1,0 +1,56 @@
+---
+title: "Notifications (optional)"
+sidebarTitle: "Notifications"
+description: "Get told when a server crashes, a task or a backup fails, or a node goes silent: webhook, Discord, Slack."
+---
+
+Kuro sends a notification when something needs your attention. You pick the events, the scope
+and the channels in **Settings › Notifications**.
+
+## Events
+
+| Event | When |
+|---|---|
+| Server crashed | The node reports a stop nobody asked for |
+| Scheduled task failed | A scheduled run stops on a failing step |
+| Backup failed | The node could not create the archive |
+| Upgrade failed | The upgrade to a newer prefab version failed |
+| Disk almost full | The server uses 90% of its quota (once, then again after dropping below 80%) |
+| Node offline / back online | No heartbeat for 45 s, then reconnection |
+
+## Channels
+
+- **Webhook**: a JSON `POST` to the URL of your choice, over `https://`. With a secret, every
+  send carries `X-Kuro-Signature: sha256=<HMAC-SHA256 of the body>`: check it before trusting
+  the message. `X-Kuro-Event` gives the type, `X-Kuro-Delivery` the identifier.
+- **Discord** and **Slack**: paste the incoming webhook URL of your channel; the message is
+  formatted (embed, blocks) in the channel's language.
+
+The URL and the secret are encrypted and never shown again. The **Test** button sends a `test`
+event and shows the receiver's answer.
+
+## Per server
+
+On a server's page, the **Notifications** tab holds its **subscriptions**: a destination
+(webhook, Discord or Slack, owned by this server) and the events of this server it receives.
+Everything is set there, without going through settings; the destination disappears with the
+server. With the right to view settings, a subscription can also target a **shared channel** of
+the team. The `servers.notifications.read` and `servers.notifications.manage` rights are enough
+for this page.
+
+## Rules
+
+A rule binds events to channels, for **everything**, **one node** or **one server**. A channel
+targeted by several rules receives one message per event.
+
+## Delivery log
+
+Sends are kept thirty days. A refused send is retried after 1, 5 then 30 minutes, then
+abandoned; beyond thirty sends per minute on a channel, the next ones wait for the next minute.
+
+<Note>
+By default a webhook to a private address (local network, `127.0.0.1`…) is refused: a webhook
+must not be a way to reach the API's internal network. For a corporate Slack behind a VPN, set
+`allow_private_targets = true` under `[notifications]` in `api.toml`. The panel link in each
+message comes from `panel_url` in the same section, else from `[mcp]`.
+</Note>

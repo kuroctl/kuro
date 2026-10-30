@@ -10,6 +10,7 @@ use uuid::Uuid;
 use super::instances::Instance;
 use crate::nodes::domain::{CertFingerprint, Node, NodeHost, NodeId};
 use crate::nodes::infra::NodeRepository;
+use crate::notifications::domain::{Event, EventKind, NodeRef};
 
 /// Période d'écriture des heartbeats reçus : une requête pour tous les nœuds, au lieu d'un
 /// `UPDATE` par nœud toutes les 15 s. `last_heartbeat_at` est donc précis à cette période près.
@@ -56,7 +57,25 @@ impl Presence {
     /// caractéristiques sont à jour. `false` si le nœud a été révoqué ou supprimé depuis son
     /// identification.
     pub async fn online(&self, id: NodeId, host: &NodeHost) -> Result<bool, sqlx::Error> {
-        self.nodes.mark_online(id, host, self.instance.id).await
+        let was_online = self.nodes.status_of(id).await?.as_deref() == Some("online");
+        let accepted = self.nodes.mark_online(id, host, self.instance.id).await?;
+        if accepted && !was_online {
+            self.notify(id, EventKind::NodeOnline).await?;
+        }
+        Ok(accepted)
+    }
+
+    /// Événement de nœud (ADR-0044), avec son nom.
+    async fn notify(&self, id: NodeId, kind: EventKind) -> Result<(), sqlx::Error> {
+        let mut conn = self.nodes.pool().acquire().await?;
+        if let Some(node) = NodeRepository::get(&mut conn, id.as_uuid()).await? {
+            let event = Event::now(kind).node(NodeRef {
+                id: node.id,
+                name: node.name,
+            });
+            crate::notifications::application::emit_detached(self.nodes.pool(), event);
+        }
+        Ok(())
     }
 
     /// Heartbeat reçu : compté pour la prochaine écriture groupée. Révèle aussi une révocation
@@ -75,7 +94,12 @@ impl Presence {
     }
 
     pub async fn offline(&self, id: NodeId) -> Result<(), sqlx::Error> {
-        self.nodes.mark_offline(id).await
+        let was_online = self.nodes.status_of(id).await?.as_deref() == Some("online");
+        self.nodes.mark_offline(id).await?;
+        if was_online {
+            self.notify(id, EventKind::NodeOffline).await?;
+        }
+        Ok(())
     }
 
     /// Écrit la date des heartbeats reçus depuis la dernière écriture ; retourne le nombre de

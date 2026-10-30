@@ -163,6 +163,19 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     );
     // Une suppression confirmée par un nœud réveille la réconciliation DNS.
     server_events.attach_dns(dns.clone());
+    let secrets_key = *iam.keys.server_secrets();
+    let notifications = kuro_api::notifications::application::NotificationsState {
+        pool: pool.clone(),
+        key: secrets_key,
+        sender: Arc::new(kuro_api::notifications::sender::HttpSender::new().context("tls client")?),
+        panel_url: config
+            .notifications
+            .panel_url
+            .clone()
+            .or_else(|| config.mcp.panel_url.clone())
+            .or_else(|| config.mcp.public_url.clone()),
+        allow_private_targets: config.notifications.allow_private_targets,
+    };
     let state = AppState {
         content_sources,
         dns: dns.clone(),
@@ -183,6 +196,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         ),
         http: kuro_api::http::policy::HttpPolicy::from_config(&config.http),
         readiness: daemon_listener.readiness(),
+        notifications,
     };
 
     let shutdown = CancellationToken::new();
@@ -240,6 +254,18 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     // DNS des serveurs et des nœuds : réconciliation (ADR-0026).
     tokio::spawn(kuro_api::dns::application::run_forever(
         dns,
+        shutdown.clone(),
+    ));
+
+    // Stats historisées : cumul horaire et purge (ADR-0043).
+    tokio::spawn(kuro_api::servers::application::metrics::run_forever(
+        state.pool.clone(),
+        shutdown.clone(),
+    ));
+
+    // Notifications : envois dus et purge du journal (ADR-0044).
+    tokio::spawn(kuro_api::notifications::application::run_forever(
+        state.notifications.clone(),
         shutdown.clone(),
     ));
 

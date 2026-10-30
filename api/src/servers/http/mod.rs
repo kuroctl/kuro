@@ -7,6 +7,7 @@ mod content;
 mod error;
 mod files;
 mod loaders;
+mod metrics;
 mod schedules;
 mod search;
 mod servers;
@@ -27,6 +28,7 @@ use crate::servers::application::ServersState;
     paths(
         servers::list, servers::get, servers::create, servers::update_settings,
         servers::update_resources, servers::suspend, servers::unsuspend, servers::power, servers::reinstall, servers::delete, console::ticket, console::command, actions::run,
+        metrics::history,
         files::list, files::read, files::write, files::mkdir, files::rename, files::delete,
         backups::list, backups::create, backups::update, backups::restore, backups::delete,
         backups::download_ticket, backups::download, content::slots, content::list,
@@ -84,6 +86,7 @@ where
         .route("/servers/{id}/console", get(console::socket))
         .route("/servers/{id}/command", post(console::command))
         .route("/servers/{id}/actions/{key}", post(actions::run))
+        .route("/servers/{id}/metrics", get(metrics::history))
         .route(
             "/servers/{id}/schedules",
             get(schedules::list).post(schedules::create),

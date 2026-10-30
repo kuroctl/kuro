@@ -139,6 +139,15 @@ audit_actions! {
     // Paramètres du projet
     SettingsUpdated => "system.settings_updated",
 
+    // Notifications (ADR-0044)
+    NotificationChannelCreated => "notification.channel_created",
+    NotificationChannelUpdated => "notification.channel_updated",
+    NotificationChannelDeleted => "notification.channel_deleted",
+    NotificationChannelTested => "notification.channel_tested",
+    NotificationRuleCreated => "notification.rule_created",
+    NotificationRuleUpdated => "notification.rule_updated",
+    NotificationRuleDeleted => "notification.rule_deleted",
+
     // Journal lui-même
     AuditRead => "audit.read",
     AuditPurged => "audit.purged",

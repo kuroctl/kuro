@@ -4,7 +4,9 @@ use std::fmt::Debug;
 
 use futures_util::future::BoxFuture;
 use kuro_protocol::daemon::server::{CommandResult, ServerStateReport};
-use kuro_protocol::daemon::{BackupDone, ConsoleOutput, ContentDone, ServerDisk, ServerStats};
+use kuro_protocol::daemon::{
+    BackupDone, ConsoleOutput, ContentDone, ServerDisk, ServerMetrics, ServerStats,
+};
 use kuro_protocol::{ApiMessage, DaemonMessage};
 use uuid::Uuid;
 
@@ -74,6 +76,10 @@ pub trait ServerEvents: Send + Sync + Debug {
 
     /// Espace disque mesuré par le nœud (ADR-0019). Ignoré pour un serveur qui n'est pas au nœud.
     fn disk_usage(&self, node: NodeId, disk: ServerDisk);
+
+    /// Une minute de stats (ADR-0043), gardée en historique. Ignorée pour un serveur qui n'est
+    /// pas au nœud.
+    fn metrics(&self, node: NodeId, metrics: ServerMetrics);
 
     /// Fin d'une installation de contenu (ADR-0020). Ignorée pour un serveur qui n'est pas au
     /// nœud.

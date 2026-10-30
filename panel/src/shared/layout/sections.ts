@@ -1,5 +1,6 @@
 // Sections du rail et leur sous-menu. Les libellés sont des clés i18n.
 import {
+  Bell,
   Bot,
   Boxes,
   Globe,
@@ -88,6 +89,7 @@ export const sections: Section[] = [
       { label: 'subnav.settings.dns', icon: Earth, to: '/settings/dns', permission: 'system.dns.manage' },
       { label: 'subnav.settings.sources', icon: PackageSearch, to: '/settings/content-sources', permission: 'system.content_sources.manage' },
       { label: 'subnav.settings.steam', icon: Gamepad2, to: '/settings/steam-account', permission: 'system.steam_accounts.manage' },
+      { label: 'subnav.settings.notifications', icon: Bell, to: '/settings/notifications', permission: 'system.notifications.read' },
       { label: 'subnav.settings.audit', icon: ScrollText, to: '/settings/audit' },
     ],
   },

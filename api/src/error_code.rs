@@ -171,6 +171,16 @@ error_codes! {
     BackupNotReady => "backup_not_ready", "This backup is not complete";
     BackupLocked => "backup_locked", "This backup is locked";
     ScheduleNotFound => "schedule_not_found", "No such scheduled task";
+    InvalidMetricsRange => "invalid_metrics_range", "Range must be 24h, 7d or 90d";
+    NotificationChannelNotFound => "notification_channel_not_found", "No such notification channel";
+    NotificationRuleNotFound => "notification_rule_not_found", "No such notification rule";
+    InvalidNotificationName => "invalid_notification_name", "Name must be 1 to 80 visible characters";
+    InvalidNotificationChannelKind => "invalid_notification_channel_kind", "Channel kind must be webhook, discord or slack";
+    InvalidNotificationLanguage => "invalid_notification_language", "Language must be fr or en";
+    InvalidWebhookUrl => "invalid_webhook_url", "Webhook URL must be https:// without credentials";
+    InvalidNotificationScope => "invalid_notification_scope", "Scope must be all, or node/server with an existing target";
+    InvalidNotificationEvents => "invalid_notification_events", "At least one known event is required";
+    InvalidNotificationChannels => "invalid_notification_channels", "At least one existing channel is required";
     InvalidScheduleName => "invalid_schedule_name", "Invalid scheduled task name";
     InvalidCron => "invalid_cron", "Invalid cron expression (5 fields) or one that never runs";
     InvalidTimezone => "invalid_timezone", "Unknown time zone";

@@ -5,7 +5,9 @@ use std::sync::{Arc, OnceLock};
 use futures_util::future::BoxFuture;
 use kuro_protocol::api::server::PowerAction;
 use kuro_protocol::daemon::server::{ServerState as Reported, ServerStateReport};
-use kuro_protocol::daemon::{BackupDone, ConsoleOutput, ContentDone, ServerDisk, ServerStats};
+use kuro_protocol::daemon::{
+    BackupDone, ConsoleOutput, ContentDone, ServerDisk, ServerMetrics, ServerStats,
+};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -13,6 +15,10 @@ use super::manage::send_power;
 use super::{ConsoleHub, ServersState};
 use crate::audit::domain::AuditContext;
 use crate::nodes::domain::NodeId;
+use crate::notifications::application as notifications;
+use crate::notifications::domain::{
+    DISK_HIGH_RATIO, DISK_RESET_RATIO, Event, EventKind, ServerRef,
+};
 use crate::servers::domain::{NodeCommands, ServerEvents, ServerState};
 use crate::servers::infra::{BackupRepository, ServerRepository};
 
@@ -82,6 +88,16 @@ impl LinkEvents {
             && let Some(dns) = self.dns.get()
         {
             dns.wake();
+        }
+        // Arrêt inattendu : notifié (ADR-0044), avec la raison rapportée par le nœud.
+        if owned
+            && report.state == Reported::Failed
+            && let Some(server) = ServerRepository::get(&mut conn, report.server_id).await?
+        {
+            let event = Event::now(EventKind::ServerCrashed)
+                .server(server_ref(&server))
+                .reason(server.state_reason.clone().unwrap_or_default());
+            notifications::emit_detached(&self.pool, event);
         }
         // Le serveur démarre : ses changements de contenu en attente sont appliqués.
         if owned && report.state == Reported::Starting {
@@ -160,6 +176,15 @@ impl ServerEvents for LinkEvents {
         self.console.publish_stats(node, stats);
     }
 
+    fn metrics(&self, node: NodeId, metrics: ServerMetrics) {
+        let pool = self.pool.clone();
+        tokio::spawn(async move {
+            if let Err(error) = super::metrics::record(&pool, node, metrics).await {
+                tracing::error!(%error, "failed to record server metrics");
+            }
+        });
+    }
+
     // Hors de la boucle du lien : la rotation et le rattrapage envoient des commandes au nœud.
     fn disk_usage(&self, node: NodeId, disk: ServerDisk) {
         let pool = self.pool.clone();
@@ -167,16 +192,39 @@ impl ServerEvents for LinkEvents {
             let used = i64::try_from(disk.used_bytes).unwrap_or(i64::MAX);
             let outcome = async {
                 let mut conn = pool.acquire().await?;
+                let before = ServerRepository::get(&mut conn, disk.server_id).await?;
                 ServerRepository::record_disk_if_owned(
                     &mut conn,
                     disk.server_id,
                     node.as_uuid(),
                     used,
                 )
-                .await
+                .await?;
+                Ok::<_, sqlx::Error>(before)
             };
-            if let Err(error) = outcome.await {
-                tracing::error!(%error, "failed to record a disk usage report");
+            match outcome.await {
+                Err(error) => tracing::error!(%error, "failed to record a disk usage report"),
+                // Quota franchi à la hausse (ADR-0044) : une fois, puis de nouveau après un
+                // retour sous le seuil bas.
+                Ok(Some(server)) if server.node_id == node.as_uuid() && server.disk_mb > 0 => {
+                    let quota = i64::from(server.disk_mb) * 1024 * 1024;
+                    let ratio = |bytes: i64| bytes as f64 / quota as f64;
+                    let previous = server.disk_used_bytes.map_or(0.0, ratio);
+                    let now = ratio(used);
+                    if now >= DISK_HIGH_RATIO && previous < DISK_HIGH_RATIO
+                        || now >= DISK_HIGH_RATIO && previous < DISK_RESET_RATIO
+                    {
+                        let event = Event::now(EventKind::ServerDiskHigh)
+                            .server(server_ref(&server))
+                            .details(serde_json::json!({
+                                "percent": (now * 100.0).round() as u64,
+                                "used_bytes": used,
+                                "quota_bytes": quota,
+                            }));
+                        notifications::emit_detached(&pool, event);
+                    }
+                }
+                Ok(_) => {}
             }
         });
     }
@@ -227,5 +275,15 @@ impl ServerEvents for LinkEvents {
                 tracing::warn!(%error, "failed to reconcile backups");
             }
         });
+    }
+}
+
+/// Référence d'un serveur pour une notification (ADR-0044).
+pub(crate) fn server_ref(server: &crate::servers::infra::ServerRecord) -> ServerRef {
+    ServerRef {
+        id: server.id,
+        name: server.name.clone(),
+        prefab_id: server.prefab_id.clone(),
+        node_id: server.node_id,
     }
 }

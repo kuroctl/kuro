@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE notification_channels\n             SET name = $2, kind = $3, config = $4, url_hint = $5, language = $6, enabled = $7,\n                 updated_at = now()\n             WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Bytea",
+        "Text",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "43dd7462aa02b4527ad5e61924a7ce3fa830ed4325ab6d13885eb4242e605195"
+}

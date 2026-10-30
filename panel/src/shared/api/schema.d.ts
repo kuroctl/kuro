@@ -1450,6 +1450,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/servers/{id}/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Historique CPU, mémoire et réseau d'un serveur, envoyé par son nœud une fois par minute
+         *     (ADR-0043) : 24 h à la minute, 7 j ou 90 j à l'heure. Vide tant que le nœud n'a rien envoyé
+         *     (daemon antérieur). Permission : `servers.read`.
+         */
+        get: operations["history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/servers/{id}/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Abonnements d'un serveur et les événements qu'ils peuvent viser. Permission :
+         *     `servers.notifications.read`.
+         */
+        get: operations["list_subscriptions"];
+        put?: never;
+        /** Crée un abonnement. Permission : `servers.notifications.manage`. */
+        post: operations["create_subscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/servers/{id}/notifications/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Journal des envois concernant ce serveur. Permission : `servers.notifications.read`. */
+        get: operations["server_deliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/servers/{id}/notifications/{sub}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Remplace un abonnement. Permission : `servers.notifications.manage`. */
+        put: operations["update_subscription"];
+        post?: never;
+        /**
+         * Supprime un abonnement (et sa destination si elle était propre au serveur). Permission :
+         *     `servers.notifications.manage`.
+         */
+        delete: operations["delete_subscription"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/servers/{id}/notifications/{sub}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Envoie un événement `test` sur la destination de l'abonnement. Permission :
+         *     `servers.notifications.manage`.
+         */
+        post: operations["test_subscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/servers/{id}/power": {
         parameters: {
             query?: never;
@@ -1815,6 +1915,141 @@ export interface paths {
         /** Vérifie que le jeton enregistré ouvre la zone. Permission : `system.dns.manage`. */
         post: operations["test_settings"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/settings/notifications/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Canaux configurés. Permission : `system.notifications.read`. */
+        get: operations["list_channels"];
+        put?: never;
+        /**
+         * Crée un canal. L'URL et le secret sont chiffrés, jamais renvoyés. Permission :
+         *     `system.notifications.manage`.
+         */
+        post: operations["create_channel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/settings/notifications/channels/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Modifie un canal ; `url` et `secret` absents gardent les valeurs en place. Permission :
+         *     `system.notifications.manage`.
+         */
+        put: operations["update_channel"];
+        post?: never;
+        /**
+         * Supprime un canal ; les règles qui ne visaient que lui disparaissent, les autres l'oublient.
+         *     Permission : `system.notifications.manage`.
+         */
+        delete: operations["delete_channel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/settings/notifications/channels/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Envoie un événement `test` sur le canal, tout de suite. Permission :
+         *     `system.notifications.manage`.
+         */
+        post: operations["test_channel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/settings/notifications/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Journal des envois, les plus récents d'abord. Permission : `system.notifications.read`. */
+        get: operations["list_deliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/settings/notifications/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Types d'événements qu'une règle peut viser. Permission : `system.notifications.read`. */
+        get: operations["events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/settings/notifications/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Règles configurées. Permission : `system.notifications.read`. */
+        get: operations["list_rules"];
+        put?: never;
+        /** Crée une règle. Permission : `system.notifications.manage`. */
+        post: operations["create_rule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/settings/notifications/rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Remplace une règle. Permission : `system.notifications.manage`. */
+        put: operations["update_rule"];
+        post?: never;
+        /** Supprime une règle. Permission : `system.notifications.manage`. */
+        delete: operations["delete_rule"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2410,6 +2645,38 @@ export interface components {
             current_password: string;
             new_password: string;
         };
+        ChannelDto: {
+            /** Format: date-time */
+            created_at: string;
+            enabled: boolean;
+            /** @description Un secret HMAC est enregistré (webhook générique). */
+            has_secret: boolean;
+            /** Format: uuid */
+            id: string;
+            /** @description `webhook`, `discord` ou `slack`. */
+            kind: string;
+            /** @description `fr` ou `en` : langue des messages envoyés. */
+            language: string;
+            name: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description URL tronquée (hôte et début du chemin) : l'URL complète n'est jamais rendue. */
+            url_hint: string;
+        };
+        ChannelRequest: {
+            enabled?: boolean;
+            /** @description `webhook`, `discord` ou `slack`. */
+            kind: string;
+            language?: string;
+            name: string;
+            /** @description Secret HMAC (webhook générique). Absent en modification : gardé ; vide : retiré. */
+            secret?: string | null;
+            /**
+             * @description URL `https://` du webhook. Obligatoire à la création ; absente en modification, celle
+             *     enregistrée est gardée.
+             */
+            url?: string | null;
+        };
         /** @description Validation des fichiers, comme à l'import. */
         CheckDto: {
             issues: components["schemas"]["IssueDto"][];
@@ -2770,6 +3037,27 @@ export interface components {
             /** @description 12 caractères minimum. */
             password: string;
         };
+        DeliveryDto: {
+            /** Format: int32 */
+            attempts: number;
+            /** Format: uuid */
+            channel_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Événement tel qu'émis (`kind`, `at`, `server`, `node`, `reason`). */
+            event: Record<string, unknown>;
+            /** Format: uuid */
+            id: string;
+            last_error?: string | null;
+            /** Format: date-time */
+            next_attempt_at: string;
+            /** Format: uuid */
+            rule_id?: string | null;
+            /** Format: date-time */
+            sent_at?: string | null;
+            /** @description `pending`, `sent`, `failed` ou `dropped`. */
+            status: string;
+        };
         DnsRecordDto: {
             content: string;
             /** @description Dernier échec, réessayé à la passe suivante. */
@@ -2912,7 +3200,7 @@ export interface components {
             token: string;
         };
         /** @enum {string} */
-        ErrorCode: "validation_failed" | "invalid_body" | "invalid_parameter" | "empty_patch" | "not_found" | "unauthorized" | "forbidden" | "internal_error" | "rate_limited" | "request_timeout" | "invalid_credentials" | "invalid_challenge" | "invalid_code" | "totp_already_enabled" | "totp_setup_not_started" | "invalid_email" | "invalid_display_name" | "weak_password" | "password_unchanged" | "email_taken" | "cannot_disable_self" | "cannot_delete_self" | "cannot_change_own_roles" | "use_own_password_change" | "cannot_reset_own_totp" | "insufficient_permissions_for_target" | "insufficient_permissions_for_role" | "cannot_grant_permissions_you_lack" | "last_super_admin" | "unknown_role" | "invalid_role_name" | "invalid_description" | "invalid_color" | "role_name_taken" | "system_role" | "unknown_permission" | "permission_not_assignable" | "invalid_node_name" | "node_name_taken" | "unknown_region" | "invalid_region_slug" | "invalid_region_name" | "region_slug_taken" | "region_not_empty" | "invalid_coordinates" | "invalid_location" | "invalid_reason" | "node_not_pending" | "node_already_revoked" | "node_not_enrolled" | "invalid_token" | "invalid_csr" | "already_enrolled" | "client_certificate_required" | "unknown_node" | "node_revoked" | "invalid_port_range" | "invalid_ip" | "no_free_allocation" | "unknown_allocation" | "allocation_taken" | "allocation_in_use" | "node_has_servers" | "unknown_prefab" | "invalid_prefab" | "prefab_exists" | "store_unavailable" | "store_untrusted" | "store_corrupted" | "prefab_in_use" | "invalid_setting" | "setting_not_editable" | "invalid_server_name" | "invalid_resources" | "node_offline" | "daemon_too_old" | "console_held_elsewhere" | "node_not_for_trials" | "prefab_draft_needs_test_node" | "dns_not_configured" | "invalid_domain" | "invalid_dns_label" | "dns_label_taken" | "dns_label_reserved" | "invalid_sites_domain" | "sites_domain_not_configured" | "invalid_ip_address" | "unknown_dns_provider" | "dns_token_required" | "dns_provider_unauthorized" | "dns_zone_not_found" | "dns_provider_unavailable" | "upgrade_blocked" | "upgrade_not_newer" | "oauth_no_scope" | "server_busy" | "server_not_running" | "invalid_command" | "unknown_action" | "invalid_action_param" | "action_not_schedulable" | "invalid_path" | "file_not_found" | "file_exists" | "file_conflict" | "file_not_text" | "file_too_large" | "backup_not_found" | "invalid_backup_name" | "backups_disabled" | "backup_limit_reached" | "backup_in_progress" | "backup_not_ready" | "backup_locked" | "schedule_not_found" | "invalid_schedule_name" | "invalid_cron" | "invalid_timezone" | "invalid_schedule_step" | "schedule_limit_reached" | "schedule_running" | "resource_above_ceiling" | "resource_below_prefab_minimum" | "disk_quota_exceeded" | "server_suspended" | "content_slot_not_found" | "content_not_supported" | "game_version_not_pinned" | "content_not_found" | "content_already_installed" | "content_incompatible" | "content_required" | "content_up_to_date" | "provider_unavailable" | "modpack_installed" | "content_in_modpack" | "invalid_modpack" | "content_distribution_forbidden" | "content_source_unsupported" | "upload_not_accepted" | "content_value_required" | "invalid_content_value" | "unknown_content_source" | "content_source_not_configured" | "content_source_key_required" | "content_source_unauthorized" | "steam_account_required" | "steam_account_not_configured" | "steam_account_username_invalid" | "steam_account_password_invalid" | "steam_game_missing" | "steam_game_not_found" | "value_out_of_range" | "daemon_timeout" | "daemon_error";
+        ErrorCode: "validation_failed" | "invalid_body" | "invalid_parameter" | "empty_patch" | "not_found" | "unauthorized" | "forbidden" | "internal_error" | "rate_limited" | "request_timeout" | "invalid_credentials" | "invalid_challenge" | "invalid_code" | "totp_already_enabled" | "totp_setup_not_started" | "invalid_email" | "invalid_display_name" | "weak_password" | "password_unchanged" | "email_taken" | "cannot_disable_self" | "cannot_delete_self" | "cannot_change_own_roles" | "use_own_password_change" | "cannot_reset_own_totp" | "insufficient_permissions_for_target" | "insufficient_permissions_for_role" | "cannot_grant_permissions_you_lack" | "last_super_admin" | "unknown_role" | "invalid_role_name" | "invalid_description" | "invalid_color" | "role_name_taken" | "system_role" | "unknown_permission" | "permission_not_assignable" | "invalid_node_name" | "node_name_taken" | "unknown_region" | "invalid_region_slug" | "invalid_region_name" | "region_slug_taken" | "region_not_empty" | "invalid_coordinates" | "invalid_location" | "invalid_reason" | "node_not_pending" | "node_already_revoked" | "node_not_enrolled" | "invalid_token" | "invalid_csr" | "already_enrolled" | "client_certificate_required" | "unknown_node" | "node_revoked" | "invalid_port_range" | "invalid_ip" | "no_free_allocation" | "unknown_allocation" | "allocation_taken" | "allocation_in_use" | "node_has_servers" | "unknown_prefab" | "invalid_prefab" | "prefab_exists" | "store_unavailable" | "store_untrusted" | "store_corrupted" | "prefab_in_use" | "invalid_setting" | "setting_not_editable" | "invalid_server_name" | "invalid_resources" | "node_offline" | "daemon_too_old" | "console_held_elsewhere" | "node_not_for_trials" | "prefab_draft_needs_test_node" | "dns_not_configured" | "invalid_domain" | "invalid_dns_label" | "dns_label_taken" | "dns_label_reserved" | "invalid_sites_domain" | "sites_domain_not_configured" | "invalid_ip_address" | "unknown_dns_provider" | "dns_token_required" | "dns_provider_unauthorized" | "dns_zone_not_found" | "dns_provider_unavailable" | "upgrade_blocked" | "upgrade_not_newer" | "oauth_no_scope" | "server_busy" | "server_not_running" | "invalid_command" | "unknown_action" | "invalid_action_param" | "action_not_schedulable" | "invalid_path" | "file_not_found" | "file_exists" | "file_conflict" | "file_not_text" | "file_too_large" | "backup_not_found" | "invalid_backup_name" | "backups_disabled" | "backup_limit_reached" | "backup_in_progress" | "backup_not_ready" | "backup_locked" | "schedule_not_found" | "invalid_metrics_range" | "notification_channel_not_found" | "notification_rule_not_found" | "invalid_notification_name" | "invalid_notification_channel_kind" | "invalid_notification_language" | "invalid_webhook_url" | "invalid_notification_scope" | "invalid_notification_events" | "invalid_notification_channels" | "invalid_schedule_name" | "invalid_cron" | "invalid_timezone" | "invalid_schedule_step" | "schedule_limit_reached" | "schedule_running" | "resource_above_ceiling" | "resource_below_prefab_minimum" | "disk_quota_exceeded" | "server_suspended" | "content_slot_not_found" | "content_not_supported" | "game_version_not_pinned" | "content_not_found" | "content_already_installed" | "content_incompatible" | "content_required" | "content_up_to_date" | "provider_unavailable" | "modpack_installed" | "content_in_modpack" | "invalid_modpack" | "content_distribution_forbidden" | "content_source_unsupported" | "upload_not_accepted" | "content_value_required" | "invalid_content_value" | "unknown_content_source" | "content_source_not_configured" | "content_source_key_required" | "content_source_unauthorized" | "steam_account_required" | "steam_account_not_configured" | "steam_account_username_invalid" | "steam_account_password_invalid" | "steam_game_missing" | "steam_game_not_found" | "value_out_of_range" | "daemon_timeout" | "daemon_error";
         FacetValueDto: {
             count: number;
             /** @description Libellé : nom du nœud, ou dernière version du prefab (pour son icône). */
@@ -3052,6 +3340,44 @@ export interface components {
             /** @enum {string} */
             status: "totp_setup_required";
         };
+        MetricPointDto: {
+            /** Format: date-time */
+            at: string;
+            /**
+             * Format: int64
+             * @description 1000 = un cœur plein.
+             */
+            cpu_millis_avg: number;
+            /** Format: int64 */
+            cpu_millis_max: number;
+            /** Format: int64 */
+            memory_bytes_avg: number;
+            /** Format: int64 */
+            memory_bytes_max: number;
+            /** Format: int64 */
+            memory_limit_bytes: number;
+            /**
+             * Format: int64
+             * @description Octets de la période, pas des cumuls.
+             */
+            network_rx_bytes: number;
+            /** Format: int64 */
+            network_tx_bytes: number;
+            /**
+             * Format: int32
+             * @description Mesures agrégées dans ce point.
+             */
+            samples: number;
+        };
+        MetricsDto: {
+            points: components["schemas"]["MetricPointDto"][];
+            range: string;
+            /**
+             * Format: int32
+             * @description Pas entre deux points, en secondes (60 ou 3600).
+             */
+            step_secs: number;
+        };
         NodeCountsDto: {
             /** Format: int64 */
             offline: number;
@@ -3128,7 +3454,7 @@ export interface components {
             sensitive: boolean;
         };
         /** @enum {string} */
-        PermissionKey: "iam.users.read" | "iam.users.create" | "iam.users.update" | "iam.users.delete" | "iam.users.credentials" | "iam.roles.read" | "iam.roles.manage" | "iam.roles.assign" | "audit.read" | "nodes.read" | "nodes.create" | "nodes.update" | "nodes.regions.manage" | "nodes.enrollment" | "nodes.revoke" | "nodes.delete" | "nodes.allocations.read" | "nodes.allocations.manage" | "servers.read" | "servers.create" | "servers.update" | "servers.delete" | "servers.power" | "servers.reinstall" | "servers.upgrade" | "servers.console.read" | "servers.console.write" | "servers.actions.run" | "servers.files.read" | "servers.files.write" | "servers.backups.read" | "servers.backups.create" | "servers.backups.restore" | "servers.backups.delete" | "servers.backups.download" | "servers.schedules.read" | "servers.schedules.manage" | "servers.content.read" | "servers.content.manage" | "servers.suspend" | "servers.transfer" | "prefabs.read" | "prefabs.manage" | "customers.read" | "customers.update" | "customers.suspend" | "customers.impersonate" | "system.settings.read" | "system.settings.update" | "system.dns.manage" | "system.content_sources.manage" | "system.steam_accounts.manage";
+        PermissionKey: "iam.users.read" | "iam.users.create" | "iam.users.update" | "iam.users.delete" | "iam.users.credentials" | "iam.roles.read" | "iam.roles.manage" | "iam.roles.assign" | "audit.read" | "nodes.read" | "nodes.create" | "nodes.update" | "nodes.regions.manage" | "nodes.enrollment" | "nodes.revoke" | "nodes.delete" | "nodes.allocations.read" | "nodes.allocations.manage" | "servers.read" | "servers.create" | "servers.update" | "servers.delete" | "servers.power" | "servers.reinstall" | "servers.upgrade" | "servers.console.read" | "servers.console.write" | "servers.actions.run" | "servers.files.read" | "servers.files.write" | "servers.backups.read" | "servers.backups.create" | "servers.backups.restore" | "servers.backups.delete" | "servers.backups.download" | "servers.schedules.read" | "servers.schedules.manage" | "servers.notifications.read" | "servers.notifications.manage" | "servers.content.read" | "servers.content.manage" | "servers.suspend" | "servers.transfer" | "prefabs.read" | "prefabs.manage" | "customers.read" | "customers.update" | "customers.suspend" | "customers.impersonate" | "system.settings.read" | "system.settings.update" | "system.dns.manage" | "system.content_sources.manage" | "system.steam_accounts.manage" | "system.notifications.read" | "system.notifications.manage";
         /** @enum {string} */
         PowerActionDto: "start" | "stop" | "restart" | "kill";
         PowerRequest: {
@@ -3406,6 +3732,39 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
+        };
+        RuleDto: {
+            channels: string[];
+            /** Format: date-time */
+            created_at: string;
+            enabled: boolean;
+            /** @description Types d'événements (`server.crashed`…). */
+            events: string[];
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            node_id?: string | null;
+            /** @description `all`, `node` ou `server`. */
+            scope: string;
+            /** Format: uuid */
+            server_id?: string | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        RuleRequest: {
+            /** @description Au moins un canal. */
+            channels: string[];
+            enabled?: boolean;
+            /** @description Au moins un type d'événement, parmi `/settings/notifications/events`. */
+            events: string[];
+            name: string;
+            /** Format: uuid */
+            node_id?: string | null;
+            /** @description `all`, `node` (avec `node_id`) ou `server` (avec `server_id`). */
+            scope: string;
+            /** Format: uuid */
+            server_id?: string | null;
         };
         RunDto: {
             /**
@@ -3758,6 +4117,51 @@ export interface components {
             size: number;
             tags: string[];
             version: string;
+        };
+        /** @description Abonnement d'un serveur : sa règle et sa destination. */
+        SubscriptionDto: {
+            /** @description Destination : canal propre au serveur (`owned`) ou canal partagé des paramètres. */
+            channel: components["schemas"]["ChannelDto"];
+            enabled: boolean;
+            /** @description Événements du serveur (`server.crashed`…). */
+            events: string[];
+            /** Format: uuid */
+            id: string;
+            name: string;
+            owned: boolean;
+        };
+        /**
+         * @description Saisie d'un abonnement : `channel_id` d'un canal partagé (demande aussi
+         *     `system.notifications.read`), ou une destination propre (`kind`, `url`, `secret`,
+         *     `language`). En modification, `url` et `secret` absents gardent les valeurs en place.
+         */
+        SubscriptionRequest: {
+            /** Format: uuid */
+            channel_id?: string | null;
+            enabled?: boolean;
+            events: string[];
+            kind?: string | null;
+            language?: string | null;
+            name: string;
+            secret?: string | null;
+            url?: string | null;
+        };
+        SubscriptionsDto: {
+            /** @description Événements qu'un abonnement peut viser. */
+            events: string[];
+            /** @description L'appelant peut viser un canal partagé des paramètres. */
+            shared_allowed: boolean;
+            subscriptions: components["schemas"]["SubscriptionDto"][];
+        };
+        TestDto: {
+            /** @description Cause de l'échec (code stable ou message court). */
+            error?: string | null;
+            ok: boolean;
+            /**
+             * Format: int32
+             * @description Statut HTTP renvoyé par le destinataire, en cas de succès.
+             */
+            status?: number | null;
         };
         ToggleContentRequest: {
             enabled: boolean;
@@ -8282,6 +8686,303 @@ export interface operations {
             };
         };
     };
+    history: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                /** @description `24h` (à la minute, par défaut), `7d` ou `90d` (à l'heure). */
+                range: string | null;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricsDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Plage inconnue */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_subscriptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionsDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_subscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscriptionRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    server_deliveries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                /** @description Nombre d'envois, les plus récents d'abord (50 par défaut, 500 au plus). */
+                limit: number | null;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryDto"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_subscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                sub: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscriptionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_subscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                sub: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    test_subscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                sub: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     power: {
         parameters: {
             query?: never;
@@ -9471,6 +10172,402 @@ export interface operations {
                 };
             };
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_channels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelDto"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_channel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Nom, type, langue ou URL invalide */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_channel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_channel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    test_channel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_deliveries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Nombre d'envois, les plus récents d'abord (50 par défaut, 500 au plus). */
+                limit: number | null;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryDto"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    events: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_rules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleDto"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_rule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Nom, portée, événements ou canaux invalides */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_rule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_rule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

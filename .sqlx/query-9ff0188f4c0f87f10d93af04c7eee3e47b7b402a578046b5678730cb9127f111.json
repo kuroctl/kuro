@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE notification_rules\n             SET name = $2, scope = $3, node_id = $4, server_id = $5, events = $6, channels = $7,\n                 enabled = $8, updated_at = now()\n             WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "TextArray",
+        "UuidArray",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9ff0188f4c0f87f10d93af04c7eee3e47b7b402a578046b5678730cb9127f111"
+}

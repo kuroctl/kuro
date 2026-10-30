@@ -39,3 +39,52 @@ pub struct ServerStats {
 fn is_zero(value: &u64) -> bool {
     *value == 0
 }
+
+/// Consommation d'un serveur sur une minute révolue (ADR-0043), envoyée pour tout serveur en
+/// marche, regardé ou non ; l'API en garde l'historique. Les compteurs réseau sont ceux de la
+/// minute (différence entre la première et la dernière mesure), pas des cumuls.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServerMetrics {
+    pub server_id: Uuid,
+    /// Début de la minute, en millisecondes Unix (multiple de 60 000).
+    pub from_ms: i64,
+    /// Fin de la minute (`from_ms` + 60 000).
+    pub to_ms: i64,
+    /// Mesures prises dans la minute (au plus six, une toutes les 10 s).
+    pub samples: u32,
+    pub cpu_millis_avg: u64,
+    pub cpu_millis_max: u64,
+    pub memory_bytes_avg: u64,
+    pub memory_bytes_max: u64,
+    pub memory_limit_bytes: u64,
+    pub network_rx_bytes: u64,
+    pub network_tx_bytes: u64,
+}
+
+#[cfg(test)]
+mod metrics_tests {
+    use super::*;
+
+    #[test]
+    fn server_metrics_round_trip_as_a_daemon_message() {
+        let metrics = ServerMetrics {
+            server_id: Uuid::nil(),
+            from_ms: 1_800_000_000_000,
+            to_ms: 1_800_000_060_000,
+            samples: 6,
+            cpu_millis_avg: 250,
+            cpu_millis_max: 900,
+            memory_bytes_avg: 1 << 30,
+            memory_bytes_max: 2 << 30,
+            memory_limit_bytes: 4 << 30,
+            network_rx_bytes: 1234,
+            network_tx_bytes: 5678,
+        };
+        let message = crate::DaemonMessage::ServerMetrics(metrics.clone());
+        let json = serde_json::to_value(&message).unwrap();
+        assert_eq!(json["type"], "server.metrics");
+        assert_eq!(json["payload"]["samples"], 6);
+        let back: crate::DaemonMessage = serde_json::from_value(json).unwrap();
+        assert_eq!(back, crate::DaemonMessage::ServerMetrics(metrics));
+    }
+}

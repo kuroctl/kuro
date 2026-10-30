@@ -75,6 +75,11 @@ async fn main() -> anyhow::Result<()> {
         let every = config.servers.disk_measure_interval();
         async move { manager.measure_disks(every).await }
     });
+    // Historique des stats : une mesure toutes les 10 s, une minute agrégée envoyée (ADR-0043).
+    tokio::spawn({
+        let manager = manager.clone();
+        async move { manager.collect_metrics().await }
+    });
     let mut servers = Servers { manager, outgoing };
 
     // Seule une révocation arrête le lien : le service s'arrête en erreur, visible dans systemd.

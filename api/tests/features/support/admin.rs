@@ -35,6 +35,9 @@ pub struct TestAdmin {
     pub dns_provider: std::sync::Arc<super::dns::FakeDns>,
     /// Store de prefabs simulé (`test`, `https://store.test`), signé par sa propre clé.
     pub store: std::sync::Arc<super::store::FakeStore>,
+    /// Webhooks simulés et l'état des notifications, pour lancer une passe d'envoi.
+    pub webhooks: std::sync::Arc<super::notifications::FakeWebhooks>,
+    pub notifications: kuro_api::notifications::application::NotificationsState,
     pub dns: kuro_api::dns::application::DnsState,
     /// État lu par `/api/ready` : aucun listener ne tourne ici, les tests le simulent.
     pub readiness: kuro_api::system::Readiness,
@@ -93,6 +96,14 @@ impl TestAdmin {
         let metadata = std::sync::Arc::new(super::oauth::FakeFetcher::default());
         let dns_provider = std::sync::Arc::new(super::dns::FakeDns::default());
         let store = std::sync::Arc::new(super::store::FakeStore::default());
+        let webhooks = std::sync::Arc::new(super::notifications::FakeWebhooks::default());
+        let notifications = kuro_api::notifications::application::NotificationsState {
+            pool: pool.clone(),
+            key: *iam.keys.server_secrets(),
+            sender: webhooks.clone(),
+            panel_url: Some("https://panel.example.com".to_owned()),
+            allow_private_targets: false,
+        };
         let dns = kuro_api::dns::application::DnsState::new(
             pool.clone(),
             *iam.keys.server_secrets(),
@@ -130,6 +141,7 @@ impl TestAdmin {
                 publish_to_dir: false,
             },
             stores: kuro_api::prefabs::store::StoresState::new(vec![store.config()], store.clone()),
+            notifications: notifications.clone(),
             oauth: Some(super::oauth::oauth_state(&pool, metadata.clone())),
             dns: dns.clone(),
             content_sources,
@@ -149,6 +161,8 @@ impl TestAdmin {
             metadata,
             dns_provider,
             store,
+            webhooks,
+            notifications,
             dns,
             readiness,
         }

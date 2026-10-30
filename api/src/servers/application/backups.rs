@@ -406,6 +406,19 @@ pub async fn record_done(
         tracing::warn!(%node, backup_id = %done.backup_id, "ignored backup report");
         return Ok(());
     }
+    if let Err(reason) = outcome {
+        // Sauvegarde en échec : notifiée (ADR-0044).
+        let mut conn = pool.acquire().await?;
+        if let Some(server) = ServerRepository::get(&mut conn, done.server_id).await? {
+            let event = crate::notifications::domain::Event::now(
+                crate::notifications::domain::EventKind::ServerBackupFailed,
+            )
+            .server(super::link::server_ref(&server))
+            .reason(reason)
+            .details(serde_json::json!({ "backup_id": done.backup_id }));
+            crate::notifications::application::emit_detached(pool, event);
+        }
+    }
     if outcome.is_ok() {
         rotate(pool, commands, done.server_id).await?;
     }

@@ -1,0 +1,58 @@
+---
+title: "Notifications (facultatif)"
+sidebarTitle: "Notifications"
+description: "Soyez prévenu quand un serveur plante, qu'une tâche ou une sauvegarde échoue, ou qu'un nœud se tait : webhook, Discord, Slack."
+---
+
+Kuro envoie une notification quand quelque chose demande votre attention. Vous choisissez les
+événements, la portée et les canaux dans **Paramètres › Notifications**.
+
+## Événements
+
+| Événement | Quand |
+|---|---|
+| Serveur arrêté de façon inattendue | Le nœud rapporte un arrêt que personne n'a demandé |
+| Tâche planifiée en échec | Une exécution planifiée s'arrête sur une étape en erreur |
+| Sauvegarde en échec | Le nœud n'a pas pu créer l'archive |
+| Mise à jour en échec | La mise à jour vers une nouvelle version du prefab a échoué |
+| Disque presque plein | Le serveur utilise 90 % de son quota (une fois, puis de nouveau après un retour sous 80 %) |
+| Nœud hors ligne / de retour | Plus de heartbeat depuis 45 s, puis reconnexion |
+
+## Canaux
+
+- **Webhook** : un `POST` JSON vers l'URL de votre choix, en `https://`. Avec un secret, chaque
+  envoi porte l'en-tête `X-Kuro-Signature: sha256=<HMAC-SHA256 du corps>` : vérifiez-le avant de
+  faire confiance au message. `X-Kuro-Event` donne le type, `X-Kuro-Delivery` l'identifiant.
+- **Discord** et **Slack** : collez l'URL du webhook entrant de votre salon ; le message est
+  mis en forme (embed, blocks) dans la langue du canal.
+
+L'URL et le secret sont chiffrés et ne sont jamais réaffichés. Le bouton **Tester** envoie un
+événement `test` et affiche la réponse du destinataire.
+
+## Par serveur
+
+Sur la page d'un serveur, l'onglet **Notifications** tient ses **abonnements** : une destination
+(webhook, Discord ou Slack, propre à ce serveur) et les événements de ce serveur qu'elle reçoit.
+Tout se règle là, sans passer par les paramètres ; la destination disparaît avec le serveur.
+Avec le droit de voir les paramètres, un abonnement peut aussi viser un **canal partagé** de
+l'équipe. Les droits `servers.notifications.read` et `servers.notifications.manage` suffisent
+pour cette page.
+
+## Règles
+
+Une règle lie des événements à des canaux, pour **tout**, **un nœud** ou **un serveur**. Un
+canal visé par plusieurs règles ne reçoit qu'un message par événement.
+
+## Journal des envois
+
+Les envois sont gardés trente jours. Un envoi refusé est repris après 1, 5 puis 30 minutes, puis
+abandonné ; au-delà de trente envois par minute sur un canal, les suivants attendent la minute
+d'après.
+
+<Note>
+Par défaut, un webhook vers une adresse privée (réseau local, `127.0.0.1`…) est refusé : un
+webhook ne doit pas servir à joindre le réseau interne de l'API. Pour un Slack d'entreprise
+derrière un VPN, réglez `allow_private_targets = true` dans `[notifications]` de `api.toml`.
+Le lien vers le panel dans chaque message vient de `panel_url` de la même section, sinon de
+`[mcp]`.
+</Note>

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO notification_deliveries (id, rule_id, channel_id, event, status)\n             VALUES ($1, $2, $3, $4, 'pending')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e2e2b268486f45bf51e0480c6f4e591f67916707205f007b7826d22baba74e59"
+}

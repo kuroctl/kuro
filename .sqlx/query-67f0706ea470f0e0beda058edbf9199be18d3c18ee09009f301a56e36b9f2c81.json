@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM notification_rules WHERE channels = ARRAY[$1]::uuid[]",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "67f0706ea470f0e0beda058edbf9199be18d3c18ee09009f301a56e36b9f2c81"
+}

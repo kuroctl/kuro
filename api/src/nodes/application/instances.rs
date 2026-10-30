@@ -34,7 +34,19 @@ impl Instance {
 
     /// Nettoie ce qu'ont laissé les instances mortes (au démarrage, puis périodiquement).
     pub async fn sweep(&self) -> Result<Swept, sqlx::Error> {
-        self.repository.sweep(self.id, DEAD_AFTER).await
+        let swept = self.repository.sweep(self.id, DEAD_AFTER).await?;
+        // Nœuds passés hors ligne par le balayage : notifiés (ADR-0044).
+        for (id, name) in &swept.offline {
+            let event = crate::notifications::domain::Event::now(
+                crate::notifications::domain::EventKind::NodeOffline,
+            )
+            .node(crate::notifications::domain::NodeRef {
+                id: *id,
+                name: name.clone(),
+            });
+            crate::notifications::application::emit_detached(self.repository.pool(), event);
+        }
+        Ok(swept)
     }
 
     /// Bat la seconde et balaie jusqu'à l'arrêt ; à l'arrêt, se désinscrit (ses nœuds passent

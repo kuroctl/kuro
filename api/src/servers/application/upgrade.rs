@@ -261,6 +261,7 @@ pub async fn start(
         return Err(ServersError::Conflict(ErrorCode::UpgradeBlocked));
     }
     let (state, context, to) = (state.clone(), context.clone(), to.to_owned());
+    let server_ref = super::link::server_ref(&server);
     tokio::spawn(async move {
         if let Err(reason) = run(&state, &context, id, &to, backup).await {
             tracing::warn!(server_id = %id, %reason, "server upgrade failed");
@@ -272,6 +273,14 @@ pub async fn start(
             {
                 tracing::error!(%error, "failed to record the upgrade failure");
             }
+            // Échec notifié (ADR-0044).
+            let notice = crate::notifications::domain::Event::now(
+                crate::notifications::domain::EventKind::ServerUpgradeFailed,
+            )
+            .server(server_ref)
+            .reason(reason)
+            .details(json!({ "to": to }));
+            crate::notifications::application::emit_detached(&state.pool, notice);
         }
     });
     Ok(preview)

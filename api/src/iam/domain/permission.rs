@@ -137,6 +137,8 @@ permissions! {
     ServersBackupsDownload => "servers.backups.download", Servers, "Télécharger une sauvegarde (elle peut contenir des secrets)", sensitive = true, Available;
     ServersSchedulesRead => "servers.schedules.read", Servers, "Voir les tâches planifiées et leurs exécutions", sensitive = false, Available;
     ServersSchedulesManage => "servers.schedules.manage", Servers, "Créer, modifier, supprimer et lancer des tâches planifiées (seulement avec les actions qu'on détient)", sensitive = true, Available;
+    ServersNotificationsRead => "servers.notifications.read", Servers, "Voir les abonnements aux notifications d'un serveur et leurs envois", sensitive = false, Available;
+    ServersNotificationsManage => "servers.notifications.manage", Servers, "Créer, modifier, tester et supprimer les abonnements aux notifications d'un serveur", sensitive = false, Available;
     ServersContentRead => "servers.content.read", Servers, "Voir les mods et plugins installés et chercher dans les sources", sensitive = false, Available;
     ServersContentManage => "servers.content.manage", Servers, "Installer, mettre à jour, désactiver, supprimer des mods et plugins (code tiers exécuté)", sensitive = true, Available;
     ServersSuspend => "servers.suspend", Servers, "Suspendre ou réactiver un serveur", sensitive = false, Available;
@@ -158,6 +160,8 @@ permissions! {
     SystemDnsManage => "system.dns.manage", System, "Configurer le DNS (zone, jeton du fournisseur)", sensitive = true, Available;
     SystemContentSourcesManage => "system.content_sources.manage", System, "Configurer les sources de contenu (clé d'API CurseForge)", sensitive = true, Available;
     SystemSteamAccountsManage => "system.steam_accounts.manage", System, "Régler le compte Steam des installations", sensitive = true, Available;
+    SystemNotificationsRead => "system.notifications.read", System, "Voir les canaux, les règles et le journal des notifications", sensitive = false, Available;
+    SystemNotificationsManage => "system.notifications.manage", System, "Configurer les canaux (URL de webhook, secret) et les règles de notification", sensitive = true, Available;
 }
 
 impl Permission {
@@ -177,6 +181,7 @@ impl Permission {
                 | Self::SystemDnsManage
                 | Self::SystemContentSourcesManage
                 | Self::SystemSteamAccountsManage
+                | Self::SystemNotificationsManage
                 | Self::NodesEnrollment
                 | Self::NodesRevoke
                 | Self::NodesDelete

@@ -357,6 +357,50 @@ fn protected_routes() -> Vec<(Method, String, Option<Value>, Vec<Permission>)> {
         ),
         (
             Method::GET,
+            format!("/servers/{id}/metrics"),
+            None,
+            vec![Permission::ServersRead],
+        ),
+        (
+            Method::GET,
+            format!("/servers/{id}/notifications"),
+            None,
+            vec![Permission::ServersNotificationsRead],
+        ),
+        (
+            Method::GET,
+            format!("/servers/{id}/notifications/deliveries"),
+            None,
+            vec![Permission::ServersNotificationsRead],
+        ),
+        (
+            Method::POST,
+            format!("/servers/{id}/notifications"),
+            Some(
+                json!({ "name": "Ops", "events": ["server.crashed"], "kind": "webhook", "url": "https://hooks.test/x" }),
+            ),
+            vec![Permission::ServersNotificationsManage],
+        ),
+        (
+            Method::PUT,
+            format!("/servers/{id}/notifications/{id}"),
+            Some(json!({ "name": "Ops", "events": ["server.crashed"] })),
+            vec![Permission::ServersNotificationsManage],
+        ),
+        (
+            Method::DELETE,
+            format!("/servers/{id}/notifications/{id}"),
+            None,
+            vec![Permission::ServersNotificationsManage],
+        ),
+        (
+            Method::POST,
+            format!("/servers/{id}/notifications/{id}/test"),
+            None,
+            vec![Permission::ServersNotificationsManage],
+        ),
+        (
+            Method::GET,
             format!("/servers/{id}/content"),
             None,
             vec![Permission::ServersContentRead],
@@ -462,6 +506,76 @@ fn protected_routes() -> Vec<(Method, String, Option<Value>, Vec<Permission>)> {
             "/settings/dns".into(),
             None,
             vec![Permission::SystemDnsManage],
+        ),
+        (
+            Method::GET,
+            "/settings/notifications/events".into(),
+            None,
+            vec![Permission::SystemNotificationsRead],
+        ),
+        (
+            Method::GET,
+            "/settings/notifications/channels".into(),
+            None,
+            vec![Permission::SystemNotificationsRead],
+        ),
+        (
+            Method::GET,
+            "/settings/notifications/rules".into(),
+            None,
+            vec![Permission::SystemNotificationsRead],
+        ),
+        (
+            Method::GET,
+            "/settings/notifications/deliveries".into(),
+            None,
+            vec![Permission::SystemNotificationsRead],
+        ),
+        (
+            Method::POST,
+            "/settings/notifications/channels".into(),
+            Some(json!({ "name": "Ops", "kind": "webhook", "url": "https://hooks.test/x" })),
+            vec![Permission::SystemNotificationsManage],
+        ),
+        (
+            Method::PUT,
+            format!("/settings/notifications/channels/{id}"),
+            Some(json!({ "name": "Ops", "kind": "webhook" })),
+            vec![Permission::SystemNotificationsManage],
+        ),
+        (
+            Method::DELETE,
+            format!("/settings/notifications/channels/{id}"),
+            None,
+            vec![Permission::SystemNotificationsManage],
+        ),
+        (
+            Method::POST,
+            format!("/settings/notifications/channels/{id}/test"),
+            None,
+            vec![Permission::SystemNotificationsManage],
+        ),
+        (
+            Method::POST,
+            "/settings/notifications/rules".into(),
+            Some(
+                json!({ "name": "R", "scope": "all", "events": ["server.crashed"], "channels": [id] }),
+            ),
+            vec![Permission::SystemNotificationsManage],
+        ),
+        (
+            Method::PUT,
+            format!("/settings/notifications/rules/{id}"),
+            Some(
+                json!({ "name": "R", "scope": "all", "events": ["server.crashed"], "channels": [id] }),
+            ),
+            vec![Permission::SystemNotificationsManage],
+        ),
+        (
+            Method::DELETE,
+            format!("/settings/notifications/rules/{id}"),
+            None,
+            vec![Permission::SystemNotificationsManage],
         ),
         (
             Method::GET,

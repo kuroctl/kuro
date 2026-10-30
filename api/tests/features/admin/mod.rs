@@ -3,6 +3,7 @@
 mod auth;
 mod mcp;
 mod nodes;
+mod notifications;
 mod oauth;
 mod password_change;
 mod rbac;

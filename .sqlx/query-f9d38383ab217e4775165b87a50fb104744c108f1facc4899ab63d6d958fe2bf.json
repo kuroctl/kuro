@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE notification_rules SET channels = array_remove(channels, $1), updated_at = now()\n             WHERE $1 = ANY(channels)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f9d38383ab217e4775165b87a50fb104744c108f1facc4899ab63d6d958fe2bf"
+}

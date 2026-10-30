@@ -30,6 +30,21 @@ pub struct Config {
     pub content: ContentConfig,
     #[serde(default)]
     pub mcp: McpConfig,
+    #[serde(default)]
+    pub notifications: NotificationsConfig,
+}
+
+/// Notifications et webhooks (ADR-0044).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NotificationsConfig {
+    /// URL du panel mise dans chaque notification (lien vers le serveur ou le nœud) ; absente,
+    /// `mcp.panel_url` puis `mcp.public_url` servent, sinon pas de lien.
+    #[serde(default)]
+    pub panel_url: Option<String>,
+    /// Webhooks vers des adresses privées acceptés (Slack d'entreprise derrière un VPN…). Faux
+    /// par défaut : un webhook ne doit pas servir à joindre le réseau interne de l'API.
+    #[serde(default)]
+    pub allow_private_targets: bool,
 }
 
 /// Serveur MCP et son serveur d'autorisation OAuth (ADR-0023).

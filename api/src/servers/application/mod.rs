@@ -16,6 +16,7 @@ mod error;
 pub mod files;
 mod link;
 mod manage;
+pub mod metrics;
 pub mod scheduler;
 pub mod schedules;
 pub mod search;

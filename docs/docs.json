@@ -35,6 +35,7 @@
             "pages": [
               "fr/configuration",
               "fr/dns",
+              "fr/notifications",
               "fr/mcp"
             ]
           },
@@ -71,6 +72,7 @@
             "pages": [
               "en/configuration",
               "en/dns",
+              "en/notifications",
               "en/mcp"
             ]
           },

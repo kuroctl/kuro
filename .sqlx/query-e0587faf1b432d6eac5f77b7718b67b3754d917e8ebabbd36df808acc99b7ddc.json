@@ -1,0 +1,125 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT minute AS \"at!\", samples, cpu_millis_avg, cpu_millis_max, memory_bytes_avg,\n                      memory_bytes_max, memory_limit_bytes, network_rx_bytes, network_tx_bytes\n               FROM server_metrics WHERE server_id = $1 AND minute >= $2 ORDER BY minute",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "server_metrics",
+            "name": "minute"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "samples",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "server_metrics",
+            "name": "samples"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "cpu_millis_avg",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "server_metrics",
+            "name": "cpu_millis_avg"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "cpu_millis_max",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "server_metrics",
+            "name": "cpu_millis_max"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "memory_bytes_avg",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "server_metrics",
+            "name": "memory_bytes_avg"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "memory_bytes_max",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "server_metrics",
+            "name": "memory_bytes_max"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "memory_limit_bytes",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "server_metrics",
+            "name": "memory_limit_bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "network_rx_bytes",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "server_metrics",
+            "name": "network_rx_bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "network_tx_bytes",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "server_metrics",
+            "name": "network_tx_bytes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "e0587faf1b432d6eac5f77b7718b67b3754d917e8ebabbd36df808acc99b7ddc"
+}

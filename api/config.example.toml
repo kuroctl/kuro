@@ -55,6 +55,13 @@ require_totp = false
 # public_key = "RWRtWneTRrp1ruOA8XasvWbs6Uch5gWhK3EzHnwQPsbREM/DKJvnWcTY"
 # token = ""
 
+# Notifications et webhooks (ADR-0044) : canaux et règles se règlent dans le panel.
+[notifications]
+# Lien vers le panel dans chaque notification ; absent : `panel_url` puis `public_url` de [mcp].
+# panel_url = "https://panel.example.com"
+# Webhooks vers des adresses privées (Slack d'entreprise derrière un VPN) : refusés par défaut.
+# allow_private_targets = false
+
 [log]
 format = "pretty"   # "pretty" ou "json"
 filter = "info"

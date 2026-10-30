@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM server_metrics WHERE minute < $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0d0260df65245e907c957f2ef681b137e8b521eb7966f7206e0f5ee3e13ab869"
+}

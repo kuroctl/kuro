@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO server_metrics (server_id, minute, samples, cpu_millis_avg, cpu_millis_max,\n                                         memory_bytes_avg, memory_bytes_max, memory_limit_bytes,\n                                         network_rx_bytes, network_tx_bytes)\n             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10\n             WHERE EXISTS (SELECT 1 FROM servers WHERE id = $1 AND node_id = $11)\n             ON CONFLICT (server_id, minute) DO UPDATE SET\n                 samples = EXCLUDED.samples, cpu_millis_avg = EXCLUDED.cpu_millis_avg,\n                 cpu_millis_max = EXCLUDED.cpu_millis_max, memory_bytes_avg = EXCLUDED.memory_bytes_avg,\n                 memory_bytes_max = EXCLUDED.memory_bytes_max, memory_limit_bytes = EXCLUDED.memory_limit_bytes,\n                 network_rx_bytes = EXCLUDED.network_rx_bytes, network_tx_bytes = EXCLUDED.network_tx_bytes",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Int4",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bedbd61af536f78d720e53f98517e5a8ce48365d6a8113b22096212a0deb5b03"
+}

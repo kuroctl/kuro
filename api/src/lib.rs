@@ -18,6 +18,7 @@ pub mod http;
 pub mod iam;
 pub mod mcp;
 pub mod nodes;
+pub mod notifications;
 pub mod oauth;
 pub mod pki;
 pub mod prefabs;

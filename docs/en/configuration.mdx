@@ -22,6 +22,7 @@ Every key can be overridden by an environment variable `KURO_API_<SECTION>__<KEY
 | `[prefabs]` | `dir` (official prefabs), `publish_to_dir` (development: “Publish” in the Studio writes the prefab into `dir`; keep `false` in production) |
 | `[[prefabs.stores]]` | One block per prefab store: `name`, `url` (HTTPS root serving `index.json`, its signature and the archives), `public_key` (minisign public key signing the index), `token` (optional, private store). Defaults to the official `kuroctl/prefabs` store; `stores = []` under `[prefabs]` for none |
 | `[mcp]` | `public_url` (public address, enables the MCP server), `panel_url` |
+| `[notifications]` | `panel_url` (link put in every notification; else the one of `[mcp]`), `allow_private_targets` (webhooks to private addresses, `false` by default) |
 | `[log]` | `format` (`json` or `pretty`), `filter` |
 
 After a change: `sudo systemctl restart kuro-api`.

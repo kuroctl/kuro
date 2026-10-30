@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE nodes SET status = 'offline', instance_id = NULL, updated_at = now()\n             WHERE status = 'online'\n               AND (instance_id IS NULL\n                    OR instance_id IN (SELECT id FROM api_instances\n                                       WHERE id <> $1\n                                         AND last_seen_at < now() - $2 * interval '1 second'))\n             RETURNING id, name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "bc3f4f3f2fa100e5a671accd12a443e5f9278112e96ea7683b1ee50112e3136d"
+}

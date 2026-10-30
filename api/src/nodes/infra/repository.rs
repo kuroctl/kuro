@@ -63,6 +63,10 @@ pub struct NodeRepository {
 }
 
 impl NodeRepository {
+    pub fn pool(&self) -> &PgPool {
+        &self.pool
+    }
+
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }

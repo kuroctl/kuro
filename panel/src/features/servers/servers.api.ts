@@ -18,6 +18,10 @@ export function useServersApi() {
   return {
     list: () => http.get<Server[]>(BASE).then((response) => response.data),
 
+    /** Historique des stats (ADR-0043) : 24 h à la minute, 7 j ou 90 j à l'heure. */
+    metrics: (id: string, range: '24h' | '7d' | '90d') =>
+      http.get<Schemas['MetricsDto']>(`${BASE}/${id}/metrics`, { params: { range } }).then((response) => response.data),
+
     search: (params: ServerSearch) => http.get<ServerPage>(`${BASE}/search`, { params }).then((response) => response.data),
 
     bulk: (action: BulkAction, servers: string[], backup = false) =>

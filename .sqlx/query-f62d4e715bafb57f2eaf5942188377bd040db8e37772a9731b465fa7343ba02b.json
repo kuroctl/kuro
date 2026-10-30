@@ -1,0 +1,134 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT r.id, r.name, r.scope, r.node_id, r.server_id, r.events, r.channels, r.enabled,\n                    r.created_at, r.updated_at\n             FROM notification_rules r\n             WHERE NOT EXISTS (SELECT 1 FROM notification_channels c\n                               WHERE c.id = ANY(r.channels) AND c.server_id IS NOT NULL)\n             ORDER BY r.name, r.created_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "notification_rules",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "notification_rules",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "scope",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "notification_rules",
+            "name": "scope"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "node_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "notification_rules",
+            "name": "node_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "server_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "notification_rules",
+            "name": "server_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "events",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "notification_rules",
+            "name": "events"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "channels",
+        "type_info": "UuidArray",
+        "origin": {
+          "Table": {
+            "table": "notification_rules",
+            "name": "channels"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "notification_rules",
+            "name": "enabled"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "notification_rules",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "notification_rules",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f62d4e715bafb57f2eaf5942188377bd040db8e37772a9731b465fa7343ba02b"
+}

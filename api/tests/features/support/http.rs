@@ -99,6 +99,14 @@ pub async fn get_with_panel(panel: Option<&std::path::Path>, path: &str) -> Test
         *iam.keys.server_secrets(),
         std::sync::Arc::new(super::dns::FakeDns::default()),
     );
+    let secrets_key = *iam.keys.server_secrets();
+    let notifications = kuro_api::notifications::application::NotificationsState {
+        pool: pool.clone(),
+        key: secrets_key,
+        sender: std::sync::Arc::new(super::notifications::FakeWebhooks::default()),
+        panel_url: None,
+        allow_private_targets: false,
+    };
     let state = AppState {
         iam,
         enrollment: enrollment_settings(),
@@ -114,6 +122,7 @@ pub async fn get_with_panel(panel: Option<&std::path::Path>, path: &str) -> Test
             Vec::new(),
             std::sync::Arc::new(super::store::FakeStore::default()),
         ),
+        notifications,
         oauth: None,
         dns,
         content_sources,

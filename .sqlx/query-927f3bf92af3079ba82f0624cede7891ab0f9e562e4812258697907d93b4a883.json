@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM notification_deliveries WHERE created_at < now() - $1 * interval '1 day'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "927f3bf92af3079ba82f0624cede7891ab0f9e562e4812258697907d93b4a883"
+}

@@ -29,6 +29,20 @@ export function useServer(id: MaybeRefOrGetter<string>) {
   return useQuery(computed(() => serverQuery(toValue(id))))
 }
 
+export type MetricsRange = '24h' | '7d' | '90d'
+
+/** Historique des stats (ADR-0043), relu toutes les minutes : le nœud envoie une minute à la fois. */
+export function useServerMetrics(id: MaybeRefOrGetter<string>, range: MaybeRefOrGetter<MetricsRange>) {
+  return useQuery(
+    computed(() => ({
+      queryKey: ['servers', toValue(id), 'metrics', toValue(range)],
+      queryFn: () => useServersApi().metrics(toValue(id), toValue(range)),
+      refetchInterval: 60_000,
+      placeholderData: keepPreviousData,
+    })),
+  )
+}
+
 /** Page de la liste (ADR-0025) ; la page précédente reste affichée pendant le chargement. */
 export function useServerSearch(params: MaybeRefOrGetter<ServerSearch>) {
   return useQuery(

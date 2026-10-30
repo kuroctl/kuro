@@ -31,6 +31,7 @@ mod content;
 mod disk;
 mod files;
 mod install;
+mod metrics;
 mod states;
 mod upload;
 mod watch;
@@ -148,6 +149,8 @@ struct Inner {
     content: mpsc::Sender<ContentDone>,
     /// Envois de fichiers en cours (ADR-0020).
     uploads: Mutex<HashMap<Uuid, upload::Upload>>,
+    /// Historique des stats par minute (ADR-0043).
+    metrics: metrics::MetricsState,
 }
 
 impl Manager {
@@ -206,6 +209,7 @@ impl Manager {
                 disk: Mutex::new(HashMap::new()),
                 content,
                 uploads: Mutex::new(HashMap::new()),
+                metrics: metrics::MetricsState::default(),
             }),
         };
         (
