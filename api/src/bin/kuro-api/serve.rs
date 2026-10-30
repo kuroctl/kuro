@@ -161,6 +161,8 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         *iam.keys.server_secrets(),
         Arc::new(kuro_api::dns::cloudflare::Cloudflare::new().context("tls client")?),
     );
+    // Une suppression confirmée par un nœud réveille la réconciliation DNS.
+    server_events.attach_dns(dns.clone());
     let state = AppState {
         content_sources,
         dns: dns.clone(),

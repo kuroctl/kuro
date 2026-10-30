@@ -14,6 +14,36 @@ fn bollard() -> bollard::Docker {
     bollard::Docker::connect_with_defaults().unwrap()
 }
 
+/// Sortie d'une commande lancée dans un conteneur en marche, sans espaces de fin.
+async fn exec_output(container: &str, cmd: &[&str]) -> String {
+    use bollard::exec::StartExecResults;
+    use bollard::models::ExecConfig;
+    use futures_util::StreamExt;
+
+    let docker = bollard();
+    let exec = docker
+        .create_exec(
+            container,
+            ExecConfig {
+                cmd: Some(cmd.iter().map(|part| (*part).to_owned()).collect()),
+                attach_stdout: Some(true),
+                attach_stderr: Some(true),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    let mut text = String::new();
+    if let StartExecResults::Attached { mut output, .. } =
+        docker.start_exec(&exec.id, None).await.unwrap()
+    {
+        while let Some(chunk) = output.next().await {
+            text.push_str(&chunk.unwrap().to_string());
+        }
+    }
+    text.trim_end().to_owned()
+}
+
 #[tokio::test]
 async fn a_server_is_deployed_started_stopped_and_deleted() {
     let mut node = node();
@@ -54,7 +84,19 @@ async fn a_server_is_deployed_started_stopped_and_deleted() {
         host.network_mode.as_deref(),
         Some(network_name(id).as_str())
     );
-    assert_eq!(host.tmpfs.unwrap()["/tmp"], "rw,exec,nosuid,nodev");
+    assert_eq!(
+        host.tmpfs.unwrap()["/tmp"],
+        "rw,exec,nosuid,nodev,uid=1000,gid=1000,mode=0755"
+    );
+    // Le chemin `writable` appartient vraiment au service, et n'est pas modifiable par tous.
+    assert_eq!(
+        exec_output(
+            &container_name(id, "app"),
+            &["stat", "-c", "%u:%g %a", "/tmp"]
+        )
+        .await,
+        "1000:1000 755"
+    );
 
     node.manager.power(id, PowerAction::Stop).await.unwrap();
     wait_for(&mut node.events, id, ServerState::Stopping).await;

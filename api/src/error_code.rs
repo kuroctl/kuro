@@ -133,6 +133,7 @@ error_codes! {
     InvalidDomain => "invalid_domain", "Invalid domain name";
     InvalidDnsLabel => "invalid_dns_label", "Invalid name: lowercase letters, digits and dashes";
     DnsLabelTaken => "dns_label_taken", "This name is already used by another server";
+    DnsLabelReserved => "dns_label_reserved", "This name is reserved (panel, API, nodes…)";
     // Sites web (ADR-0038)
     InvalidSitesDomain => "invalid_sites_domain", "Invalid web sites domain: in the zone, apart from the server and node domains, never a reserved name";
     SitesDomainNotConfigured => "sites_domain_not_configured", "No web sites domain is configured in the DNS settings";

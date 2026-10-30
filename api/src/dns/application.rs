@@ -41,6 +41,8 @@ pub enum DnsError {
     InvalidSitesDomain,
     #[error("label already taken")]
     LabelTaken,
+    #[error("label reserved")]
+    LabelReserved,
     #[error("invalid ip address")]
     InvalidAddress,
     #[error("unknown dns provider")]
@@ -258,6 +260,15 @@ pub async fn set_label(
     if label.is_some_and(|l| !valid_label(l)) {
         return Err(DnsError::InvalidLabel);
     }
+    if let Some(label) = label {
+        let nodes_label = zone(state)
+            .await?
+            .map(|zone| zone.nodes_label)
+            .unwrap_or_else(|| "nodes".to_owned());
+        if reserved_labels(&nodes_label).contains(label) {
+            return Err(DnsError::LabelReserved);
+        }
+    }
     let mut tx = AuditedTx::begin(&state.pool, context).await?;
     let exists = sqlx::query_scalar!(
         r#"SELECT EXISTS (SELECT 1 FROM servers WHERE id = $1) AS "exists!""#,
@@ -345,33 +356,41 @@ async fn desired(
         .await?
         .into_iter()
         .collect();
+    // Jamais proposés : les noms réservés et le sous-domaine des nœuds (ADR-0039).
+    taken.extend(reserved_labels(&names.nodes_label));
     for server in DnsRepository::servers(&mut conn).await? {
-        let label = match server.dns_label.clone() {
-            Some(label) => label,
-            None => {
-                let base = suggest_label(&server.name);
-                let label = (1..)
-                    .map(|n| {
-                        if n == 1 {
-                            base.clone()
-                        } else {
-                            format!("{base}-{n}")
-                        }
-                    })
-                    .find(|candidate| !taken.contains(candidate))
-                    .unwrap_or(base);
-                if !DnsRepository::set_label(&mut conn, server.id, Some(&label)).await? {
-                    continue;
-                }
-                taken.insert(label.clone());
-                label
-            }
-        };
         let ports: HashMap<String, u16> = AllocationRepository::of_server(&mut conn, server.id)
             .await?
             .into_iter()
             .map(|(name, _, port)| (name, u16::try_from(port).unwrap_or_default()))
             .collect();
+        // Sans port public (un site web, ADR-0038), aucun nom de serveur : rien à joindre par
+        // `<label>.<base>`, et le nom n'est pas consommé.
+        let label = if ports.is_empty() {
+            None
+        } else {
+            Some(match server.dns_label.clone() {
+                Some(label) => label,
+                None => {
+                    let base = suggest_label(&server.name);
+                    let label = (1..)
+                        .map(|n| {
+                            if n == 1 {
+                                base.clone()
+                            } else {
+                                format!("{base}-{n}")
+                            }
+                        })
+                        .find(|candidate| !taken.contains(candidate))
+                        .unwrap_or(base);
+                    if !DnsRepository::set_label(&mut conn, server.id, Some(&label)).await? {
+                        continue;
+                    }
+                    taken.insert(label.clone());
+                    label
+                }
+            })
+        };
         let srv: Vec<SrvPort> =
             match prefabs::package(&state.pool, &server.prefab_id, &server.prefab_version).await {
                 Ok(package) => package
@@ -393,7 +412,7 @@ async fn desired(
             };
         for record in server_records(
             names,
-            &label,
+            label.as_deref(),
             &server.node_name,
             &srv,
             server.web_id.as_deref(),
@@ -602,6 +621,17 @@ pub async fn run_forever(state: DnsState, shutdown: CancellationToken) {
             () = tokio::time::sleep(RECONCILE_EVERY) => {}
         }
     }
+}
+
+/// Labels qu'aucun serveur ne peut porter : les noms réservés de la zone (panel, API,
+/// documentation, services classiques) et le sous-domaine des nœuds, dont les enfants
+/// existent déjà (un CNAME n'a pas d'enfant).
+fn reserved_labels(nodes_label: &str) -> HashSet<String> {
+    super::domain::RESERVED_SITE_LABELS
+        .iter()
+        .map(|label| (*label).to_owned())
+        .chain(std::iter::once(nodes_label.to_owned()))
+        .collect()
 }
 
 /// Noms publics de la zone, pour afficher l'adresse d'un serveur.

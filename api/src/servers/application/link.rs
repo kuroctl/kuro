@@ -28,6 +28,9 @@ pub struct LinkEvents {
     /// Cas d'usage des serveurs, rattachés une fois construits (ils ont besoin du registre des
     /// liens, qui a besoin de ces événements) : redéploiement après des paquets extraits.
     servers: Arc<OnceLock<ServersState>>,
+    /// Réconciliation DNS (ADR-0026), réveillée quand un nœud confirme une suppression : ses
+    /// enregistrements partent sans attendre la passe suivante.
+    dns: Arc<OnceLock<crate::dns::application::DnsState>>,
 }
 
 impl LinkEvents {
@@ -37,12 +40,18 @@ impl LinkEvents {
             console,
             commands,
             servers: Arc::new(OnceLock::new()),
+            dns: Arc::new(OnceLock::new()),
         }
     }
 
     /// Rattache les cas d'usage des serveurs ; un second rattachement est ignoré.
     pub fn attach(&self, servers: ServersState) {
         let _ = self.servers.set(servers);
+    }
+
+    /// Rattache la réconciliation DNS ; un second rattachement est ignoré.
+    pub fn attach_dns(&self, dns: crate::dns::application::DnsState) {
+        let _ = self.dns.set(dns);
     }
 
     async fn record(&self, node: NodeId, report: ServerStateReport) -> Result<(), sqlx::Error> {
@@ -67,6 +76,13 @@ impl LinkEvents {
                 .await?
             }
         };
+        // Suppression confirmée : ses enregistrements DNS n'ont plus de raison d'attendre.
+        if owned
+            && report.state == Reported::Deleted
+            && let Some(dns) = self.dns.get()
+        {
+            dns.wake();
+        }
         // Le serveur démarre : ses changements de contenu en attente sont appliqués.
         if owned && report.state == Reported::Starting {
             ServerRepository::clear_pending(&mut conn, report.server_id).await?;

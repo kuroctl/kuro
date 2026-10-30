@@ -192,32 +192,37 @@ pub struct SrvPort {
     pub port: u16,
 }
 
-/// `CNAME` d'un serveur vers son nœud, un `SRV` par port qui en déclare un, et le `CNAME` de son
-/// site (`<identifiant>.<domaine des sites>`, ADR-0038) s'il en a un et que la zone a un domaine
-/// des sites. La cible d'un SRV est le nom du nœud (jamais un alias, RFC 2782).
+/// `CNAME` d'un serveur vers son nœud et un `SRV` par port qui en déclare un, quand il a un
+/// label (un serveur sans port public, un site web, n'en a pas : rien à joindre par ce nom) ;
+/// et le `CNAME` de son site (`<identifiant>.<domaine des sites>`, ADR-0038) s'il en a un et que
+/// la zone a un domaine des sites. La cible d'un SRV est le nom du nœud (jamais un alias,
+/// RFC 2782).
 pub fn server_records(
     zone: &ZoneNames,
-    label: &str,
+    label: Option<&str>,
     node: &str,
     srv: &[SrvPort],
     web_id: Option<&str>,
 ) -> Vec<Desired> {
-    if !valid_label(label) || !valid_label(node) {
+    if !valid_label(node) || label.is_some_and(|label| !valid_label(label)) {
         return Vec::new();
     }
-    let host = zone.server_host(label);
     let target = zone.node_host(node);
-    let mut records = vec![Desired {
-        kind: RecordKind::Cname,
-        name: host.clone(),
-        content: target.clone(),
-    }];
-    for entry in srv {
+    let mut records = Vec::new();
+    if let Some(label) = label {
+        let host = zone.server_host(label);
         records.push(Desired {
-            kind: RecordKind::Srv,
-            name: format!("{}.{host}", entry.service),
-            content: format!("0 0 {} {target}", entry.port),
+            kind: RecordKind::Cname,
+            name: host.clone(),
+            content: target.clone(),
         });
+        for entry in srv {
+            records.push(Desired {
+                kind: RecordKind::Srv,
+                name: format!("{}.{host}", entry.service),
+                content: format!("0 0 {} {target}", entry.port),
+            });
+        }
     }
     if let Some(site) = web_id
         .filter(|id| valid_web_id(id))
@@ -246,12 +251,12 @@ mod tests {
 
     #[test]
     fn a_web_server_gets_the_cname_of_its_site_when_the_zone_has_a_sites_domain() {
-        let without = server_records(&zone(), "blog", "node-1", &[], Some("abcdefg234"));
+        let without = server_records(&zone(), Some("blog"), "node-1", &[], Some("abcdefg234"));
         assert_eq!(without.len(), 1, "no sites domain: no site record");
 
         let mut with_sites = zone();
         with_sites.sites = Some("web.kuroctl.com".to_owned());
-        let records = server_records(&with_sites, "blog", "node-1", &[], Some("abcdefg234"));
+        let records = server_records(&with_sites, Some("blog"), "node-1", &[], Some("abcdefg234"));
         assert_eq!(
             records,
             vec![
@@ -267,13 +272,24 @@ mod tests {
                 },
             ]
         );
+        // Un site web sans port public n'a pas de label : seul le CNAME du site.
+        let site_only = server_records(&with_sites, None, "node-1", &[], Some("abcdefg234"));
+        assert_eq!(site_only.len(), 1);
+        assert_eq!(site_only[0].name, "abcdefg234.web.kuroctl.com");
         // Un serveur de jeu n'a pas de site ; un identifiant forgé n'est pas publié.
         assert_eq!(
-            server_records(&with_sites, "blog", "node-1", &[], None).len(),
+            server_records(&with_sites, Some("blog"), "node-1", &[], None).len(),
             1
         );
         assert_eq!(
-            server_records(&with_sites, "blog", "node-1", &[], Some("evil.example")).len(),
+            server_records(
+                &with_sites,
+                Some("blog"),
+                "node-1",
+                &[],
+                Some("evil.example")
+            )
+            .len(),
             1
         );
     }
@@ -373,7 +389,7 @@ mod tests {
     fn a_server_points_to_its_node_and_publishes_declared_srv() {
         let records = server_records(
             &zone(),
-            "survie",
+            Some("survie"),
             "dev-1",
             &[SrvPort {
                 service: "_minecraft._tcp".to_owned(),

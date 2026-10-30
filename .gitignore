@@ -1,7 +1,7 @@
 # Builds Rust (dont `target/tools` de `cargo xtask`) et celui de l'agent.
-/target
-/target-agent
-/target-steam
+**/target/**
+**/target-agent/**
+**/target-steam/**
 **/*.rs.bk
 PRIVATE.md
 # `.sqlx/` est versionné : la CI compile les requêtes sqlx hors ligne grâce à lui.

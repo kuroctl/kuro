@@ -245,6 +245,15 @@ describe('web site address', () => {
     expect(status.textContent).toContain('port 443 already in use')
   })
 
+  it('shows the site address in the servers list, as a link', async () => {
+    sitePage('web.example.com')
+    await renderApp('/servers/list')
+
+    const link = await screen.findByRole('link', { name: 'abcdefg234.web.example.com' })
+    expect(link.getAttribute('href')).toBe('https://abcdefg234.web.example.com')
+    expect(link.getAttribute('target')).toBe('_blank')
+  })
+
   it('asks for the sites domain when the zone has none', async () => {
     sitePage(null)
     await renderApp(`/servers/${SERVER_ID}`)

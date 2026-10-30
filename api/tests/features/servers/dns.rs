@@ -181,6 +181,104 @@ async fn renaming_a_server_moves_its_records_and_names_stay_unique() {
         )
         .await;
     assert_eq!(invalid.json["code"], "invalid_dns_label");
+    // Les noms réservés et le sous-domaine des nœuds sont refusés (ADR-0039).
+    for reserved in ["www", "api", "nodes"] {
+        let refused = platform
+            .call(
+                Method::PUT,
+                &format!("/servers/{second_id}/dns"),
+                Some(json!({ "label": reserved })),
+            )
+            .await;
+        assert_eq!(
+            refused.json["fields"][0]["code"], "dns_label_reserved",
+            "{reserved}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_server_named_like_a_reserved_name_gets_another_label() {
+    let platform = Platform::start().await;
+    let mut daemon = platform.online_node("node-1", "25565-25570").await;
+    configure(
+        &platform,
+        json!({ "provider": "cloudflare", "base_domain": "play.kuroctl.test", "token": TOKEN }),
+    )
+    .await;
+    let (response, _) = tokio::join!(
+        platform.call(
+            Method::POST,
+            "/servers",
+            Some(json!({
+                "name": "api", "node_id": daemon.node.id.as_uuid(), "prefab_id": "minecraft-java",
+                "memory_mb": 2048, "cpu_percent": 200, "disk_mb": 10240, "settings": {},
+            })),
+        ),
+        daemon.accept(),
+    );
+    assert_eq!(response.status, StatusCode::CREATED, "{}", response.json);
+    reconcile(&platform.admin.dns).await.unwrap();
+
+    let server = platform
+        .call(
+            Method::GET,
+            &format!("/servers/{}", response.json["id"].as_str().unwrap()),
+            None,
+        )
+        .await;
+    assert_eq!(server.json["dns_label"], "api-2");
+}
+
+#[tokio::test]
+async fn a_confirmed_deletion_removes_the_records_without_waiting_for_the_next_pass() {
+    let (platform, mut daemon, id, _) = setup().await;
+    reconcile(&platform.admin.dns).await.unwrap();
+    assert!(
+        platform
+            .admin
+            .dns_provider
+            .published()
+            .iter()
+            .any(|(_, name, _)| name == "survie.play.kuroctl.test")
+    );
+    // La boucle de l'API, qui ne repasse sinon qu'une fois par minute.
+    let shutdown = tokio_util::sync::CancellationToken::new();
+    let reconciler = tokio::spawn(kuro_api::dns::application::run_forever(
+        platform.admin.dns.clone(),
+        shutdown.clone(),
+    ));
+
+    daemon.report(&id, "offline").await;
+    platform.wait_for_state(&id, "offline").await;
+    let path = format!("/servers/{id}");
+    let (accepted, command) =
+        tokio::join!(platform.call(Method::DELETE, &path, None), daemon.accept());
+    assert_eq!(accepted.status, StatusCode::ACCEPTED, "{}", accepted.json);
+    assert_eq!(command["type"], "server.delete");
+    daemon.report(&id, "deleted").await;
+
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let gone = !platform
+            .admin
+            .dns_provider
+            .published()
+            .iter()
+            .any(|(_, name, _)| name.contains("survie"));
+        if gone {
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "records of the deleted server still published"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    shutdown.cancel();
+    let _ = reconciler.await;
+    let deleted = platform.admin.last_audit("dns.record_deleted").await;
+    assert_eq!(deleted.actor_kind, "system");
 }
 
 #[tokio::test]
@@ -320,6 +418,7 @@ async fn a_web_prefab_needs_the_sites_domain_then_gets_its_address_and_cname() {
     let (response, command) = tokio::join!(create_wordpress(&platform, node), daemon.accept());
     assert_eq!(response.status, StatusCode::CREATED, "{}", response.json);
     let web_id = response.json["web_id"].as_str().unwrap().to_owned();
+    let web_id_server = response.json["id"].as_str().unwrap().to_owned();
     assert_eq!(web_id.len(), 10);
     assert!(
         web_id
@@ -399,11 +498,15 @@ async fn a_web_prefab_needs_the_sites_domain_then_gets_its_address_and_cname() {
         )),
         "{published:?}"
     );
-    assert!(published.contains(&rec(
-        "CNAME",
-        "blog.play.kuroctl.test",
-        "node-1.nodes.play.kuroctl.test"
-    )));
+    // Un site n'a pas de port public : pas de `<label>.play`, pas de nom consommé.
+    assert!(
+        !published.iter().any(|(_, name, _)| name.contains("blog")),
+        "{published:?}"
+    );
+    let server = platform
+        .call(Method::GET, &format!("/servers/{web_id_server}"), None)
+        .await;
+    assert!(server.json["dns_label"].is_null());
 
     // Domaine des sites retiré : le CNAME du site disparaît, l'identifiant reste.
     let without = configure(

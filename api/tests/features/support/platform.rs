@@ -35,6 +35,7 @@ impl Platform {
             false,
         );
         api.events.attach(admin.servers.clone());
+        api.events.attach_dns(admin.dns.clone());
         let root = admin.super_admin("root@example.com").await;
         let token = admin.login(&root).await.access_token;
         Self { api, admin, token }

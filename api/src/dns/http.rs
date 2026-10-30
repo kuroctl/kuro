@@ -69,6 +69,10 @@ impl From<DnsError> for ApiError {
             DnsError::LabelTaken => {
                 return Problem::invalid(FieldError::new("label", ErrorCode::DnsLabelTaken)).into();
             }
+            DnsError::LabelReserved => {
+                return Problem::invalid(FieldError::new("label", ErrorCode::DnsLabelReserved))
+                    .into();
+            }
             DnsError::InvalidAddress => {
                 return Problem::invalid(FieldError::new("address", ErrorCode::InvalidIpAddress))
                     .into();

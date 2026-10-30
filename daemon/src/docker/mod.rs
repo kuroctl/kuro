@@ -2,7 +2,7 @@
 //!
 //! Chaque conteneur de serveur reçoit le durcissement de l'ADR-0013, quelle que soit la
 //! spécification : utilisateur non-root, racine en lecture seule (`tmpfs` `exec,nosuid,nodev`
-//! pour les chemins `writable`), `cap_drop: ALL`, `no-new-privileges`, limites mémoire (sans
+//! pour les chemins `writable`, à l'utilisateur du service en `0755`), `cap_drop: ALL`, `no-new-privileges`, limites mémoire (sans
 //! swap), CPU et PIDs, journaux bornés, un réseau par serveur.
 
 use std::collections::HashMap;
@@ -31,6 +31,19 @@ pub const LABEL_MANAGED: &str = "kuro.managed";
 pub const LABEL_SERVER: &str = "kuro.server_id";
 pub const LABEL_SERVICE: &str = "kuro.service";
 const TMPFS_OPTIONS: &str = "rw,exec,nosuid,nodev";
+
+/// Options d'un chemin `writable` : le `tmpfs` appartient à l'utilisateur du service, en `0755`.
+/// Sans `uid`/`gid`, il serait à root en `1777` (modifiable par tous) : un superviseur comme
+/// s6-overlay refuse alors `/run` (« belongs to uid 0 … insecure »).
+fn writable_tmpfs_options(user: &str) -> String {
+    match user.split_once(':') {
+        Some((uid, gid)) if uid.parse::<u32>().is_ok() && gid.parse::<u32>().is_ok() => {
+            format!("{TMPFS_OPTIONS},uid={uid},gid={gid},mode=0755")
+        }
+        // `uid:gid` est validé avec la spécification ; sans lui, les options de base.
+        _ => TMPFS_OPTIONS.to_owned(),
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum DockerError {
@@ -339,7 +352,7 @@ impl Docker {
                 service
                     .writable
                     .iter()
-                    .map(|path| (path.clone(), TMPFS_OPTIONS.to_owned()))
+                    .map(|path| (path.clone(), writable_tmpfs_options(&service.user)))
                     .collect(),
             ),
             readonly_rootfs: Some(true),
@@ -1021,6 +1034,15 @@ fn drain_lines(buffer: &mut String) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn writable_paths_belong_to_the_service_user() {
+        assert_eq!(
+            writable_tmpfs_options("10000:10000"),
+            "rw,exec,nosuid,nodev,uid=10000,gid=10000,mode=0755"
+        );
+        assert_eq!(writable_tmpfs_options("root"), TMPFS_OPTIONS);
+    }
 
     #[test]
     fn lines_are_split_on_newlines_and_a_runaway_buffer_is_flushed() {

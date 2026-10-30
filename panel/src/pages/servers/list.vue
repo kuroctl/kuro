@@ -9,7 +9,7 @@ import { useI18n } from 'vue-i18n'
 
 import { usePermissions } from '@/features/account/account.queries'
 import { useDnsZone } from '@/features/dns/dns.queries'
-import { serverHost } from '@/features/dns/hostnames'
+import { serverHost, siteUrl } from '@/features/dns/hostnames'
 import PrefabIcon from '@/features/prefabs/components/PrefabIcon.vue'
 import ServerBulkActions from '@/features/servers/components/ServerBulkActions.vue'
 import ServerStateBadge from '@/features/servers/components/ServerStateBadge.vue'
@@ -36,7 +36,8 @@ import { Skeleton } from '@/shared/ui/skeleton'
 
 const { t } = useI18n()
 const { can } = usePermissions()
-/** Zone DNS : un serveur nommé s'affiche `<label>.<base>:<port>` (ADR-0026). */
+/** Zone DNS : un serveur nommé s'affiche `<label>.<base>:<port>` (ADR-0026), un site web par son
+ * adresse `https://<identifiant>.<domaine des sites>` (ADR-0038). */
 const { data: zone } = useDnsZone()
 
 const query = useTableQuery({ sort: 'name', filters: ['prefab', 'node', 'state', 'upgrade', 'suspended'] })
@@ -118,12 +119,28 @@ const columns = column.columns([
     header: () => t('servers.fields.address'),
     cell: ({ row }) => {
       const host = serverHost(zone.value, row.original.dns_label)
-      return h(
-        'span',
-        row.original.allocations.map((a) =>
+      const site = siteUrl(zone.value, row.original.web_id)
+      return h('span', [
+        site
+          ? h(
+              'a',
+              {
+                class: 'block text-primary underline-offset-4 hover:underline',
+                key: 'site',
+                href: site,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                title: site,
+                // Ouvre le site sans ouvrir aussi la page du serveur.
+                onClick: (event: MouseEvent) => event.stopPropagation(),
+              },
+              site.replace(/^https:\/\//, ''),
+            )
+          : null,
+        ...row.original.allocations.map((a) =>
           h('span', { class: 'block', key: a.name, title: host ? `${a.ip}:${a.port}` : undefined }, `${host ?? a.ip}:${a.port}`),
         ),
-      )
+      ])
     },
   }),
   column.accessor('memory_mb', {
