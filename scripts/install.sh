@@ -26,7 +26,7 @@ KURO_REPO="${KURO_REPO:-kuroctl/kuro}"
 KURO_RELEASE_URL="${KURO_RELEASE_URL:-https://github.com/$KURO_REPO/releases/download}"
 # Clé publique minisign des releases (la clé privée est un secret GitHub, ADR-0016). Un fork qui
 # laisse un gabarit `…REPLACE…` voit l'installation refusée plutôt que non vérifiée.
-MINISIGN_PUBKEY="${KURO_MINISIGN_PUBKEY:-RWQoJGQzkWoph8TI01PhiV8Ef9Hphir4gSAjjvNsC+NSjk9mZ+NTaJ1b}"
+MINISIGN_PUBKEY="${KURO_MINISIGN_PUBKEY:-RWRtWneTRrp1ruOA8XasvWbs6Uch5gWhK3EzHnwQPsbREM/DKJvnWcTY}"
 # Clé du dépôt APT officiel de Docker (https://docs.docker.com/engine/install/debian/).
 DOCKER_GPG_FINGERPRINT=9DC858229FC7DD38854AE2D88D81803C0EBFCD88
 POSTGRES_IMAGE=docker.io/library/postgres:17.6
