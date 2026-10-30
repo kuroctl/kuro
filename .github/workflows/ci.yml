@@ -3,12 +3,15 @@
 # Chaque job ne tourne que si ses fichiers changent (job `changes`) : la documentation Mintlify
 # (`docs/`) ou le site ne relancent rien. Un job sauté compte comme réussi pour la protection de
 # branche, contrairement à un filtre `paths` sur tout le workflow qui laisserait les checks en attente.
+# Lancé à la main (`gh workflow run CI`), tout tourne, quels que soient les fichiers modifiés :
+# la vérification complète avant une publication.
 name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,15 +33,19 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      rust: ${{ steps.filter.outputs.rust }}
-      deps: ${{ steps.filter.outputs.deps }}
-      openapi: ${{ steps.filter.outputs.openapi }}
-      panel: ${{ steps.filter.outputs.panel }}
-      install: ${{ steps.filter.outputs.install }}
+      rust: ${{ steps.all.outputs.yes || steps.filter.outputs.rust }}
+      deps: ${{ steps.all.outputs.yes || steps.filter.outputs.deps }}
+      openapi: ${{ steps.all.outputs.yes || steps.filter.outputs.openapi }}
+      panel: ${{ steps.all.outputs.yes || steps.filter.outputs.panel }}
+      install: ${{ steps.all.outputs.yes || steps.filter.outputs.install }}
     steps:
       - uses: actions/checkout@v7
+      - id: all
+        if: github.event_name == 'workflow_dispatch'
+        run: echo "yes=true" >> "$GITHUB_OUTPUT"
       - uses: dorny/paths-filter@v3
         id: filter
+        if: github.event_name != 'workflow_dispatch'
         with:
           # Les ancres YAML partagent les chemins Rust ; ce workflow relance tout.
           filters: |
