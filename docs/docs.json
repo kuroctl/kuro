@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Kuro",
+  "name": "Kuroctl",
   "colors": {
     "primary": "#4e61ed",
     "light": "#4e61ed",
@@ -12,7 +12,6 @@
     "languages": [
       {
         "language": "fr",
-        "default": true,
         "groups": [
           {
             "group": "Démarrer",
@@ -81,7 +80,8 @@
               "en/troubleshooting"
             ]
           }
-        ]
+        ],
+        "default": true
       }
     ]
   },
