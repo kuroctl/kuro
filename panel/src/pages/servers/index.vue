@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Vue d'ensemble de l'infrastructure, première page de la section : la carte des nœuds reste en
 // haut pendant que les indicateurs et les derniers serveurs défilent par-dessus.
-import { ArrowRight, HardDrive, MemoryStick, Network, Server, TriangleAlert } from '@lucide/vue'
+import { ArrowRight, HardDrive, MemoryStick, Network, Plus, Server, TriangleAlert } from '@lucide/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -10,7 +10,6 @@ import NodesMap from '@/features/nodes/components/NodesMap.vue'
 import { useNodes } from '@/features/nodes/nodes.queries'
 import PrefabIcon from '@/features/prefabs/components/PrefabIcon.vue'
 import { useRegions } from '@/features/regions/regions.queries'
-import CreateServerDialog from '@/features/servers/components/CreateServerDialog.vue'
 import ServerStateBadge from '@/features/servers/components/ServerStateBadge.vue'
 import { useFleetMetrics } from '@/features/servers/composables/useFleetMetrics'
 import { useServers } from '@/features/servers/servers.queries'
@@ -96,7 +95,9 @@ const cards = computed<Metric[]>(() => {
 <template>
   <div class="flex flex-1 flex-col">
     <PageHeader :title="t('overview.title')">
-      <CreateServerDialog />
+      <Button v-if="can('servers.create')" size="sm" as-child>
+        <RouterLink to="/servers/new"><Plus />{{ t('servers.create.action') }}</RouterLink>
+      </Button>
     </PageHeader>
 
       <!-- La carte reste en haut ; le contenu glisse par-dessus en défilant. -->

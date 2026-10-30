@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Détail d'un prefab (ADR-0011) : versions, services et images, réglages, fichiers gérés et
 // emplacements de contenu, serveurs déployés, manifest ; suppression d'une version inutilisée.
-import { ImageDown, Trash2 } from '@lucide/vue'
+import { ImageDown, Rocket, Trash2 } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -134,6 +134,9 @@ async function remove() {
           <SelectItem v-for="entry in versions" :key="entry.version" :value="entry.version">{{ entry.version }}</SelectItem>
         </SelectContent>
       </Select>
+      <Button v-if="can('servers.create') && summary?.deployable" as-child>
+        <RouterLink :to="{ path: '/servers/new', query: { prefab: id, version } }"><Rocket />{{ t('servers.create.deployThis') }}</RouterLink>
+      </Button>
       <Button
         v-if="can('prefabs.manage') && summary?.assets.length"
         variant="outline"

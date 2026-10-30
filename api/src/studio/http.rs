@@ -362,6 +362,8 @@ pub async fn create(
         (Some(from), _, _) => Start::From {
             id: from.id,
             version: from.version,
+            assets: true,
+            new_id: None,
         },
         (None, Some(compose), _) => Start::Compose {
             text: compose.text,

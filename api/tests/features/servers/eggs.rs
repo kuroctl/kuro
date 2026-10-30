@@ -7,6 +7,11 @@ use serde_json::{Value, json};
 
 use crate::support::platform::Platform;
 
+/// Egg d'exemple, aussi utilisé par les tests du MCP.
+pub(crate) fn sample_egg() -> String {
+    egg()
+}
+
 fn egg() -> String {
     json!({
         "meta": { "version": "PTDL_v2" },

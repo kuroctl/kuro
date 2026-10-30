@@ -8,7 +8,7 @@ mod console;
 mod content;
 mod curseforge;
 mod dns;
-mod eggs;
+pub mod eggs;
 mod files;
 mod install;
 mod lifecycle;

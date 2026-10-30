@@ -73,7 +73,7 @@ describe('infrastructure overview', () => {
       .map((link) => link.textContent ?? '')
       .filter((text) => /Ancien|Récent/.test(text))
     expect(names[0]).toContain('Récent')
-    expect(screen.getByRole('button', { name: /Nouveau serveur/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Nouveau serveur/ })).toBeTruthy()
   })
 
   it('places the nodes on the map and points out those without a position', async () => {

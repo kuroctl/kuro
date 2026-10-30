@@ -1,6 +1,6 @@
 // Lectures mises en cache (Vue Query) du catalogue de prefabs. Un prefab est immuable
 // (`id` + `version`) : son manifest et ses traductions ne se périment pas.
-import { queryOptions, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { keepPreviousData, queryOptions, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useObjectUrl } from '@vueuse/core'
 import { computed, type MaybeRefOrGetter, toValue } from 'vue'
 
@@ -15,6 +15,21 @@ export const prefabsQuery = queryOptions({
 
 export function usePrefabs(enabled: MaybeRefOrGetter<boolean> = true) {
   return useQuery(computed(() => ({ ...prefabsQuery, enabled: toValue(enabled) })))
+}
+
+/** Recherche paginée, un résultat par prefab ; la page précédente reste affichée pendant le chargement. */
+export function usePrefabSearch(
+  params: MaybeRefOrGetter<{ q: string; page: number; per_page: number }>,
+  enabled: MaybeRefOrGetter<boolean> = true,
+) {
+  return useQuery(
+    computed(() => ({
+      queryKey: ['prefabs', 'search', toValue(params)],
+      queryFn: () => usePrefabsApi().search(toValue(params)),
+      enabled: toValue(enabled),
+      placeholderData: keepPreviousData,
+    })),
+  )
 }
 
 interface PrefabRef {
@@ -79,10 +94,14 @@ export function usePrefabServers(id: MaybeRefOrGetter<string | undefined>, versi
   )
 }
 
-/** Après un import ou une suppression : le catalogue se recharge (les versions restent en cache). */
+/** Après un import ou une suppression : le catalogue et ses recherches se rechargent (les versions restent en cache). */
 export function useInvalidatePrefabs() {
   const client = useQueryClient()
-  return () => client.invalidateQueries({ queryKey: ['prefabs'], exact: true })
+  return () =>
+    Promise.all([
+      client.invalidateQueries({ queryKey: ['prefabs'], exact: true }),
+      client.invalidateQueries({ queryKey: ['prefabs', 'search'] }),
+    ])
 }
 
 /** Images d'une version, à relire après leur optimisation. */

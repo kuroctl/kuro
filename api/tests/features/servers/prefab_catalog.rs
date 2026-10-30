@@ -459,3 +459,57 @@ async fn declaring_the_steam_game_of_a_published_prefab_is_not_a_conflict() {
         "{unchanged:?}"
     );
 }
+
+#[tokio::test]
+async fn the_search_groups_versions_by_prefab_and_pages_the_results() {
+    let platform = Platform::start().await;
+    let imported = import(&platform, terraria("2.0.0")).await;
+    assert_eq!(imported.status, StatusCode::CREATED, "{}", imported.json);
+
+    // Par le nom traduit, sans casse : une entrée par prefab, versions décroissantes.
+    let found = platform
+        .call(Method::GET, "/prefabs/search?q=TERRA", None)
+        .await;
+    assert_eq!(found.status, StatusCode::OK, "{}", found.json);
+    assert_eq!(found.json["total"], 1);
+    assert_eq!(found.json["items"][0]["id"], "terraria");
+    assert_eq!(found.json["items"][0]["names"]["fr"], "Terraria");
+    assert_eq!(
+        found.json["items"][0]["versions"],
+        json!(["2.0.0", "1.0.0"])
+    );
+
+    // Sans recherche : tout le catalogue, trié par id, page par page.
+    let all = platform.call(Method::GET, "/prefabs/search", None).await;
+    let total = all.json["total"].as_u64().unwrap();
+    assert!(total > 2);
+    let second = platform
+        .call(Method::GET, "/prefabs/search?page=2&per_page=2", None)
+        .await;
+    assert_eq!(second.json["total"], total);
+    assert_eq!(second.json["per_page"], 2);
+    assert_eq!(second.json["items"].as_array().unwrap().len(), 2);
+    assert_eq!(second.json["items"][0]["id"], all.json["items"][2]["id"]);
+
+    let none = platform
+        .call(Method::GET, "/prefabs/search?q=zzz-nothing", None)
+        .await;
+    assert_eq!(none.json["total"], 0);
+}
+
+#[tokio::test]
+async fn searching_the_catalog_requires_the_read_permission() {
+    let platform = Platform::start().await;
+    let admin = &platform.admin;
+    let account = admin
+        .account("operator@example.com", &[Permission::ServersRead])
+        .await;
+    let token = admin.login(&account).await.access_token;
+
+    let found = admin
+        .call(Method::GET, "/prefabs/search", Some(&token), None)
+        .await;
+
+    assert_eq!(found.status, StatusCode::FORBIDDEN);
+    assert_eq!(found.json["params"]["permission"], "prefabs.read");
+}

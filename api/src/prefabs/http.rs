@@ -10,16 +10,16 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get as route_get, post as route_post};
 use kuro_prefab::Manifest;
 use kuro_prefab::assets::AssetKind;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use time::OffsetDateTime;
-use utoipa::{OpenApi, ToSchema};
+use utoipa::{IntoParams, OpenApi, ToSchema};
 
 use crate::error_code::ErrorCode;
 use crate::http::error::{ApiError, Problem, error_response, internal_error};
-use crate::http::extract::{Json, Path};
+use crate::http::extract::{Json, Path, Query};
 use crate::iam::application::IamState;
 use crate::iam::domain::Permission;
 use crate::iam::http::AdminSession;
@@ -28,7 +28,7 @@ use crate::prefabs::infra::PrefabRecord;
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(list, get, locale, asset, import, delete, servers, reload, optimize_assets),
+    paths(list, search, get, locale, asset, import, delete, servers, reload, optimize_assets),
     tags((name = "admin-prefabs", description = "Prefabs : modèles de serveurs (ADR-0011)"))
 )]
 pub struct PrefabsApi;
@@ -42,6 +42,7 @@ where
 {
     Router::new()
         .route("/prefabs", route_get(list))
+        .route("/prefabs/search", route_get(search))
         .route("/prefabs/reload", route_post(reload))
         // Archive bornée par `files::MAX_ARCHIVE_BYTES` : la limite par défaut (2 Mio) est levée
         // pour cette seule route.
@@ -263,6 +264,139 @@ pub async fn list(
         out.push(summary(&record, &package.manifest, &counts));
     }
     Ok(Json(out))
+}
+
+/// Prefabs par page, au plus.
+const MAX_SEARCH_PER_PAGE: usize = 50;
+
+/// Critères de la recherche dans le catalogue.
+#[derive(Debug, Default, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct PrefabSearchQuery {
+    /// Identifiant, nom (toutes langues) ou étiquette ; sans casse.
+    pub q: Option<String>,
+    /// À partir de 1.
+    pub page: Option<usize>,
+    /// 1 à 50, 20 par défaut.
+    pub per_page: Option<usize>,
+}
+
+/// Un prefab et toutes ses versions.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PrefabGroupDto {
+    #[schema(example = "minecraft-java")]
+    pub id: String,
+    /// Langue → nom, d'après la dernière version.
+    pub names: BTreeMap<String, String>,
+    /// Versions importées, de la plus récente à la plus ancienne (semver).
+    #[schema(example = json!(["1.4.0", "1.3.0"]))]
+    pub versions: Vec<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PrefabGroupPageDto {
+    pub items: Vec<PrefabGroupDto>,
+    /// Prefabs trouvés, toutes pages.
+    pub total: usize,
+    pub page: usize,
+    pub per_page: usize,
+}
+
+/// Nom de chaque langue, d'après `prefab.name` des traductions.
+fn names_of(record: &PrefabRecord) -> BTreeMap<String, String> {
+    record
+        .locales
+        .as_object()
+        .map(|locales| {
+            locales
+                .iter()
+                .filter_map(|(lang, messages)| {
+                    let name = messages.get("prefab")?.get("name")?.as_str()?;
+                    Some((lang.clone(), name.to_owned()))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Regroupe les versions par prefab (versions décroissantes), filtre sur `q` et trie par id.
+fn groups(records: &[PrefabRecord], q: &str) -> Vec<PrefabGroupDto> {
+    let mut by_id: BTreeMap<&str, Vec<&PrefabRecord>> = BTreeMap::new();
+    for record in records {
+        by_id.entry(&record.id).or_default().push(record);
+    }
+    let needle = q.trim().to_lowercase();
+    by_id
+        .into_iter()
+        .filter_map(|(id, mut versions)| {
+            // Semver d'abord ; une version illisible passe après, dans l'ordre du texte.
+            versions.sort_by(|a, b| {
+                match (
+                    a.version.parse::<semver::Version>(),
+                    b.version.parse::<semver::Version>(),
+                ) {
+                    (Ok(a), Ok(b)) => b.cmp(&a),
+                    (Ok(_), Err(_)) => std::cmp::Ordering::Less,
+                    (Err(_), Ok(_)) => std::cmp::Ordering::Greater,
+                    (Err(_), Err(_)) => b.version.cmp(&a.version),
+                }
+            });
+            let latest = versions.first()?;
+            let names = names_of(latest);
+            let tags = serde_json::from_str::<Value>(&latest.manifest)
+                .ok()
+                .and_then(|manifest| manifest.get("tags").and_then(Value::as_array).cloned())
+                .unwrap_or_default();
+            let found = needle.is_empty()
+                || id.to_lowercase().contains(&needle)
+                || names
+                    .values()
+                    .any(|name| name.to_lowercase().contains(&needle))
+                || tags
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .any(|tag| tag.to_lowercase().contains(&needle));
+            found.then(|| PrefabGroupDto {
+                id: id.to_owned(),
+                names,
+                versions: versions
+                    .iter()
+                    .map(|record| record.version.clone())
+                    .collect(),
+            })
+        })
+        .collect()
+}
+
+/// Recherche paginée dans le catalogue, un résultat par prefab. Permission : `prefabs.read`.
+#[utoipa::path(get, path = "/api/admin/v1/prefabs/search", tag = "admin-prefabs", security(("bearer" = [])),
+    params(PrefabSearchQuery),
+    responses((status = 200, body = PrefabGroupPageDto), (status = 403, body = Problem)))]
+pub async fn search(
+    State(iam): State<IamState>,
+    State(pool): State<PgPool>,
+    session: AdminSession,
+    Query(query): Query<PrefabSearchQuery>,
+) -> Result<Json<PrefabGroupPageDto>, ApiError> {
+    session.require(&iam, Permission::PrefabsRead).await?;
+    let found = groups(
+        &prefabs::list(&pool).await?,
+        query.q.as_deref().unwrap_or_default(),
+    );
+    let page = query.page.unwrap_or(1).max(1);
+    let per_page = query.per_page.unwrap_or(20).clamp(1, MAX_SEARCH_PER_PAGE);
+    let total = found.len();
+    let items = found
+        .into_iter()
+        .skip(page.saturating_sub(1).saturating_mul(per_page))
+        .take(per_page)
+        .collect();
+    Ok(Json(PrefabGroupPageDto {
+        items,
+        total,
+        page,
+        per_page,
+    }))
 }
 
 /// Manifest d'une version. Permission : `prefabs.read`.

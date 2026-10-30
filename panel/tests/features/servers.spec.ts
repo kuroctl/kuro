@@ -38,7 +38,7 @@ describe('servers', () => {
     )
     const { user } = await renderApp('/servers')
 
-    await user.click(await screen.findByRole('button', { name: 'Nouveau serveur' }))
+    await user.click(await screen.findByRole('link', { name: 'Nouveau serveur' }))
     await user.click(await screen.findByText('Minecraft Java Edition'))
 
     const memory = (await screen.findByLabelText('Mémoire (Mo)')) as HTMLInputElement
@@ -57,7 +57,7 @@ describe('servers', () => {
     )
     const { user } = await renderApp('/servers')
 
-    await user.click(await screen.findByRole('button', { name: 'Nouveau serveur' }))
+    await user.click(await screen.findByRole('link', { name: 'Nouveau serveur' }))
     await user.click(await screen.findByText('Minecraft Java Edition'))
 
     expect(await screen.findByText('Version en brouillon, déployable sur un nœud de test seulement : new runtime image')).toBeTruthy()
@@ -75,7 +75,7 @@ describe('servers', () => {
     )
     const { user } = await renderApp('/servers')
 
-    await user.click(await screen.findByRole('button', { name: 'Nouveau serveur' }))
+    await user.click(await screen.findByRole('link', { name: 'Nouveau serveur' }))
     await user.click(await screen.findByText('Minecraft Java Edition'))
 
     expect(await screen.findByText(/Aucun nœud de test en ligne\. Marquez-en un comme « Nœud de test »/)).toBeTruthy()
@@ -142,7 +142,7 @@ describe('servers', () => {
     )
     const { router, user } = await renderApp('/servers')
 
-    await user.click(await screen.findByRole('button', { name: 'Nouveau serveur' }))
+    await user.click(await screen.findByRole('link', { name: 'Nouveau serveur' }))
     await user.click(await screen.findByText('Minecraft Java Edition'))
     await user.type(await screen.findByLabelText('Nom'), 'Survie')
     await user.click(screen.getByRole('combobox', { name: 'Nœud' }))
@@ -183,7 +183,7 @@ describe('servers', () => {
     )
     const { user } = await renderApp('/servers')
 
-    await user.click(await screen.findByRole('button', { name: 'Nouveau serveur' }))
+    await user.click(await screen.findByRole('link', { name: 'Nouveau serveur' }))
     await user.click(await screen.findByText('Minecraft Java Edition'))
     await user.type(await screen.findByLabelText('Nom'), 'Survie')
     await user.click(screen.getByRole('combobox', { name: 'Nœud' }))

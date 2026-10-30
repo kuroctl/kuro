@@ -549,6 +549,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/prefabs/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recherche paginée dans le catalogue, un résultat par prefab. Permission : `prefabs.read`. */
+        get: operations["search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/prefabs/{id}/{version}": {
         parameters: {
             query?: never;
@@ -3039,6 +3056,30 @@ export interface components {
             /** @description Manifest (format v1), dans l'ordre du fichier : ordre d'affichage des groupes et champs. */
             manifest: Record<string, unknown>;
         };
+        /** @description Un prefab et toutes ses versions. */
+        PrefabGroupDto: {
+            /** @example minecraft-java */
+            id: string;
+            /** @description Langue → nom, d'après la dernière version. */
+            names: {
+                [key: string]: string;
+            };
+            /**
+             * @description Versions importées, de la plus récente à la plus ancienne (semver).
+             * @example [
+             *       "1.4.0",
+             *       "1.3.0"
+             *     ]
+             */
+            versions: string[];
+        };
+        PrefabGroupPageDto: {
+            items: components["schemas"]["PrefabGroupDto"][];
+            page: number;
+            per_page: number;
+            /** @description Prefabs trouvés, toutes pages. */
+            total: number;
+        };
         PrefabServerDto: {
             /** Format: uuid */
             id: string;
@@ -5043,6 +5084,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReloadReportDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    search: {
+        parameters: {
+            query?: {
+                /** @description Identifiant, nom (toutes langues) ou étiquette ; sans casse. */
+                q?: string;
+                /** @description À partir de 1. */
+                page?: number;
+                /** @description 1 à 50, 20 par défaut. */
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrefabGroupPageDto"];
                 };
             };
             403: {

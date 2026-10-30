@@ -2,15 +2,15 @@
 // Liste des serveurs (ADR-0025) : recherche, filtres rapides par jeu, facettes (état, nœud,
 // mise à jour disponible, suspendus), tri et pagination par l'API, sélection étendue à tous les
 // résultats et actions groupées. Toute la vue tient dans l'URL.
-import { ArrowUpCircle, Server as ServerIcon, X } from '@lucide/vue'
+import { ArrowUpCircle, Plus, Server as ServerIcon, X } from '@lucide/vue'
 import { createColumnHelper } from '@tanstack/vue-table'
 import { computed, h, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { usePermissions } from '@/features/account/account.queries'
 import { useDnsZone } from '@/features/dns/dns.queries'
 import { serverHost } from '@/features/dns/hostnames'
 import PrefabIcon from '@/features/prefabs/components/PrefabIcon.vue'
-import CreateServerDialog from '@/features/servers/components/CreateServerDialog.vue'
 import ServerBulkActions from '@/features/servers/components/ServerBulkActions.vue'
 import ServerStateBadge from '@/features/servers/components/ServerStateBadge.vue'
 import { type Server, useServersApi } from '@/features/servers/servers.api'
@@ -35,6 +35,7 @@ import { Empty } from '@/shared/ui/empty'
 import { Skeleton } from '@/shared/ui/skeleton'
 
 const { t } = useI18n()
+const { can } = usePermissions()
 /** Zone DNS : un serveur nommé s'affiche `<label>.<base>:<port>` (ADR-0026). */
 const { data: zone } = useDnsZone()
 
@@ -190,7 +191,9 @@ function toggleFlag(key: 'upgrade' | 'suspended') {
 <template>
   <div class="flex flex-1 flex-col">
     <PageHeader :title="t('servers.title')">
-      <CreateServerDialog />
+      <Button v-if="can('servers.create')" size="sm" as-child>
+        <RouterLink to="/servers/new"><Plus />{{ t('servers.create.action') }}</RouterLink>
+      </Button>
     </PageHeader>
     <div class="grid min-w-0 gap-4 p-6">
       <div v-if="isPending && !page" class="grid gap-2">
@@ -198,6 +201,9 @@ function toggleFlag(key: 'upgrade' | 'suspended') {
       </div>
       <Empty v-else-if="total === 0 && !query.active.value" :icon="ServerIcon" :title="t('servers.empty.title')">
         {{ t('servers.empty.help') }}
+        <template v-if="can('servers.create')" #action>
+          <Button size="sm" as-child><RouterLink to="/servers/new"><Plus />{{ t('servers.create.action') }}</RouterLink></Button>
+        </template>
       </Empty>
       <template v-else>
         <!-- Filtres rapides par jeu. -->

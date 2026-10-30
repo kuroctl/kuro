@@ -31,11 +31,11 @@ const description = computed(() => props.prefab.descriptions[locale.value] ?? pr
         :src="thumbnail"
         alt=""
         data-slot="prefab-thumbnail"
-        class="aspect-[3/4] w-24 shrink-0 self-start rounded-lg object-cover shadow-card ring-2 ring-card"
+        class="aspect-[3/4] w-24 shrink-0 self-start rounded-lg object-cover shadow-card"
       >
       <div class="grid min-w-0 flex-1 content-start gap-3">
         <div class="flex items-center gap-3">
-          <PrefabIcon :prefab="prefab" :class="thumbnail ? 'size-9 rounded-lg' : 'size-12 rounded-xl text-lg ring-2 ring-card'" />
+          <PrefabIcon :prefab="prefab" :class="thumbnail ? 'size-9 rounded-lg' : 'size-12 rounded-xl text-lg'" />
           <div class="grid min-w-0">
             <p class="truncate text-[15px] font-bold">{{ name }}</p>
             <p class="truncate font-mono text-xs text-muted-foreground">{{ `${prefab.id} · ${prefab.version}` }}</p>

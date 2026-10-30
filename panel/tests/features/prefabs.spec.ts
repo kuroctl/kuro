@@ -1,5 +1,5 @@
 // Gestion des prefabs : section du rail, catalogue (une carte par prefab, versions, serveurs,
-// origine), import d'une archive et refus détaillé, détail et suppression d'une version.
+// origine ; recherche, filtres, vue en liste), import d'une archive et refus détaillé, détail et suppression d'une version.
 import { screen, waitFor, within } from '@testing-library/vue'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
@@ -202,5 +202,42 @@ describe('prefabs', () => {
     expect(screen.queryByRole('button', { name: 'Supprimer cette version' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Optimiser les images' })).toBeNull()
     expect(screen.queryByLabelText('Importer un .kprefab')).toBeNull()
+  })
+
+  it('searches the catalog and filters it by origin', async () => {
+    const wordpress: Schemas['PrefabSummaryDto'] = {
+      ...prefabSummary,
+      id: 'wordpress',
+      category: 'web',
+      tags: ['cms'],
+      names: { fr: 'WordPress' },
+      source: 'uploaded',
+    }
+    setup([v1, wordpress])
+    const { router, user } = await renderApp('/prefabs')
+    await screen.findByText('WordPress')
+
+    await user.type(screen.getByRole('searchbox', { name: /Rechercher un prefab/ }), 'cms')
+    await waitFor(() => expect(screen.queryByText('Minecraft Java Edition')).toBeNull())
+    expect(router.currentRoute.value.query.q).toBe('cms')
+
+    await user.clear(screen.getByRole('searchbox', { name: /Rechercher un prefab/ }))
+    await user.click(await screen.findByRole('button', { name: 'Origine' }))
+    await user.click(within(await screen.findByRole('dialog')).getByText('Officiel'))
+    await waitFor(() => expect(screen.queryByText('WordPress')).toBeNull())
+    expect(screen.getByText('Minecraft Java Edition')).toBeTruthy()
+  })
+
+  it('lists prefabs as rows that open their page', async () => {
+    setup()
+    const { router, user } = await renderApp('/prefabs')
+    await screen.findByText('Minecraft Java Edition')
+
+    await user.click(screen.getByRole('button', { name: 'Liste' }))
+    const row = document.querySelector<HTMLElement>('ul.divide-y [data-prefab="minecraft-java"] a')!
+    expect(within(row).getByText('2 versions')).toBeTruthy()
+    await user.click(row)
+
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/prefabs/minecraft-java'))
   })
 })

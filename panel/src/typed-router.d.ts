@@ -185,6 +185,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/servers/new': RouteRecordInfo<
+      '/servers/new',
+      '/servers/new',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/servers/nodes/': RouteRecordInfo<
       '/servers/nodes/',
       '/servers/nodes',
@@ -460,6 +467,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/servers/map.vue': {
       routes:
         | '/servers/map'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/servers/new.vue': {
+      routes:
+        | '/servers/new'
       views:
         | never
       pathParamNames:

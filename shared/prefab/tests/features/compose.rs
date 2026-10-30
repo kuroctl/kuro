@@ -193,7 +193,19 @@ services:
     let package = package(&conversion.files);
     assert_eq!(
         package.manifest.services["app"].command,
-        vec!["/bin/sh", "-c", "echo $HOME && sleep {{ settings.delay }}"]
+        vec!["-c", "echo $HOME && sleep {{ settings.delay }}"]
+    );
+    // Le point d'entrée du compose n'est pas repris : l'image garde le sien, et la note le dit
+    // (ADR-0039) plutôt que de fusionner en silence.
+    assert!(
+        conversion
+            .notes
+            .iter()
+            .any(|note| note.path == "services.app.entrypoint"
+                && note.kind == NoteKind::Refused
+                && note.message.contains("/bin/sh")),
+        "{:?}",
+        conversion.notes
     );
 }
 

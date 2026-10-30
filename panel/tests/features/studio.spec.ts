@@ -44,6 +44,14 @@ function setup(drafts: Schemas['DraftSummaryDto'][] = [draft]) {
     ...signedIn(),
     ...catalog(),
     http.get(`${API}/prefabs`, () => HttpResponse.json([prefabSummary])),
+    http.get(`${API}/prefabs/search`, () =>
+      HttpResponse.json({
+        items: [{ id: 'minecraft-java', names: { fr: 'Minecraft: Java Edition' }, versions: ['1.1.0', '1.0.0'] }],
+        total: 1,
+        page: 1,
+        per_page: 8,
+      }),
+    ),
     http.get(`${API}/studio/schema`, () =>
       HttpResponse.json({ type: 'object', properties: { id: { type: 'string', description: 'Identifiant' } } }),
     ),
@@ -78,12 +86,50 @@ describe('prefab studio', () => {
     expect(await screen.findByRole('link', { name: /my-prefab/ })).toBeTruthy()
     await user.click(screen.getAllByRole('button', { name: 'Nouveau brouillon' })[0]!)
     const dialog = await screen.findByRole('dialog')
-    await user.click(within(dialog).getByRole('combobox'))
-    await user.click(await screen.findByRole('option', { name: 'Copie de minecraft-java@1.0.0' }))
+    await user.click(await within(dialog).findByRole('button', { name: /Minecraft: Java Edition/ }))
+    // La dernière version est proposée ; une plus ancienne peut être copiée.
+    expect(within(dialog).getByRole('radio', { name: /1\.1\.0/ }).getAttribute('aria-checked')).toBe('true')
+    await user.click(within(dialog).getByRole('radio', { name: /1\.0\.0/ }))
     await user.click(within(dialog).getByRole('button', { name: 'Créer' }))
 
     await waitFor(() => expect(router.currentRoute.value.path).toBe(`/prefabs/studio/${DRAFT_ID}`))
     expect(body).toEqual({ from: { id: 'minecraft-java', version: '1.0.0' }, compose: null, egg: null })
+  })
+
+  it('searches the catalog page by page on the server, or starts from the example', async () => {
+    setup()
+    const searches: string[] = []
+    let body: unknown
+    server.use(
+      http.get(`${API}/prefabs/search`, ({ request }) => {
+        const url = new URL(request.url)
+        searches.push(`${url.searchParams.get('q')}:${url.searchParams.get('page')}`)
+        const page = Number(url.searchParams.get('page'))
+        return HttpResponse.json({
+          items: [{ id: `game-${page}`, names: { fr: `Jeu ${page}` }, versions: ['1.0.0'] }],
+          total: 9,
+          page,
+          per_page: 8,
+        })
+      }),
+      http.post(`${API}/studio/drafts`, async ({ request }) => {
+        body = await request.json()
+        return HttpResponse.json(draft, { status: 201 })
+      }),
+    )
+    const { user } = await renderApp('/prefabs/studio')
+    await user.click((await screen.findAllByRole('button', { name: 'Nouveau brouillon' }))[0]!)
+    const dialog = await screen.findByRole('dialog')
+
+    expect(await within(dialog).findByText('Page 1 sur 2')).toBeTruthy()
+    await user.click(within(dialog).getByRole('button', { name: 'Page suivante' }))
+    expect(await within(dialog).findByRole('button', { name: /Jeu 2/ })).toBeTruthy()
+    await user.type(within(dialog).getByRole('searchbox', { name: 'Rechercher un prefab' }), 'ark')
+    await waitFor(() => expect(searches).toContain('ark:1'))
+    expect(searches).toContain(':2')
+
+    await user.click(within(dialog).getByRole('button', { name: 'Partir du prefab d’exemple' }))
+    await waitFor(() => expect(body).toEqual({ from: null, compose: null, egg: null }))
   })
 
   it('checks the manifest while typing and points at each problem', async () => {

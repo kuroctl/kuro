@@ -97,8 +97,14 @@ pub fn files_of(record: &DraftRecord) -> DraftFiles {
 pub enum Start {
     /// Prefab d'exemple, à compléter.
     Blank,
-    /// Copie d'une version stockée, version suivante (`1.0.0` → `1.0.1`).
-    From { id: String, version: String },
+    /// Copie d'une version stockée : la version suivante (`1.0.0` → `1.0.1`) du même prefab, ou
+    /// un nouveau prefab `new_id` en `1.0.0` (ADR-0039) ; `assets` : reprendre ses images.
+    From {
+        id: String,
+        version: String,
+        assets: bool,
+        new_id: Option<String>,
+    },
     /// Conversion d'un `docker-compose.yml` (ce qui est sûr ; le reste est refusé et noté).
     Compose { text: String, id: Option<String> },
     /// Conversion d'un egg Pterodactyl (ADR-0027).
@@ -141,7 +147,20 @@ pub async fn create(
             None,
             Vec::new(),
         ),
-        Start::From { id, version } => {
+        Start::From {
+            id,
+            version,
+            assets: with_assets,
+            new_id,
+        } => {
+            if let Some(new_id) = new_id
+                && (!kuro_prefab::template::is_slug(new_id) || new_id == id)
+            {
+                return Err(PrefabsError::Invalid {
+                    reason: "invalid id for the new prefab".to_owned(),
+                    issues: Vec::new(),
+                });
+            }
             let mut conn = pool.acquire().await?;
             let record = PrefabRepository::get(&mut conn, id, version)
                 .await?
@@ -160,12 +179,20 @@ pub async fn create(
                 Some(files) => files,
                 None => stored_files(&manifest, &record.locales, &record.templates)?,
             };
-            let assets = PrefabRepository::assets_of(&mut conn, id, version).await?;
-            (
-                bump_version(files, &manifest),
-                Some((id.clone(), version.clone())),
-                assets,
-            )
+            let assets = if *with_assets {
+                PrefabRepository::assets_of(&mut conn, id, version).await?
+            } else {
+                Vec::new()
+            };
+            match new_id {
+                // Nouveau prefab tiré d'un modèle : son identifiant, en 1.0.0, sans base.
+                Some(new_id) => (retarget(files, &manifest, new_id), None, assets),
+                None => (
+                    bump_version(files, &manifest),
+                    Some((id.clone(), version.clone())),
+                    assets,
+                ),
+            }
         }
         Start::Compose { text, id } => {
             let conversion = convert_compose(text, id.as_deref())?;
@@ -314,6 +341,42 @@ fn manifest_yaml(manifest: &Manifest) -> String {
 }
 
 /// Passe le manifest à la version de correctif suivante.
+/// Nouveau prefab tiré d'un modèle (ADR-0039) : `id` remplacé, version remise à `1.0.0`, sur
+/// les lignes du manifest qui les portent (le reste du fichier est gardé tel quel).
+fn retarget(mut files: DraftFiles, manifest: &Manifest, new_id: &str) -> DraftFiles {
+    if let Some(text) = files.get_mut(MANIFEST_FILE) {
+        let current_id = manifest.id.clone();
+        let current_version = manifest.version.to_string();
+        let (mut id_done, mut version_done) = (false, false);
+        *text = text
+            .lines()
+            .map(|line| {
+                let trimmed = line.trim();
+                if !id_done
+                    && line == trimmed
+                    && trimmed.starts_with("id:")
+                    && trimmed.contains(&current_id)
+                {
+                    id_done = true;
+                    line.replacen(&current_id, new_id, 1)
+                } else if !version_done
+                    && line == trimmed
+                    && trimmed.starts_with("version:")
+                    && trimmed.contains(&current_version)
+                {
+                    version_done = true;
+                    line.replacen(&current_version, "1.0.0", 1)
+                } else {
+                    line.to_owned()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        text.push('\n');
+    }
+    files
+}
+
 fn bump_version(mut files: DraftFiles, manifest: &Manifest) -> DraftFiles {
     let mut next = manifest.version.clone();
     next.patch += 1;

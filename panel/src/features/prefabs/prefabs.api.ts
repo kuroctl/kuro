@@ -19,6 +19,10 @@ export function usePrefabsApi() {
   return {
     list: () => http.get<Schemas['PrefabSummaryDto'][]>(BASE).then((response) => response.data),
 
+    /** Un résultat par prefab, avec ses versions ; `q` porte sur l'id, les noms et les étiquettes. */
+    search: (params: { q?: string; page?: number; per_page?: number }) =>
+      http.get<Schemas['PrefabGroupPageDto']>(`${BASE}/search`, { params }).then((response) => response.data),
+
     get: (id: string, version: string) =>
       http.get<Prefab>(`${BASE}/${id}/${version}`).then((response) => response.data),
 

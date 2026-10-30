@@ -377,12 +377,17 @@ impl Converter {
                     };
                     let parts: Vec<String> = parts.iter().map(|part| self.template(part)).collect();
                     if key == "entrypoint" {
+                        // Kuro garde le point d'entrée de l'image et passe `command` en
+                        // arguments (ADR-0039) : un `entrypoint` du compose ne peut pas être
+                        // reproduit. Dit plutôt que fusionné en silence.
                         self.note(
                             at("entrypoint"),
-                            NoteKind::Adapted,
-                            "fusionné en tête de `command`",
+                            NoteKind::Refused,
+                            format!(
+                                "point d'entrée de l'image conservé : `{}` non repris, vérifiez `command`",
+                                parts.join(" ")
+                            ),
                         );
-                        entrypoint = parts;
                     } else {
                         service.command = parts;
                     }
