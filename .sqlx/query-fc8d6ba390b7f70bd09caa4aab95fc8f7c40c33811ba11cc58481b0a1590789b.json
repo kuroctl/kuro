@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH gone AS (DELETE FROM oauth_tokens WHERE token_hash = $1 RETURNING grant_id, kind)\n               SELECT gone.grant_id, c.client_id, (gone.kind = 'refresh') AS \"refresh!\"\n               FROM gone JOIN oauth_grants g ON g.id = gone.grant_id\n               JOIN oauth_clients c ON c.id = g.client_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "grant_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "oauth_tokens",
+            "name": "grant_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "client_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "oauth_clients",
+            "name": "client_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "refresh!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "fc8d6ba390b7f70bd09caa4aab95fc8f7c40c33811ba11cc58481b0a1590789b"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO content_sources (provider, api_key) VALUES ($1, $2)\n         ON CONFLICT (provider) DO UPDATE SET api_key = EXCLUDED.api_key, updated_at = now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0552330915728f51e941d6404df102a155d0d30073b06aadd0ecea912c71b6a4"
+}

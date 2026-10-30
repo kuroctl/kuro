@@ -1,0 +1,45 @@
+{
+  "prefab": {
+    "name": "Minecraft Java Edition",
+    "description": "Minecraft Java server: vanilla, Paper, Fabric, Forge or NeoForge."
+  },
+  "groups": {
+    "server": { "title": "Server" },
+    "version": { "title": "Version and loader" },
+    "world": { "title": "World" },
+    "security": { "title": "Security" }
+  },
+  "fields": {
+    "motd": { "label": "Message of the day", "help": "Shown in the server list (59 characters max)." },
+    "max_players": { "label": "Max players" },
+    "difficulty": {
+      "label": "Difficulty",
+      "options": { "peaceful": "Peaceful", "easy": "Easy", "normal": "Normal", "hard": "Hard" }
+    },
+    "gamemode": {
+      "label": "Game mode",
+      "options": { "survival": "Survival", "creative": "Creative", "adventure": "Adventure", "spectator": "Spectator" }
+    },
+    "whitelist": { "label": "Whitelist", "help": "Only whitelisted players can join." },
+    "loader": {
+      "label": "Loader",
+      "help": "Chosen at deployment: switching loaders requires a new server.",
+      "options": { "vanilla": "Vanilla", "paper": "Paper", "fabric": "Fabric", "quilt": "Quilt", "forge": "Forge", "neoforge": "NeoForge" }
+    },
+    "version": { "label": "Minecraft version", "help": "LATEST, SNAPSHOT or a version number (e.g. 1.21.4)." },
+    "level_seed": { "label": "World seed", "help": "Empty: random seed. Used when the world is created." },
+    "view_distance": { "label": "View distance", "help": "In chunks. Higher values use more resources." },
+    "pvp": { "label": "Player versus player" },
+    "online_mode": { "label": "Mojang account check", "help": "Disable only behind a proxy (Velocity, BungeeCord)." },
+    "rcon_password": { "label": "RCON password", "help": "Generated at deployment, used by the Kuro console." }
+  },
+  "files": {
+    "server-properties": { "description": "Server configuration. Keys driven by settings are rewritten on start." },
+    "ops": { "description": "Server operators." },
+    "whitelist": { "description": "Players allowed when the whitelist is on." }
+  },
+  "content": {
+    "mods": { "title": "Mods" },
+    "plugins": { "title": "Plugins" }
+  }
+}

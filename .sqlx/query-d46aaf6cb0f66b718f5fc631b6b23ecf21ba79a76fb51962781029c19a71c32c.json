@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT instance_id FROM nodes WHERE id = $1 AND status = 'online'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "instance_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "instance_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "d46aaf6cb0f66b718f5fc631b6b23ecf21ba79a76fb51962781029c19a71c32c"
+}

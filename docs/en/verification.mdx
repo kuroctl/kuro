@@ -1,0 +1,60 @@
+---
+title: "Verify what you install"
+sidebarTitle: "Verification"
+description: "Download signatures and the certificate authority fingerprint."
+---
+
+Two checks protect the install. Neither asks you to create anything: the script does the first
+on its own, and Kuro provides the value for the second.
+
+## Download signatures
+
+Every Kuro release publishes, next to the archives:
+
+- `SHA256SUMS`: the SHA-256 sum of each archive;
+- `SHA256SUMS.minisig`: the signature of that list, made with the project's private
+  [minisign](https://jedisct1.github.io/minisign/) key.
+
+The matching **public** key is written in the install script (`MINISIGN_PUBKEY`). Before
+installing anything, the script:
+
+1. checks the signature of `SHA256SUMS` with that key;
+2. checks the sum of the downloaded archive;
+3. refuses to install if either fails.
+
+A compromised mirror or GitHub account therefore cannot slip in a modified binary: it would need
+the private key, which is never published. `minisign` is installed by the package manager if
+missing.
+
+To check an archive by hand:
+
+```bash
+minisign -Vm SHA256SUMS -P <public key from the script>
+sha256sum -c --ignore-missing SHA256SUMS
+```
+
+<Note>
+  The script itself is not signed: read it before running it (`less install.sh`). That is why
+  the docs show "download, read, run" first.
+</Note>
+
+## Certificate authority fingerprint
+
+The API and nodes talk over mutual TLS: each presents a certificate signed by a **private
+certificate authority (CA)**, created by the script when the API is installed. It belongs to
+your install only.
+
+On first enrollment, the node does not know this CA yet. The **fingerprint** (`sha256:…`) is the
+SHA-256 sum of its certificate: the node compares it with the CA the API presents, and only
+sends its token if they match. A machine impersonating your API would never get the token.
+
+You have nothing to compute: Kuro shows the fingerprint when each node is created, with the
+token. To find it on the API machine:
+
+```bash
+sudo openssl x509 -in /etc/kuro/pki/ca.pem -outform der | sha256sum
+```
+
+The output is the same fingerprint, without the `sha256:` prefix.
+
+After enrollment, the node keeps the CA in its configuration: the fingerprint is not used again.

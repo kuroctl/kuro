@@ -1,0 +1,45 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "cargo",
+      "runtimeArgs": [
+        "run",
+        "-p",
+        "kuro-api",
+        "--",
+        "--config",
+        "api/config.example.toml"
+      ],
+      "port": 8080
+    },
+    {
+      "name": "panel",
+      "runtimeExecutable": "corepack",
+      "runtimeArgs": [
+        "pnpm",
+        "--dir",
+        "panel",
+        "dev",
+        "--port",
+        "5173",
+        "--strictPort"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "corepack",
+      "runtimeArgs": [
+        "pnpm",
+        "--dir",
+        "site",
+        "preview",
+        "--port",
+        "4173"
+      ],
+      "port": 4173
+    }
+  ]
+}

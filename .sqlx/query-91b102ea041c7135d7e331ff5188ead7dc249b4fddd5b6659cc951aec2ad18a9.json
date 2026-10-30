@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM prefabs WHERE id = $1 AND version = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "91b102ea041c7135d7e331ff5188ead7dc249b4fddd5b6659cc951aec2ad18a9"
+}

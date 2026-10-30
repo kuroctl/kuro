@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH gone AS (\n                 DELETE FROM oauth_grants WHERE id = $1 AND ($2::uuid IS NULL OR user_id = $2)\n                 RETURNING client_id\n             )\n             SELECT c.client_id FROM gone JOIN oauth_clients c ON c.id = gone.client_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "client_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "oauth_clients",
+            "name": "client_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6f0922835376dd8d05da02fc0012af500d69f76830f58ee5b71aaa19e7f1958d"
+}

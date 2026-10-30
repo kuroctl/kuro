@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE dns_records SET provider_id = $2, content = $3, owner_id = $4, error = NULL,\n                synced_at = now(), updated_at = now()\n             WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "83b6bb2f533a8a095ce32999b7711773249c886e3ab076cafe200b2c5485c22e"
+}

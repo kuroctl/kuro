@@ -1,0 +1,43 @@
+---
+title: "Agents IA (MCP)"
+sidebarTitle: "Agents IA"
+description: "Piloter Kuro depuis un assistant IA grâce au Model Context Protocol, avec des droits délégués et journalisés."
+---
+
+Kuro peut être piloté par un assistant IA (Claude, un IDE, un agent) grâce au
+[Model Context Protocol](https://modelcontextprotocol.io). Un administrateur lui délègue une
+partie de ses droits, après consentement ; chaque action de l'IA est journalisée à son nom.
+
+## Activer
+
+1. `[mcp] public_url` doit contenir l'adresse publique de l'API (le script d'installation la
+   renseigne).
+2. **Paramètres › Projet › Serveur MCP** : ouvrez-le. Le coupé refuse aussitôt tous les agents.
+
+L'adresse à donner au client IA s'affiche sur cette carte : `https://panel.example.com/mcp`.
+
+## Connecter un client
+
+Avec Claude Code :
+
+```bash
+claude mcp add --transport http kuro https://panel.example.com/mcp
+```
+
+Puis dans une session : `/mcp`, `kuro`, **Authenticate**. Le navigateur ouvre la page de
+consentement : elle montre l'application, votre compte et les droits demandés, que vous pouvez
+décocher un à un.
+
+## Ce que l'IA peut faire
+
+Lire l'état des serveurs, des nœuds et des prefabs, démarrer, arrêter ou redémarrer un
+serveur, envoyer une commande console, et écrire un prefab dans le Studio (créer, valider,
+enregistrer un brouillon). Publier un prefab reste un geste humain.
+
+<Warning>
+  Certains droits ne sont **jamais** accordables à une IA : gestion des comptes et des rôles,
+  paramètres, enrôlement et suppression des nœuds, suppressions et effacements de données.
+</Warning>
+
+Vos accès accordés se gèrent dans **Mon compte › Applications connectées** : la révocation est
+immédiate.

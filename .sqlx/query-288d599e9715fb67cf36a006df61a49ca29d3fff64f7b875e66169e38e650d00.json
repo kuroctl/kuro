@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE nodes SET public_ipv4 = $2, public_ipv6 = $3 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "288d599e9715fb67cf36a006df61a49ca29d3fff64f7b875e66169e38e650d00"
+}

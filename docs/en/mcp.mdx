@@ -1,0 +1,41 @@
+---
+title: "AI agents (MCP)"
+sidebarTitle: "AI agents"
+description: "Drive Kuro from an AI assistant through the Model Context Protocol, with delegated and logged permissions."
+---
+
+Kuro can be driven by an AI assistant (Claude, an IDE, an agent) through the
+[Model Context Protocol](https://modelcontextprotocol.io). An admin delegates part of their
+permissions to it, after consent; every action of the AI is logged under their name.
+
+## Enable
+
+1. `[mcp] public_url` must hold the API's public address (the install script fills it in).
+2. **Settings › Project › MCP server**: open it. Closing it refuses every agent at once.
+
+The address to give the AI client is shown on that card: `https://panel.example.com/mcp`.
+
+## Connect a client
+
+With Claude Code:
+
+```bash
+claude mcp add --transport http kuro https://panel.example.com/mcp
+```
+
+Then in a session: `/mcp`, `kuro`, **Authenticate**. The browser opens the consent page: it
+shows the application, your account and the requested permissions, which you can untick one by
+one.
+
+## What the AI can do
+
+Read the state of servers, nodes and prefabs, start, stop or restart a server, send a console
+command, and write a prefab in the Studio (create, validate, save a draft). Publishing a prefab
+stays a human action.
+
+<Warning>
+  Some permissions can **never** be granted to an AI: account and role management, settings,
+  node enrollment and deletion, deletions and data erasure.
+</Warning>
+
+Your granted accesses are managed in **My account › Connected apps**: revocation is immediate.

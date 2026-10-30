@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT schedule_id, position, action, payload, delay_secs, continue_on_failure\n             FROM server_schedule_steps WHERE schedule_id = ANY($1)\n             ORDER BY schedule_id, position",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "schedule_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "server_schedule_steps",
+            "name": "schedule_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "position",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "server_schedule_steps",
+            "name": "position"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "action",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_schedule_steps",
+            "name": "action"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "payload",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_schedule_steps",
+            "name": "payload"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "delay_secs",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "server_schedule_steps",
+            "name": "delay_secs"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "continue_on_failure",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "server_schedule_steps",
+            "name": "continue_on_failure"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "2e6fcbcb4ae2a38731205690178955700683dd5d6b5b9050856f2ba870feb1c0"
+}

@@ -1,0 +1,123 @@
+---
+title: "Installer l'API et le panel"
+sidebarTitle: "Installer l'API"
+description: "Un seul script installe l'API, le panel et les prefabs officiels, et peut préparer un serveur vierge."
+---
+
+Un seul script installe Kuro, selon un ou deux **rôles** :
+
+- `api` : l'API, son panel et les prefabs officiels ;
+- `node` : le daemon qui fait tourner les serveurs de jeu ([Ajouter un nœud](/fr/add-a-node)).
+
+Il vérifie chaque archive avant de l'installer, et refuse un binaire non vérifié
+([Vérifier ce qu'on installe](/fr/verification)).
+
+## 1. Choisir un profil
+
+| Profil | Pour qui | Ce que fait le script |
+|---|---|---|
+| **Par défaut** | Une machine déjà préparée (pare-feu, SSH, reverse proxy en place) | Installe Kuro, et Docker s'il manque. Rien d'autre. |
+| **`--full`** | Un serveur vierge (Debian 12-13, Ubuntu 22.04-24.04) | Prépare la machine, puis installe Kuro. |
+
+Avec `--full`, pour le rôle `api` :
+
+- mises à jour du système, puis mises à jour de sécurité automatiques ;
+- `fail2ban` contre les tentatives de connexion SSH ;
+- pare-feu `ufw` : tout est fermé en entrée, sauf SSH, `80` et `443` (le panel) et `8443` (les
+  nœuds) ;
+- SSH par clé seulement, **si une clé est déjà autorisée** pour root ou pour votre utilisateur
+  (sinon SSH n'est pas touché) ;
+- Docker, depuis le dépôt officiel de Docker ;
+- Caddy, qui publie le panel en HTTPS et obtient le certificat tout seul.
+
+Le script affiche ce qu'il va faire et demande confirmation. Pour seulement voir, sans rien
+changer :
+
+```bash
+sudo bash install.sh api --public-host panel.example.com --full --plan
+```
+
+## 2. Télécharger, lire, exécuter
+
+<Warning>
+  Le nom passé à `--public-host` doit déjà pointer vers la machine (enregistrement DNS `A` ou
+  `AAAA`) : Caddy en a besoin pour le certificat, et les nœuds pour se connecter.
+</Warning>
+
+```bash
+curl -fsSLo install.sh https://get.kuroctl.com/api
+less install.sh
+sudo bash install.sh --public-host panel.example.com --full
+```
+
+Ou en une ligne, si vous faites confiance à la source (`--yes` remplace la confirmation) :
+
+```bash
+curl -fsSL https://get.kuroctl.com/api | sudo bash -s -- --public-host panel.example.com --full --yes
+```
+
+`get.kuroctl.com/api` sert le script avec le rôle `api` déjà choisi ; `get.kuroctl.com/install.sh`
+le sert sans rôle, à préciser (`install.sh api`).
+
+### Options
+
+| Option | Rôle |
+|---|---|
+| `--public-host` | Nom (ou IP) public de l'API. Requis à la première installation. Sert au certificat du listener des daemons et à l'URL d'enrôlement. |
+| `--full` | Prépare un serveur vierge (voir ci-dessus). |
+| `--plan` | Affiche ce qui serait fait, sans rien changer. |
+| `--yes` | Pas de confirmation (`--full`). |
+| `--database-url` | Un PostgreSQL existant. Sans elle, le script lance un conteneur local `kuro-postgres`. |
+| `--http-bind` | Écoute HTTP locale, derrière le reverse proxy (défaut `127.0.0.1:8080`). |
+| `--daemon-port` | Port du listener des daemons, mTLS (défaut `8443`). |
+| `--version` | Version à installer (défaut : la dernière). |
+
+Le script crée l'utilisateur système `kuro`, écrit la configuration dans `/etc/kuro/`, crée
+l'autorité de certification privée des nœuds et démarre le service `kuro-api`.
+
+## 3. Sans `--full` : TLS et pare-feu
+
+L'API écoute en local : un reverse proxy la publie en HTTPS. Avec
+[Caddy](https://caddyserver.com) :
+
+```txt /etc/caddy/Caddyfile
+panel.example.com {
+    reverse_proxy 127.0.0.1:8080
+}
+```
+
+Les nœuds se connectent à l'API sur le port `8443/tcp` (mTLS) : ouvrez-le dans le pare-feu,
+depuis Internet ou seulement depuis vos nœuds.
+
+Avec `--full`, tout cela est fait. Un `Caddyfile` que vous avez déjà modifié n'est pas écrasé :
+le script affiche le bloc à ajouter.
+
+## 4. Créer le premier administrateur
+
+```bash
+sudo kuro-api-admin admin create --email vous@example.com --name "Votre nom"
+```
+
+Le mot de passe est demandé de façon interactive, jamais passé en argument. La vérification en
+deux étapes (TOTP) est exigée à la première connexion.
+
+Ouvrez ensuite `https://panel.example.com` et connectez-vous.
+
+## Tout sur une seule machine
+
+L'API et un nœud peuvent partager la machine. Donnez les deux rôles et la plage de ports des
+serveurs de jeu :
+
+```bash
+curl -fsSLo install.sh https://get.kuroctl.com/install.sh
+sudo bash install.sh api node --public-host panel.example.com --ports 25565-25600 --full
+```
+
+Le script crée le nœud auprès de l'API qu'il vient d'installer et l'enrôle lui-même : aucun
+jeton ni empreinte à copier.
+
+## Suite
+
+<Card title="Ajouter un nœud" icon="server" href="/fr/add-a-node">
+  Enrôlez une machine pour déployer vos premiers serveurs.
+</Card>

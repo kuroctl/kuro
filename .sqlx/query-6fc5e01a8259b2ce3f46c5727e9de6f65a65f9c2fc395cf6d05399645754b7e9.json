@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE admin_users\n             SET totp_secret = NULL, totp_pending_secret = NULL, totp_last_step = NULL, updated_at = now()\n             WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6fc5e01a8259b2ce3f46c5727e9de6f65a65f9c2fc395cf6d05399645754b7e9"
+}

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE oauth_requests\n             SET grant_id = $2, code_hash = $3, code_expires_at = now() + make_interval(secs => $4)\n             WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5b27497266ac270b0a8a84f6e232ef62d283fd58c411441b99031c7979cf960c"
+}

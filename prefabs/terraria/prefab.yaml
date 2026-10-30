@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../schema/prefab.v1.schema.json
+# Terraria : serveur dédié officiel. Téléchargé et extrait à l'installation (ADR-0017), puis lancé
+# dans une image Debian épinglée : le binaire Linux embarque son runtime.
+schema: kuro.prefab/v1
+id: terraria
+version: 1.0.0
+category: game
+tags: [terraria, sandbox]
+authors:
+  - name: Kuro
+requires:
+  kuro: ">=0.2"
+assets:
+  icon: assets/icon.png
+  cover: assets/banner.png
+  thumbnail: assets/thumbnail.png
+
+services:
+  server:
+    image: docker.io/library/debian:bookworm-20261020-slim
+    command: ["/data/server/TerrariaServer.bin.x86_64", "-config", "/data/serverconfig.txt"]
+    env:
+      # Terraria écrit ses favoris dans ~/.local/share : le dossier personnel est le volume.
+      HOME: /data
+    ports:
+      game: { container: 7777, protocol: tcp, public: true }
+    volumes:
+      data: { path: /data }
+    writable: [/tmp]
+    user: "1000:1000"
+
+install:
+  service: server
+  steps:
+    # Archive officielle 1.4.4.9 : l'empreinte épingle exactement ce qui est installé.
+    - download:
+        url: https://terraria.org/api/download/pc-dedicated-server/terraria-server-1449.zip
+        sha256: 324fb9b3d3a59324cb5d96154f4fbc41c8f2d926f9bb2da1702f0230bd1b88d6
+        to: /data/terraria-server.zip
+    # L'archive ne porte pas de droits Unix : le binaire est rendu exécutable explicitement.
+    - extract:
+        from: /data/terraria-server.zip
+        to: /data/server
+        subdir: 1449/Linux
+        executable: [TerrariaServer.bin.x86_64]
+    - remove: { path: /data/terraria-server.zip }
+
+settings:
+  general:
+    world:
+      icon: globe
+      fields:
+        world_name: { type: string, default: Kuro, pattern: "^[A-Za-z0-9 _-]{1,32}$", restart: true }
+        world_size: { type: enum, options: ["1", "2", "3"], default: "2", editable: deploy }
+        difficulty: { type: enum, options: ["0", "1", "2", "3"], default: "0", editable: deploy }
+    server:
+      icon: server
+      fields:
+        motd: { type: string, default: "Un serveur Kuro", max_length: 100 }
+        max_players: { type: int, default: 8, min: 1, max: 255, restart: true }
+  advanced:
+    security:
+      icon: shield
+      fields:
+        password: { type: password, max_length: 64, restart: true }
+
+files:
+  serverconfig:
+    service: server
+    path: /data/serverconfig.txt
+    format: ini
+    mode: managed-keys
+    keys:
+      worldpath: /data/worlds
+      world: "/data/worlds/{{ settings.world_name }}.wld"
+      worldname: "{{ settings.world_name }}"
+      autocreate: "{{ settings.world_size }}"
+      difficulty: "{{ settings.difficulty }}"
+      maxplayers: "{{ settings.max_players }}"
+      port: "{{ ports.game.container }}"
+      password: "{{ settings.password }}"
+      motd: "{{ settings.motd }}"
+      secure: "1"
+
+# Sauvegarde à chaud : le monde est écrit sur disque avant l'archivage (dernière ligne de `save`).
+backup:
+  before:
+    - { console: save, wait: '^Backing up world file' }
+
+lifecycle:
+  service: server
+  ready: { console: 'Server started' }
+  stop: { console: exit }
+  timeout: 60

@@ -1,0 +1,53 @@
+# Configuration de l'API (exemple de dev). Chaque clé peut être surchargée par une
+# variable d'environnement : KURO_API_<SECTION>__<CLÉ>, ex. KURO_API_HTTP__BIND.
+
+[http]
+# Écoute locale uniquement tant que TLS n'est pas configuré.
+bind = "127.0.0.1:8080"
+# Origines autorisées à ouvrir la console (WebSocket), en plus de celle de l'API. Le panel de
+# dev passe par le proxy de Vite (même origine) : rien à ajouter.
+# allowed_origins = ["https://panel.example.com"]
+# Panel compilé servi par l'API (production). En dev, le panel passe par Vite.
+# panel_dir = "panel/dist"
+
+[database]
+# Postgres de docker-compose.dev.yml.
+url = "postgres://panel:panel_dev_only@127.0.0.1:5432/panel"
+
+[daemon]
+# Listener des daemons : lien WebSocket mTLS et enrôlement.
+# Fichiers créés par `kuro-api pki init --name localhost --name 127.0.0.1`.
+bind = "127.0.0.1:8443"
+ca_cert = "dev-pki/ca.pem"
+ca_key = "dev-pki/ca.key"
+cert = "dev-pki/api.pem"
+key = "dev-pki/api.key"
+# hello_timeout_secs = 10
+# heartbeat_interval_secs = 15
+# heartbeat_timeout_secs = 45
+
+[auth]
+# 32 octets en hexadécimal. CLÉ DE DEV UNIQUEMENT : en production, générer la sienne
+# (`openssl rand -hex 32`) et la passer par KURO_API_AUTH__SECRET_KEY.
+secret_key = "6b75726f2d6465762d6f6e6c792d6b65792d646f2d6e6f742d7573652d696e21"
+# TOTP obligatoire pour l'espace admin. Désactivé ici pour le dev ; en production : true.
+require_totp = false
+# access_ttl_secs = 900
+# refresh_ttl_secs = 604800
+
+# Conservation du journal d'audit : dans les paramètres du projet (panel), purge quotidienne.
+
+[enrollment]
+# token_ttl_secs = 900
+# certificate_validity_days = 365
+
+[log]
+format = "pretty"   # "pretty" ou "json"
+filter = "info"
+
+[mcp]
+# Serveur MCP des agents IA (ADR-0023) : URL publique de l'API telle que la voient les clients
+# (https), qui sert d'émetteur OAuth ; l'endpoint est `<public_url>/mcp`. Absente : MCP
+# désactivé. Une fois configuré, il s'ouvre et se coupe à chaud dans les paramètres du projet.
+# public_url = "https://panel.example.com"
+# panel_url = "https://panel.example.com"   # page de consentement, si le panel est ailleurs

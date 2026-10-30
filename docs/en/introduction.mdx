@@ -1,0 +1,32 @@
+---
+title: "Introduction"
+description: "The three parts of Kuro and what you need to install it."
+---
+
+Kuro is an open source panel to host game servers on your own machines. It has three parts:
+
+- **the API**: the decision center. It holds accounts, permissions, nodes, servers and the
+  audit log, and serves the panel;
+- **the daemon**: installed on every machine that runs servers (a **node**), it drives Docker,
+  enforces limits and reports state, stats and the console;
+- **the panel**: the web admin interface, served by the API.
+
+## Requirements
+
+| For | You need |
+|---|---|
+| The API and panel | A Linux machine (x86_64 or arm64) with systemd, a domain name or public IP, a TLS reverse proxy (Caddy recommended). PostgreSQL: your own, or a local container installed by the script (Docker required). |
+| A node | A Linux machine (x86_64 or arm64) with systemd and Docker. It can be the same machine as the API. |
+| Players | Reach the node's game ports (port forwarding if the node is behind a home router). |
+
+## Where to start
+
+1. [Install the API and panel](/en/install-api).
+2. Create the first admin account.
+3. [Add a node](/en/add-a-node).
+4. Deploy a first server from the panel: **Servers › New server**.
+
+<Note>
+  Without a domain or any extra setup, players join a server with `IP:port`. [DNS](/en/dns)
+  and [AI agents](/en/mcp) are optional.
+</Note>

@@ -1,0 +1,37 @@
+# Builds Rust (dont `target/tools` de `cargo xtask`) et celui de l'agent.
+/target
+/target-agent
+**/*.rs.bk
+# `.sqlx/` est versionné : la CI compile les requêtes sqlx hors ligne grâce à lui.
+
+# Dépendances des projets web (complète panel/.gitignore et site/.gitignore).
+node_modules/
+
+# Instructions des assistants de code, propres à chaque contributeur.
+CLAUDE.md
+.claude/settings.local.json
+
+# Configs locales et secrets
+.env
+*.local.toml
+http-client.private.env.json
+
+# Matériel TLS généré en dev
+*.pem
+*.key
+*.csr
+dev-pki/
+dev-node/
+
+# État local de `cargo xtask dev` (mot de passe admin de dev, volumes des serveurs…)
+.kuro-dev/
+
+# Éditeurs et systèmes
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Notes internes (vision produit, B2C/B2B, ADR, roadmap) : jamais publiées.
+docs/private

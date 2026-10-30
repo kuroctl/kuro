@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE server_schedules SET running_since = NULL WHERE running_since IS NOT NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "25332f0716dfedf5827686c4e9611203118482b5952077bba824b61696bb0061"
+}

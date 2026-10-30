@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE server_schedule_runs\n             SET finished_at = now(), outcome = $2, failed_step = $3, reason = $4\n             WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a793f4efd68d29ffb9fbed3b794e204cd5565b6a481b0c48adc291c2b3bdd5e6"
+}

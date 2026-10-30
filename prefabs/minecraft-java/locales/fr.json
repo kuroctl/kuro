@@ -1,0 +1,45 @@
+{
+  "prefab": {
+    "name": "Minecraft Java Edition",
+    "description": "Serveur Minecraft Java : vanilla, Paper, Fabric, Forge ou NeoForge."
+  },
+  "groups": {
+    "server": { "title": "Serveur" },
+    "version": { "title": "Version et loader" },
+    "world": { "title": "Monde" },
+    "security": { "title": "Sécurité" }
+  },
+  "fields": {
+    "motd": { "label": "Message d'accueil", "help": "Affiché dans la liste des serveurs (59 caractères au plus)." },
+    "max_players": { "label": "Joueurs maximum" },
+    "difficulty": {
+      "label": "Difficulté",
+      "options": { "peaceful": "Paisible", "easy": "Facile", "normal": "Normale", "hard": "Difficile" }
+    },
+    "gamemode": {
+      "label": "Mode de jeu",
+      "options": { "survival": "Survie", "creative": "Créatif", "adventure": "Aventure", "spectator": "Spectateur" }
+    },
+    "whitelist": { "label": "Liste blanche", "help": "Seuls les joueurs de la liste blanche peuvent se connecter." },
+    "loader": {
+      "label": "Loader",
+      "help": "Choisi au déploiement : changer de loader demande un nouveau serveur.",
+      "options": { "vanilla": "Vanilla", "paper": "Paper", "fabric": "Fabric", "quilt": "Quilt", "forge": "Forge", "neoforge": "NeoForge" }
+    },
+    "version": { "label": "Version de Minecraft", "help": "LATEST, SNAPSHOT ou un numéro (ex. 1.21.4)." },
+    "level_seed": { "label": "Graine du monde", "help": "Vide : graine aléatoire. Utilisée à la création du monde." },
+    "view_distance": { "label": "Distance d'affichage", "help": "En chunks. Plus elle est grande, plus le serveur consomme." },
+    "pvp": { "label": "Combats entre joueurs" },
+    "online_mode": { "label": "Vérification des comptes Mojang", "help": "À désactiver uniquement derrière un proxy (Velocity, BungeeCord)." },
+    "rcon_password": { "label": "Mot de passe RCON", "help": "Généré au déploiement, utilisé par la console de Kuro." }
+  },
+  "files": {
+    "server-properties": { "description": "Configuration du serveur. Les clés gérées par les réglages sont réécrites au démarrage." },
+    "ops": { "description": "Opérateurs du serveur." },
+    "whitelist": { "description": "Joueurs autorisés quand la liste blanche est active." }
+  },
+  "content": {
+    "mods": { "title": "Mods" },
+    "plugins": { "title": "Plugins" }
+  }
+}

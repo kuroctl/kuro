@@ -1,0 +1,82 @@
+---
+title: "Add a node"
+description: "Create the node in the panel, install the daemon and give it ports."
+---
+
+A node is a machine that runs game servers: Linux (x86_64 or arm64) and systemd. The script
+installs Docker if missing. The node can be the API's machine
+([Everything on one machine](/en/install-api#everything-on-one-machine)).
+
+## 1. Create the node in Kuro
+
+In the panel: **Infrastructure › Nodes › Add a node**. Give it a technical name (`a-z`, `0-9`,
+`-`), written into its certificate and therefore permanent, and a label if you like.
+
+Kuro shows, **only once**:
+
+- an **enrollment token**, single-use and valid for a few minutes;
+- the **certificate authority fingerprint** (`sha256:…`);
+- the **command** to run on the node, fingerprint and API address included.
+
+You create neither the token nor the fingerprint: Kuro provides them. The fingerprint lets the
+node check it is talking to **your** API before sending it the token
+([why](/en/verification)).
+
+<Tip>
+  Token expired or lost: on the node's page, **Enrollment › Issue a token** (previous ones stop
+  working). Same to re-enroll a revoked node.
+</Tip>
+
+From the command line, on the API machine:
+
+```bash
+sudo kuro-api-admin node add --name my-node     # options: --display-name, --region, --location
+sudo kuro-api-admin node token --name my-node   # new token
+```
+
+## 2. Install the daemon
+
+On the node, paste the command shown by the panel.
+
+<Warning>
+  The token goes through an environment variable or a file, **never an argument**: it would end
+  up in the shell history. The `read` line waits for it: paste it, then press Enter.
+</Warning>
+
+```bash
+curl -fsSLo install.sh https://get.kuroctl.com/node
+less install.sh
+read -rs KURO_ENROLL_TOKEN && export KURO_ENROLL_TOKEN   # paste the token, then Enter
+sudo -E bash install.sh \
+  --api https://panel.example.com:8443 \
+  --ca-fingerprint sha256:… \
+  --ports 25565-25600 --full
+```
+
+The daemon generates its private key on the machine (it never leaves), gets its certificate,
+then opens its connection to the API. The node shows as **online** in the panel.
+
+With `--full` (fresh server, Debian 12-13 or Ubuntu 22.04-24.04), the script first prepares the
+machine: updates, `fail2ban`, key-only SSH if a key is already authorized, Docker, and a `ufw`
+firewall that only opens SSH and the `--ports` range (TCP and UDP). The node needs no other
+port: it connects to the API itself. `--plan` shows everything without changing anything.
+
+| Option | Purpose |
+|---|---|
+| `--api` | The API's daemon listener (`https://host:8443`). Required on first enrollment. |
+| `--ca-fingerprint` | Fingerprint shown when the node was created. Required on first enrollment. |
+| `--token-file` | File holding the token, instead of `KURO_ENROLL_TOKEN`. |
+| `--ports` | Game server range, opened in the firewall by `--full` (e.g. `25565-25600`). |
+| `--full` | Prepares a fresh server (see above). |
+| `--plan` | Shows what would be done, without changing anything. |
+| `--yes` | No confirmation (`--full`). |
+| `--version` | Version to install (default: latest). |
+
+## 3. Give the node ports
+
+On the node's page, **Ports**: add the same range (for example `25565-25600`). Each server gets
+a port from this range.
+
+Players must be able to reach these ports. Without `--full`, open them in the node's firewall;
+if the node is at home, also forward them on your router (see
+[How it works](/en/how-it-works)).

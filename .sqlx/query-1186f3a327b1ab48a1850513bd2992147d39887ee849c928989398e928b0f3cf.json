@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT prefab_id, prefab_version, count(*) AS \"count!\"\n               FROM servers GROUP BY prefab_id, prefab_version",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "prefab_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "prefab_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "prefab_version",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "prefab_version"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "1186f3a327b1ab48a1850513bd2992147d39887ee849c928989398e928b0f3cf"
+}

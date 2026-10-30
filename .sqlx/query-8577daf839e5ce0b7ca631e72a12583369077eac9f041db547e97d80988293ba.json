@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM server_schedule_steps WHERE schedule_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8577daf839e5ce0b7ca631e72a12583369077eac9f041db547e97d80988293ba"
+}

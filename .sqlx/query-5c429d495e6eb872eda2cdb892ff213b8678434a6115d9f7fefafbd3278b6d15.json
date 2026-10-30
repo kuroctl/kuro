@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT username, password FROM steam_accounts WHERE scope = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "username",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "steam_accounts",
+            "name": "username"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "password",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "steam_accounts",
+            "name": "password"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "5c429d495e6eb872eda2cdb892ff213b8678434a6115d9f7fefafbd3278b6d15"
+}

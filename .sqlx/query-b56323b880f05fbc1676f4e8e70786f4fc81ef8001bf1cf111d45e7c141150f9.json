@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO admin_sessions (id, family_id, user_id, refresh_token_hash, expires_at)\n             VALUES ($1, $2, $3, $4, now() + make_interval(secs => $5))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b56323b880f05fbc1676f4e8e70786f4fc81ef8001bf1cf111d45e7c141150f9"
+}

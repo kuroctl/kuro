@@ -1,0 +1,71 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH taken AS (\n                   DELETE FROM oauth_requests WHERE code_hash = $1\n                   RETURNING client_id, redirect_uri, code_challenge, grant_id, code_expires_at\n               )\n               SELECT c.client_id, t.redirect_uri, t.code_challenge, t.grant_id AS \"grant_id!\",\n                      (t.code_expires_at < now()) AS \"expired!\"\n               FROM taken t JOIN oauth_clients c ON c.id = t.client_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "client_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "oauth_clients",
+            "name": "client_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "redirect_uri",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "oauth_requests",
+            "name": "redirect_uri"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "code_challenge",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "oauth_requests",
+            "name": "code_challenge"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "grant_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "oauth_requests",
+            "name": "grant_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "expired!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      null
+    ]
+  },
+  "hash": "10f167a4fbd6c30498b9228e5b715881a72cb68e78c2a13b1b35fe4638b09508"
+}

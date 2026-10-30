@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE admin_sessions SET successor_secret = NULL\n             WHERE successor_secret IS NOT NULL\n               AND rotated_at <= now() - make_interval(secs => $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7c908b946d56991225b461a995d41779f4d4fb10b8168c274ae6cb58ed3f4825"
+}

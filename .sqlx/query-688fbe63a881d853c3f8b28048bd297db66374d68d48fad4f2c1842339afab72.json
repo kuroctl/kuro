@@ -1,0 +1,98 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, version, manifest, locales, templates, imported_at, source\n             FROM prefabs WHERE source <> 'trial' ORDER BY id, imported_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "prefabs",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "version",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "prefabs",
+            "name": "version"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "manifest",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "prefabs",
+            "name": "manifest"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "locales",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "prefabs",
+            "name": "locales"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "templates",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "prefabs",
+            "name": "templates"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "imported_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "prefabs",
+            "name": "imported_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "prefabs",
+            "name": "source"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "688fbe63a881d853c3f8b28048bd297db66374d68d48fad4f2c1842339afab72"
+}

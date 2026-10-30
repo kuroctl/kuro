@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE servers SET start_when_installed = false\n             WHERE id = $1 AND node_id = $2 AND start_when_installed",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d6152e79c013c57468435e2382ffc7d3d87aa145d571a32330db4f356044f56c"
+}

@@ -1,0 +1,51 @@
+---
+title: "Kuro"
+sidebarTitle: "Accueil"
+description: "Vos serveurs de jeu, sur vos machines. Un panel open source pour déployer et piloter Minecraft, Terraria, ARK et bien d'autres sur une flotte de nœuds."
+---
+
+<CardGroup cols={2}>
+  <Card title="Installer Kuro" icon="download" href="/fr/install-api">
+    L'API et le panel en une commande, sur un serveur vierge ou déjà préparé.
+  </Card>
+  <Card title="Comment ça marche" icon="diagram-project" href="/fr/how-it-works">
+    Le pilotage et le trafic de jeu, deux circuits qui ne se croisent jamais.
+  </Card>
+</CardGroup>
+
+## Pourquoi Kuro
+
+<CardGroup cols={2}>
+  <Card title="Une API, des nœuds" icon="server">
+    L'API pilote vos machines ; sur chacune, un daemon gère Docker. Le daemon ouvre lui-même sa
+    connexion chiffrée vers l'API et n'expose aucune interface d'administration.
+  </Card>
+  <Card title="Des prefabs pour chaque jeu" icon="cubes">
+    Un serveur se déploie depuis un prefab (image, réglages, fichiers, installation,
+    sauvegarde). Écrivez les vôtres dans le Studio, testez-les sur un nœud de test, mettez à jour
+    vos serveurs vers la nouvelle version.
+  </Card>
+  <Card title="Sécurisé par défaut" icon="shield-halved">
+    TLS partout, mTLS entre l'API et les nœuds, conteneurs non root et limités, permissions fines
+    et journal d'audit chaîné.
+  </Card>
+  <Card title="Ce qu'il faut, pas plus" icon="sliders">
+    Console en direct, fichiers, sauvegardes, tâches planifiées, mods, quotas. Un nom DNS par
+    serveur et un serveur MCP pour l'IA, si vous le souhaitez.
+  </Card>
+</CardGroup>
+
+## Par où commencer
+
+<Steps>
+  <Step title="Installer l'API et le panel">
+    Suivez [Installer l'API et le panel](/fr/install-api), puis créez le premier compte
+    administrateur.
+  </Step>
+  <Step title="Ajouter un nœud">
+    Enrôlez une machine qui fera tourner les serveurs : [Ajouter un nœud](/fr/add-a-node).
+  </Step>
+  <Step title="Déployer un serveur">
+    Dans le panel : **Serveurs › Nouveau serveur**.
+  </Step>
+</Steps>

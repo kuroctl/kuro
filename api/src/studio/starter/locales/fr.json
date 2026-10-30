@@ -1,0 +1,12 @@
+{
+  "prefab": {
+    "name": "Mon prefab",
+    "description": "À décrire."
+  },
+  "groups": {
+    "server": { "title": "Serveur" }
+  },
+  "fields": {
+    "max_players": { "label": "Joueurs maximum" }
+  }
+}

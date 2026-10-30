@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT ip, port FROM allocations\n             WHERE node_id = $1 AND id = $2 AND server_id IS NULL\n             FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ip",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "allocations",
+            "name": "ip"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "port",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "allocations",
+            "name": "port"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "b19d1cf904d2b9919ab6066a912787d4e27d3719f6c4f8ed74b244392cb410b8"
+}

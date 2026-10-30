@@ -1,0 +1,22 @@
+{
+  "prefab": {
+    "name": "FiveM",
+    "description": "Serveur multijoueur de GTA V (Cfx.re), ou de Red Dead Redemption 2 avec RedM."
+  },
+  "groups": {
+    "server": { "title": "Serveur" },
+    "administration": { "title": "Administration" }
+  },
+  "fields": {
+    "license": { "label": "Clé de licence Cfx.re", "help": "Créez-la sur portal.cfx.re (Server Registration Keys)." },
+    "server_name": { "label": "Nom du serveur", "help": "Affiché dans la liste des serveurs, sans guillemet." },
+    "max_players": { "label": "Joueurs au maximum", "help": "48 au plus sans abonnement Cfx.re." },
+    "game": { "label": "Jeu", "options": { "gta5": "FiveM (GTA V)", "rdr3": "RedM (Red Dead Redemption 2)" } },
+    "txadmin": { "label": "txAdmin", "help": "Console web de gestion sur le port txadmin ; elle remplace alors server.cfg.", "options": { "0": "Désactivé", "1": "Activé" } },
+    "steam_web_api_key": { "label": "Clé de l'API Web de Steam", "help": "Facultative : pour identifier les joueurs par Steam (steamcommunity.com/dev/apikey)." }
+  },
+  "files": {
+    "kuro-cfg": { "description": "Réglages venus du panel (nom, ports d'écoute, jeu), regénérés à chaque démarrage." },
+    "server-cfg": { "description": "Configuration libre : ressources, permissions. Elle charge kuro.cfg." }
+  }
+}

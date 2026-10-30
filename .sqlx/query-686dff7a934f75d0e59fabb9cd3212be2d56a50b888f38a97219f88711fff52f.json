@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE backups b SET state = $3, size_bytes = $4, sha256 = $5, failure = $6,\n                    completed_at = now()\n             FROM servers s\n             WHERE b.id = $1 AND b.server_id = s.id AND s.node_id = $2 AND b.state = 'creating'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Int8",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "686dff7a934f75d0e59fabb9cd3212be2d56a50b888f38a97219f88711fff52f"
+}

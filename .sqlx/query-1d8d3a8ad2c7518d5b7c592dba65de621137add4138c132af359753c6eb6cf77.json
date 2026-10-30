@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO oauth_clients (id, client_id, registration, name, uri, redirect_uris)\n             VALUES ($1, $2, 'dynamic', $3, $4, $5)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1d8d3a8ad2c7518d5b7c592dba65de621137add4138c132af359753c6eb6cf77"
+}

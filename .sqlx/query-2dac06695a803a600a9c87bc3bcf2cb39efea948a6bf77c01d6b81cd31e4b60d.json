@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM content_sources WHERE provider = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2dac06695a803a600a9c87bc3bcf2cb39efea948a6bf77c01d6b81cd31e4b60d"
+}

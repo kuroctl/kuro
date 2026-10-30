@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT port_name AS \"port_name!\", ip, port FROM allocations\n               WHERE server_id = $1 ORDER BY port_name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "port_name!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "allocations",
+            "name": "port_name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "ip",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "allocations",
+            "name": "ip"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "port",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "allocations",
+            "name": "port"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "79e361d4d86c71fff4d2675e3515fe49e87bf3bf0b6bab5ea9b49db9b6e93621"
+}

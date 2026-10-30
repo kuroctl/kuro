@@ -1,0 +1,28 @@
+//! Prefabs, ports et serveurs (ADR-0011, ADR-0013), avec un faux daemon sur le vrai lien.
+
+mod addons;
+mod allocations;
+mod backups;
+mod console;
+mod content;
+mod curseforge;
+mod dns;
+mod eggs;
+mod files;
+mod install;
+mod lifecycle;
+mod listing;
+mod loaders;
+mod modpacks;
+mod prefab_catalog;
+mod prefab_minimums;
+mod prefabs;
+mod resources;
+mod schedules;
+mod search;
+mod security;
+mod steam;
+mod steam_account;
+mod studio;
+mod trials;
+mod upgrades;

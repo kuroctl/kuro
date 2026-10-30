@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT count(*) AS \"count!\" FROM admin_users u\n               JOIN admin_user_roles ur ON ur.user_id = u.id\n               WHERE ur.role_id = $1 AND u.disabled_at IS NULL AND u.id <> $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "080bcffaf989cd5424f6466848a99c069c82dbef3b609244862557dd7b07326f"
+}

@@ -1,0 +1,124 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, owner_kind, owner_id, kind, name, content, provider_id, synced_at, error\n             FROM dns_records WHERE zone_id = $1 ORDER BY name, kind",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "dns_records",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "owner_kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "dns_records",
+            "name": "owner_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "owner_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "dns_records",
+            "name": "owner_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "dns_records",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "dns_records",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "content",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "dns_records",
+            "name": "content"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "provider_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "dns_records",
+            "name": "provider_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "synced_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "dns_records",
+            "name": "synced_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "error",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "dns_records",
+            "name": "error"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "a78ed5bb6c88a2dbdde1040f4b1a6443de1ffa93c370ad4638351f8662926c05"
+}

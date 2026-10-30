@@ -1,0 +1,146 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT default_memory_mb, max_memory_mb, default_cpu_percent, max_cpu_percent,\n                    default_disk_mb, max_disk_mb, default_backup_limit, max_backup_limit,\n                    audit_retention_days, mcp_enabled, updated_at\n             FROM platform_settings",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "default_memory_mb",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "default_memory_mb"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "max_memory_mb",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "max_memory_mb"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "default_cpu_percent",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "default_cpu_percent"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "max_cpu_percent",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "max_cpu_percent"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "default_disk_mb",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "default_disk_mb"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "max_disk_mb",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "max_disk_mb"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "default_backup_limit",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "default_backup_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "max_backup_limit",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "max_backup_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "audit_retention_days",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "audit_retention_days"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "mcp_enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "mcp_enabled"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "32f059ddb20103a8f9366e51cdf0c2b8cac060f6267128a6e2b9e8cdc9224210"
+}

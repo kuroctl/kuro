@@ -1,0 +1,9 @@
+# `cargo xtask <commande>` : outillage de développement (voir xtask/).
+[alias]
+xtask = "run --quiet --package xtask --"
+
+# Les macros sqlx vérifient les requêtes contre le cache commité `.sqlx/`, pas contre la base de
+# dev : une migration pas encore appliquée ne casse plus la compilation. Une variable
+# d'environnement `SQLX_OFFLINE=false` reprend la main (c'est ce que fait `cargo sqlx prepare`).
+[env]
+SQLX_OFFLINE = "true"

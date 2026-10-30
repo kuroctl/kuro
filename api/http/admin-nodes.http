@@ -1,0 +1,70 @@
+# Régions et nœuds. Lancer d'abord la connexion (admin-auth.http).
+
+### Régions, avec le nombre de nœuds par état (nodes.read)
+GET {{baseUrl}}/api/admin/v1/regions
+Authorization: Bearer {{accessToken}}
+
+### Créer une région (nodes.regions.manage)
+POST {{baseUrl}}/api/admin/v1/regions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "slug": "eu-west",
+  "name": "Europe Ouest",
+  "latitude": 48.8566,
+  "longitude": 2.3522
+}
+
+> {% client.global.set("regionId", response.body.id); %}
+
+### Créer un nœud : le token n'est renvoyé qu'une fois (nodes.create)
+POST {{baseUrl}}/api/admin/v1/nodes
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "par-01",
+  "display_name": "Paris 1",
+  "region_id": "{{regionId}}",
+  "location": "Paris – OVH GRA"
+}
+
+> {% client.global.set("nodeId", response.body.node.id); %}
+
+### Nœuds d'une région (nodes.read)
+GET {{baseUrl}}/api/admin/v1/nodes?region_id={{regionId}}
+Authorization: Bearer {{accessToken}}
+
+### Nœuds sans région (nodes.read)
+GET {{baseUrl}}/api/admin/v1/nodes?unassigned=true
+Authorization: Bearer {{accessToken}}
+
+### Déplacer, renommer le libellé ; `null` efface un champ (nodes.update)
+PATCH {{baseUrl}}/api/admin/v1/nodes/{{nodeId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "display_name": "Paris – rack 2",
+  "coordinates": { "latitude": 48.86, "longitude": 2.34 }
+}
+
+### Nouveau token pour un nœud en attente (nodes.enrollment)
+POST {{baseUrl}}/api/admin/v1/nodes/{{nodeId}}/enrollment-token
+Authorization: Bearer {{accessToken}}
+
+### Révoquer : session coupée, reconnexion refusée (nodes.revoke)
+POST {{baseUrl}}/api/admin/v1/nodes/{{nodeId}}/revoke
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "reason": "Hôte compromis" }
+
+### Réenrôler un nœud révoqué : nouveau token, le nœud repasse `pending` (nodes.enrollment)
+POST {{baseUrl}}/api/admin/v1/nodes/{{nodeId}}/enrollment-token
+Authorization: Bearer {{accessToken}}
+
+### Supprimer (nodes.delete)
+DELETE {{baseUrl}}/api/admin/v1/nodes/{{nodeId}}
+Authorization: Bearer {{accessToken}}

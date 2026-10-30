@@ -1,0 +1,21 @@
+[package]
+name = "kuro-protocol"
+description = "Contrat de messages entre l'API et les daemons"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[features]
+# Schémas OpenAPI des types exposés en REST.
+openapi = ["dep:utoipa", "utoipa/uuid"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+utoipa = { workspace = true, optional = true }
+uuid.workspace = true
+
+[lints]
+workspace = true

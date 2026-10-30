@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE admin_users\n               SET failed_attempts = CASE WHEN failed_attempts + 1 >= $2 THEN 0 ELSE failed_attempts + 1 END,\n                   locked_until = CASE WHEN failed_attempts + 1 >= $2\n                                       THEN now() + make_interval(secs => $3) ELSE locked_until END\n               WHERE id = $1\n               RETURNING (locked_until IS NOT NULL AND locked_until > now()) AS \"locked!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "locked!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "4be823f5d9f4e91ff11008503a77d92f4faadda42c221bdd87232d941d1f541b"
+}

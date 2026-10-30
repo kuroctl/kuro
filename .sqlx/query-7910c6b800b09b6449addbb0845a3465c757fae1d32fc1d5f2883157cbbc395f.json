@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT slot, field_values FROM server_content\n             WHERE server_id = $1 AND enabled AND state = 'installed' AND field_values <> '{}'::jsonb\n             ORDER BY created_at, id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "slot",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "slot"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "field_values",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "field_values"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "7910c6b800b09b6449addbb0845a3465c757fae1d32fc1d5f2883157cbbc395f"
+}

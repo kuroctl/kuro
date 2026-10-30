@@ -1,0 +1,76 @@
+# Connexion à l'espace admin. Créer d'abord un compte sur l'hôte de l'API :
+#   kuro-api --config api/config.example.toml admin create --email admin@example.com --name Admin
+# Identifiants dans http-client.private.env.json (ignoré par git) :
+#   { "dev": { "adminEmail": "admin@example.com", "adminPassword": "…" } }
+# Le cookie de rafraîchissement est `Secure` : certains clients ne le renvoient pas en HTTP local.
+# Il est donc relevé dans `Set-Cookie` et renvoyé explicitement (`refreshCookie`).
+
+### Connexion (TOTP désactivé en dev : session ouverte directement)
+POST {{baseUrl}}/api/admin/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+> {%
+  client.test("login succeeds", () => {
+    client.assert(response.status === 200, "expected 200");
+  });
+  if (response.body.status === "authenticated") {
+    client.global.set("accessToken", response.body.access_token);
+    const refresh = /kuro_admin_refresh=([^;]*)/.exec(response.headers.valueOf("Set-Cookie") || "");
+    if (refresh) client.global.set("refreshCookie", refresh[1]);
+  } else {
+    client.global.set("challenge", response.body.challenge);
+  }
+%}
+
+### TOTP : démarrer la configuration (réponse `totp_setup_required`)
+POST {{baseUrl}}/api/admin/v1/auth/totp/setup
+Content-Type: application/json
+
+{ "challenge": "{{challenge}}" }
+
+### TOTP : confirmer avec le code de l'application (remplacer 000000)
+POST {{baseUrl}}/api/admin/v1/auth/totp/confirm
+Content-Type: application/json
+
+{ "challenge": "{{challenge}}", "code": "000000" }
+
+> {%
+  client.global.set("accessToken", response.body.access_token);
+  const refresh = /kuro_admin_refresh=([^;]*)/.exec(response.headers.valueOf("Set-Cookie") || "");
+  if (refresh) client.global.set("refreshCookie", refresh[1]);
+%}
+
+### TOTP : vérifier un code (réponse `totp_required`)
+POST {{baseUrl}}/api/admin/v1/auth/totp/verify
+Content-Type: application/json
+
+{ "challenge": "{{challenge}}", "code": "000000" }
+
+> {%
+  client.global.set("accessToken", response.body.access_token);
+  const refresh = /kuro_admin_refresh=([^;]*)/.exec(response.headers.valueOf("Set-Cookie") || "");
+  if (refresh) client.global.set("refreshCookie", refresh[1]);
+%}
+
+### Profil et permissions effectives
+GET {{baseUrl}}/api/admin/v1/me
+Authorization: Bearer {{accessToken}}
+
+### Rafraîchissement (cookie)
+POST {{baseUrl}}/api/admin/v1/auth/refresh
+Cookie: kuro_admin_refresh={{refreshCookie}}
+
+> {%
+  client.global.set("accessToken", response.body.access_token);
+  const refresh = /kuro_admin_refresh=([^;]*)/.exec(response.headers.valueOf("Set-Cookie") || "");
+  if (refresh) client.global.set("refreshCookie", refresh[1]);
+%}
+
+### Déconnexion
+POST {{baseUrl}}/api/admin/v1/auth/logout
+Authorization: Bearer {{accessToken}}

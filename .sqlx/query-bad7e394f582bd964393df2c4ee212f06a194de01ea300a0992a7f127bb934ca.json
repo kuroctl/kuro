@@ -1,0 +1,293 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT s.id, s.name, s.node_id, n.name AS node_name, n.status AS node_status,\n                      s.prefab_id, s.prefab_version, s.settings, s.secrets,\n                      s.memory_mb, s.cpu_percent, s.disk_mb, s.backup_limit, s.state, s.state_reason,\n                      s.suspended_at, s.disk_used_bytes, s.disk_measured_at,\n                      s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label\n               FROM servers s JOIN nodes n ON n.id = s.node_id\n               ORDER BY s.name, s.id\n               LIMIT $1 OFFSET $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "node_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "node_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "node_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "node_status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "prefab_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "prefab_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "prefab_version",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "prefab_version"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "settings",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "settings"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "secrets",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "secrets"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "memory_mb",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "memory_mb"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "cpu_percent",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "cpu_percent"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "disk_mb",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "disk_mb"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "backup_limit",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "backup_limit"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "state",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "state"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "state_reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "state_reason"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "suspended_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "suspended_at"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "disk_used_bytes",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "disk_used_bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "disk_measured_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "disk_measured_at"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "updated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "trial_draft_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "trial_draft_id"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "expires_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "expires_at"
+          }
+        }
+      },
+      {
+        "ordinal": 22,
+        "name": "dns_label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "dns_label"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "bad7e394f582bd964393df2c4ee212f06a194de01ea300a0992a7f127bb934ca"
+}

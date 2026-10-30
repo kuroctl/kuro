@@ -1,0 +1,107 @@
+---
+title: "Configuration file"
+sidebarTitle: "Configuration"
+description: "API and daemon files, server outbound traffic, multiple instances and probes."
+---
+
+The API reads `/etc/kuro/api.toml`. Secrets (database URL, encryption key) are in
+`/etc/kuro/api.env`, readable by the `kuro` user only. Everything else is set in the panel:
+**Settings**.
+
+Every key can be overridden by an environment variable `KURO_API_<SECTION>__<KEY>`, for example
+`KURO_API_HTTP__BIND=127.0.0.1:9000`.
+
+## Sections
+
+| Section | Main keys |
+|---|---|
+| `[http]` | `bind` (local listener), `panel_dir` (panel served by the API), `allowed_origins`, `trusted_proxies` (reverse proxy addresses whose `X-Forwarded-For` is trusted, local addresses by default), `rate_limit_per_minute` (unauthenticated routes, per client address, `0`: no limit), `request_timeout_secs` (`0`: no limit) |
+| `[database]` | `url`, `max_connections`, `min_connections`, `acquire_timeout_secs`, `idle_timeout_secs`, `max_lifetime_secs` |
+| `[daemon]` | `bind` (nodes' mTLS listener), paths of the CA and the API certificate |
+| `[auth]` | `require_totp`, `access_ttl_secs`, `refresh_ttl_secs`, `session_max_age_secs` (30 days by default: past it, refreshing is not enough, you must sign in again) |
+| `[prefabs]` | `dir` (official prefabs) |
+| `[mcp]` | `public_url` (public address, enables the MCP server), `panel_url` |
+| `[log]` | `format` (`json` or `pretty`), `filter` |
+
+After a change: `sudo systemctl restart kuro-api`.
+
+## On a node
+
+The daemon reads `/etc/kuro/daemon.toml`, written at enrollment. Environment variables:
+`KURO_DAEMON_<SECTION>__<KEY>`.
+
+| Section | Main keys |
+|---|---|
+| `[api]` | `url` (connection to the API, `wss://` required) |
+| `[tls]` | node certificate, its key and the CA |
+| `[servers]` | `data_root` (server data), `disk_measure_interval_secs`, `allow_insecure_fs` (development off Linux only: without it, the daemon refuses to start where volume files are not confined) |
+| `[log]` | `format`, `filter` |
+
+`disk_measure_interval_secs` (60 by default, 15 to 3600): seconds between two measurements of
+server disk usage, for quotas. Each measurement walks every file: on a node with very large
+worlds, raise it. A write (file, backup, install) triggers its own measurement anyway, and
+over-quota refusals stay current.
+
+After a change: `sudo systemctl restart kuro-daemon`.
+
+## Server outbound traffic
+
+Each server has its own Docker network, isolated from other servers. From that network, however,
+a game can reach everything the host reaches: its private network, and on a cloud the instance
+metadata (`169.254.169.254`). The daemon does not filter this traffic, since that belongs in the
+host firewall. On a Linux node with rootful Docker, these rules in the `DOCKER-USER` chain
+reject traffic from Docker bridges to private ranges, without affecting the Internet, services
+of the same server, or published ports:
+
+```bash
+iptables -I DOCKER-USER -i br-+ ! -o br-+ -d 169.254.169.254/32 -j REJECT
+iptables -I DOCKER-USER -i br-+ ! -o br-+ -d 10.0.0.0/8 -j REJECT
+iptables -I DOCKER-USER -i br-+ ! -o br-+ -d 172.16.0.0/12 -j REJECT
+iptables -I DOCKER-USER -i br-+ ! -o br-+ -d 192.168.0.0/16 -j REJECT
+```
+
+To allow a specific address (a database on the local network, for example), add its accept rule
+**before** these rejections:
+
+```bash
+iptables -I DOCKER-USER -i br-+ -d 192.168.1.10/32 -j ACCEPT
+```
+
+<Note>
+  Make the rules persistent with your distribution's tool (`iptables-persistent`, `nftables`).
+  They apply to every Docker network on the host, not just Kuro's. With rootless Docker, the host
+  firewall does not see container traffic: these rules belong in the user's network namespace,
+  which is beyond this guide.
+</Note>
+
+## What the panel configures
+
+- **Settings › Project**: server resource defaults and caps, audit log retention, opening the
+  MCP server.
+- **Settings › DNS**: DNS provider zone and token (see [DNS](/en/dns)).
+- **Access**: admin accounts and roles.
+
+## Multiple API instances
+
+Several `kuro-api` can run on the same PostgreSQL database, behind a load balancer: zero-downtime
+deploys, surviving the loss of a machine. Nothing to configure, each instance registers in the
+database at startup. Good to know:
+
+- Each instance keeps a dedicated connection for cross-instance notifications:
+  `database.max_connections` must allow for it (10 by default).
+- Rate limits (`http.rate_limit_per_minute`) are counted per instance.
+- A server's live console and stats are only available from the instance its node is connected
+  to; from another, opening the console is refused with a clear message. Commands, files and
+  backups work from any instance.
+
+## Probes and request log
+
+- `GET /api/health`: liveness, answers `200` as soon as the process runs.
+- `GET /api/ready`: readiness, `200` when the database answers and the daemon listener accepts
+  connections, `503` otherwise with details (`database`, `daemon_listener`). This is the probe a
+  load balancer or monitoring should query.
+
+Every API request produces a `request` log line: method, path without parameters, status,
+duration, client address, `x-request-id` and authenticated actor. The id is also the audit log's:
+it links a technical error to the action that caused it. Probes and panel files are only logged
+at `debug` (`log.filter = "info,kuro_api::http::trace=debug"` to see them).

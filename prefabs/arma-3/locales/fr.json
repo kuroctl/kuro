@@ -1,0 +1,21 @@
+{
+  "prefab": {
+    "name": "Arma 3",
+    "description": "Serveur dédié d'Arma 3, installé par SteamCMD avec le compte Steam de l'installation."
+  },
+  "groups": {
+    "server": { "title": "Serveur" },
+    "administration": { "title": "Administration" }
+  },
+  "fields": {
+    "server_name": { "label": "Nom du serveur", "help": "Affiché dans la liste des serveurs, sans guillemet." },
+    "password": { "label": "Mot de passe des joueurs", "help": "Vide : serveur ouvert à tous." },
+    "max_players": { "label": "Joueurs au maximum" },
+    "admin_password": { "label": "Mot de passe administrateur", "help": "Pour #login dans le chat du jeu." },
+    "battleye": { "label": "BattlEye", "options": { "1": "Activé", "0": "Désactivé" } }
+  },
+  "files": {
+    "server-cfg": { "description": "Configuration du serveur, regénérée depuis les réglages à chaque démarrage." },
+    "basic-cfg": { "description": "Réglages réseau (bande passante, taille des paquets)." }
+  }
+}

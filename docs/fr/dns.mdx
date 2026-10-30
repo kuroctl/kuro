@@ -1,0 +1,51 @@
+---
+title: "DNS (facultatif)"
+sidebarTitle: "DNS"
+description: "Un nom par serveur de jeu, publié automatiquement dans votre zone DNS."
+---
+
+Sans DNS, les joueurs rejoignent un serveur par `IP:port`. Avec une zone DNS confiée à Kuro,
+chaque serveur reçoit un nom : `survie.play.example.com`.
+
+## Ce que Kuro publie
+
+| Nom | Type | Vers |
+|---|---|---|
+| `<nœud>.nodes.play.example.com` | `A` (et `AAAA`) | L'adresse publique du nœud |
+| `<serveur>.play.example.com` | `CNAME` | Le nom de son nœud |
+| `_minecraft._tcp.<serveur>.play.example.com` | `SRV` | Le nœud et le port du serveur, si le prefab le déclare |
+
+Le port reste dans l'adresse (`survie.play.example.com:25568`), car plusieurs serveurs
+partagent l'IP d'un nœud. Les jeux qui lisent un enregistrement `SRV`, comme Minecraft Java,
+s'en passent : le joueur tape seulement le nom.
+
+Kuro ne touche **jamais** un enregistrement qu'il n'a pas créé, et recrée ceux qu'on efface à la
+main.
+
+<Tip>
+  **Un domaine dédié.** Chez Cloudflare, un jeton d'API couvre une zone entière. Utilisez pour les
+  serveurs de jeu un domaine distinct de celui de votre site : un jeton volé ne pourrait alors
+  rien changer à votre site ni à vos autres services.
+</Tip>
+
+## Cloudflare
+
+<Steps>
+  <Step title="Créer le jeton">
+    **Mon profil › Jetons d'API › Créer un jeton**, modèle « Modifier la zone DNS ».
+  </Step>
+  <Step title="Limiter ses droits">
+    Autorisations : `Zone › DNS › Edit` et `Zone › Zone › Read`, sur **cette zone seulement**.
+    Facultatif : limitez le jeton à l'adresse IP de la machine de l'API.
+  </Step>
+  <Step title="Le donner à Kuro">
+    Dans Kuro, **Paramètres › DNS** : fournisseur Cloudflare, domaine des serveurs (par exemple
+    `play.example.com`), jeton, puis **Enregistrer** et **Tester**.
+  </Step>
+  <Step title="Renseigner les nœuds">
+    Dans la fiche de chaque nœud, renseignez son **adresse publique**.
+  </Step>
+</Steps>
+
+Les enregistrements apparaissent dans la minute, en « DNS uniquement » (nuage gris) : le trafic
+d'un jeu ne passe pas par le proxy Cloudflare.

@@ -1,0 +1,1071 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kuro.dev/schemas/prefab.v1.schema.json",
+  "title": "Kuro prefab manifest (v1)",
+  "description": "prefab.yaml : modèle de serveur Kuro (ADR-0011). Toute clé inconnue est refusée, sauf les extensions `x-…`.",
+  "type": "object",
+  "required": [
+    "schema",
+    "id",
+    "version",
+    "category",
+    "services",
+    "lifecycle"
+  ],
+  "additionalProperties": false,
+  "patternProperties": {
+    "^x-": {}
+  },
+  "properties": {
+    "schema": {
+      "const": "kuro.prefab/v1"
+    },
+    "id": {
+      "$ref": "#/definitions/slug",
+      "description": "Identifiant stable du prefab."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$",
+      "description": "Version semver ; id + version est immuable une fois importé."
+    },
+    "category": {
+      "enum": [
+        "game",
+        "web",
+        "database",
+        "tool",
+        "other"
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/slug"
+      },
+      "uniqueItems": true
+    },
+    "authors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "requires": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kuro": {
+          "type": "string",
+          "description": "Contrainte semver, ex. \">=0.2\"."
+        },
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Ressources du serveur entier (ADR-0031) : minimum bloquant, valeur recommandée pré-remplie.",
+          "properties": {
+            "memory_mb": { "$ref": "#/definitions/resourceNeed" },
+            "cpu_percent": { "$ref": "#/definitions/resourceNeed" },
+            "disk_mb": { "$ref": "#/definitions/resourceNeed" }
+          }
+        }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "icon": {
+          "$ref": "#/definitions/prefabPath"
+        },
+        "cover": {
+          "$ref": "#/definitions/prefabPath"
+        },
+        "thumbnail": {
+          "$ref": "#/definitions/prefabPath"
+        }
+      }
+    },
+    "services": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/definitions/key"
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/service"
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "general": {
+          "$ref": "#/definitions/section"
+        },
+        "advanced": {
+          "$ref": "#/definitions/section"
+        }
+      }
+    },
+    "files": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/definitions/slug"
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/file"
+      }
+    },
+    "install": {
+      "$ref": "#/definitions/install"
+    },
+    "backup": {
+      "$ref": "#/definitions/backup"
+    },
+    "content": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/definitions/key"
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/contentSlot"
+      }
+    },
+    "lifecycle": {
+      "$ref": "#/definitions/lifecycle"
+    },
+    "migrations": {
+      "type": "array",
+      "description": "Passage des réglages d'une version antérieure à celle-ci.",
+      "items": {
+        "type": "object",
+        "required": [
+          "from"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Contrainte semver des versions concernées."
+          },
+          "rename": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/definitions/key"
+            }
+          },
+          "remove": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/key"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "contentWhen": {
+      "type": "object",
+      "required": ["value", "is"],
+      "additionalProperties": false,
+      "properties": {
+        "value": { "type": "string", "description": "Chemin dans la description : clés et index séparés par des points (modules.0.type)." },
+        "is": { "type": "string" }
+      }
+    },
+    "resourceNeed": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "min": { "type": "integer", "minimum": 1 },
+        "recommended": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$"
+    },
+    "absPath": {
+      "type": "string",
+      "pattern": "^/([^/\\u0000]+/)*[^/\\u0000]*$",
+      "not": {
+        "pattern": "(^|/)\\.\\.(/|$)"
+      },
+      "description": "Chemin absolu dans le conteneur, sans `..`."
+    },
+    "prefabPath": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$",
+      "not": {
+        "pattern": "(^|/)\\.\\.(/|$)"
+      },
+      "description": "Chemin relatif à la racine du prefab, sans `..`."
+    },
+    "template": {
+      "type": "string",
+      "description": "Texte pouvant contenir des gabarits {{ … }} (sans logique)."
+    },
+    "image": {
+      "type": "string",
+      "pattern": "^[a-z0-9.-]+(:[0-9]+)?/[a-z0-9._/-]+(:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}|@sha256:[a-f0-9]{64})$",
+      "not": {
+        "pattern": ":latest$"
+      },
+      "description": "Registre explicite, tag ou digest obligatoire, jamais `latest`."
+    },
+    "service": {
+      "type": "object",
+      "required": [
+        "image"
+      ],
+      "additionalProperties": false,
+      "patternProperties": {
+        "^x-": {}
+      },
+      "properties": {
+        "image": {
+          "$ref": "#/definitions/image"
+        },
+        "command": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/template"
+          }
+        },
+        "env": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          },
+          "additionalProperties": {
+            "$ref": "#/definitions/template"
+          }
+        },
+        "ports": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/definitions/key"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "container"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "container": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "protocol": {
+                "enum": [
+                  "tcp",
+                  "udp",
+                  "tcp+udp"
+                ],
+                "default": "tcp",
+                "description": "tcp+udp : même numéro dans les deux protocoles (FiveM), sur une seule allocation."
+              },
+              "public": {
+                "type": "boolean",
+                "default": false,
+                "description": "Reçoit une allocation sur le nœud."
+              },
+              "srv": {
+                "type": "string",
+                "pattern": "^_[a-z0-9][a-z0-9-]{0,61}\\._(tcp|udp)$",
+                "description": "Enregistrement SRV que lit le jeu (_minecraft._tcp), publié avec le nom du serveur vers ce port (port public seulement)."
+              }
+            }
+          }
+        },
+        "volumes": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/definitions/key"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "path"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "$ref": "#/definitions/absPath"
+              }
+            }
+          }
+        },
+        "writable": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/absPath"
+          },
+          "uniqueItems": true,
+          "description": "Chemins en tmpfs ; le reste de la racine est en lecture seule."
+        },
+        "user": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*:[0-9]+$",
+          "description": "uid:gid, jamais root."
+        },
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "share": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Part (%) des ressources du serveur."
+            }
+          }
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/key"
+          },
+          "uniqueItems": true
+        },
+        "healthcheck": {
+          "type": "object",
+          "required": [
+            "command"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/definitions/template"
+              }
+            },
+            "interval": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 10
+            },
+            "retries": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 3
+            }
+          }
+        }
+      }
+    },
+    "section": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/definitions/key"
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/group"
+      },
+      "description": "Groupes de la section ; chaque groupe est une sous-page du panel."
+    },
+    "group": {
+      "type": "object",
+      "required": [
+        "fields"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "icon": {
+          "type": "string",
+          "description": "Nom d'icône Lucide."
+        },
+        "fields": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "#/definitions/key"
+          },
+          "additionalProperties": {
+            "$ref": "#/definitions/field"
+          }
+        }
+      }
+    },
+    "field": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "string",
+            "text",
+            "int",
+            "float",
+            "bool",
+            "enum",
+            "password",
+            "secret",
+            "slider"
+          ]
+        },
+        "default": {},
+        "required": {
+          "type": "boolean",
+          "default": false
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "step": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "pattern": {
+          "type": "string",
+          "format": "regex"
+        },
+        "max_length": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "visibility": {
+          "enum": [
+            "admin",
+            "customer"
+          ],
+          "default": "admin"
+        },
+        "editable": {
+          "enum": [
+            "always",
+            "deploy"
+          ],
+          "default": "always"
+        },
+        "restart": {
+          "type": "boolean",
+          "default": false,
+          "description": "Changer la valeur impose un redémarrage."
+        },
+        "generate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "length"
+          ],
+          "properties": {
+            "length": {
+              "type": "integer",
+              "minimum": 12,
+              "maximum": 128
+            }
+          },
+          "description": "Secret généré au déploiement."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "enum"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "options"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "slider"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "min",
+              "max"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "generate"
+            ]
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "secret"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "file": {
+      "type": "object",
+      "required": [
+        "service",
+        "path",
+        "format",
+        "mode"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "service": {
+          "$ref": "#/definitions/key"
+        },
+        "path": {
+          "$ref": "#/definitions/absPath"
+        },
+        "format": {
+          "enum": [
+            "ini",
+            "properties",
+            "json",
+            "yaml",
+            "toml",
+            "xml",
+            "cfg",
+            "lua",
+            "php",
+            "sh",
+            "text"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "template",
+            "managed-keys",
+            "user"
+          ]
+        },
+        "template": {
+          "$ref": "#/definitions/prefabPath"
+        },
+        "keys": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "$ref": "#/definitions/template"
+          },
+          "description": "managed-keys : clé (ou `section.clé` en ini) → valeur réécrite au démarrage."
+        },
+        "editable": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "template"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "template"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "managed-keys"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "keys"
+            ]
+          }
+        }
+      ]
+    },
+    "install": {
+      "type": "object",
+      "required": [
+        "service",
+        "steps"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "service": {
+          "$ref": "#/definitions/key",
+          "description": "Service dont les volumes sont montés."
+        },
+        "image": {
+          "$ref": "#/definitions/image",
+          "description": "Image d'installation ; par défaut celle du service."
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/step"
+          }
+        }
+      }
+    },
+    "backup": {
+      "type": "object",
+      "description": "Sauvegardes (ADR-0018) : chemins exclus et commandes console autour de l'archivage.",
+      "additionalProperties": false,
+      "properties": {
+        "ignore": {
+          "type": "object",
+          "description": "Service → chemins du conteneur exclus, sous ses volumes (`*` : un segment, `**` : tous).",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^/"
+            }
+          }
+        },
+        "before": {
+          "type": "array",
+          "description": "Envoyées avant l'archivage, serveur en marche.",
+          "items": {
+            "$ref": "#/definitions/backupHook"
+          }
+        },
+        "after": {
+          "type": "array",
+          "description": "Envoyées après l'archivage, même s'il a échoué.",
+          "items": {
+            "$ref": "#/definitions/backupHook"
+          }
+        }
+      }
+    },
+    "backupHook": {
+      "type": "object",
+      "required": [
+        "console"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "console": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "description": "Commande envoyée sur la console du service principal."
+        },
+        "wait": {
+          "type": "string",
+          "description": "Expression régulière attendue sur la console avant de continuer (60 s au plus)."
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "download": {
+          "type": "object",
+          "required": [
+            "url",
+            "sha256",
+            "to"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "url": {
+              "$ref": "#/definitions/template"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "to": {
+              "$ref": "#/definitions/absPath"
+            }
+          }
+        },
+        "extract": {
+          "type": "object",
+          "required": [
+            "from",
+            "to"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "from": {
+              "$ref": "#/definitions/absPath"
+            },
+            "to": {
+              "$ref": "#/definitions/absPath"
+            },
+            "subdir": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$",
+              "description": "Seul ce dossier de l'archive est extrait, à la racine de `to`."
+            },
+            "executable": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$"
+              },
+              "description": "Chemins relatifs à `to` rendus exécutables (archives sans droits Unix)."
+            }
+          }
+        },
+        "copy": {
+          "type": "object",
+          "required": [
+            "template",
+            "to"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "template": {
+              "$ref": "#/definitions/prefabPath"
+            },
+            "to": {
+              "$ref": "#/definitions/absPath"
+            }
+          }
+        },
+        "steamcmd": {
+          "type": "object",
+          "required": [
+            "app",
+            "dir"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "app": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "dir": {
+              "$ref": "#/definitions/absPath"
+            },
+            "beta": {
+              "type": "string"
+            },
+            "platform": {
+              "type": "string",
+              "enum": ["linux", "windows"],
+              "default": "linux",
+              "description": "windows : serveur qui n'existe qu'en version Windows, exécuté sous Proton par l'image (ADR-0032)."
+            },
+            "login": {
+              "type": "string",
+              "enum": ["anonymous", "account"],
+              "default": "anonymous",
+              "description": "account : serveur que SteamCMD refuse en anonyme (Arma 3, DayZ) ; il reçoit le compte Steam de l'installation, réglé dans le panel (ADR-0033)."
+            },
+            "validate": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        },
+        "script": {
+          "type": "object",
+          "required": [
+            "run"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "image": {
+              "$ref": "#/definitions/image"
+            },
+            "run": {
+              "type": "string",
+              "description": "Porte de sortie : script exécuté dans le conteneur d'installation isolé."
+            }
+          }
+        },
+        "remove": {
+          "type": "object",
+          "required": [
+            "path"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "$ref": "#/definitions/absPath"
+            }
+          },
+          "description": "Supprime un fichier ou un dossier (archive téléchargée, une fois extraite)."
+        }
+      }
+    },
+    "contentSlot": {
+      "type": "object",
+      "required": [
+        "kind",
+        "service",
+        "providers",
+        "install"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "mods",
+            "addons",
+            "modpacks",
+            "resourcepacks",
+            "plugins",
+            "maps"
+          ]
+        },
+        "service": {
+          "$ref": "#/definitions/key"
+        },
+        "providers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "provider"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "provider": {
+                "enum": [
+                  "curseforge",
+                  "modrinth",
+                  "steam-workshop",
+                  "upload"
+                ]
+              },
+              "game": {
+                "$ref": "#/definitions/slug",
+                "description": "Jeu côté source, résolu par le provider."
+              },
+              "class": {
+                "$ref": "#/definitions/slug"
+              },
+              "loader": {
+                "$ref": "#/definitions/template",
+                "description": "fabric, forge…, ou {{ settings.loader }}."
+              },
+              "game_version": {
+                "$ref": "#/definitions/template",
+                "description": "Version du jeu, ou {{ settings.version }} : filtre les versions compatibles (ADR-0020)."
+              }
+            }
+          }
+        },
+        "install": {
+          "type": "object",
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "enum": [
+                "download",
+                "extract",
+                "reference"
+              ]
+            },
+            "dir": {
+              "$ref": "#/definitions/absPath"
+            },
+            "load_order": {
+              "$ref": "#/definitions/absPath"
+            },
+            "describe": {
+              "type": "string",
+              "description": "Mode extract : fichier de description de chaque paquet (manifest.json), lu par le nœud."
+            },
+            "route": {
+              "type": "array",
+              "description": "Mode extract : dossier de chaque paquet, d'après sa description.",
+              "items": {
+                "type": "object",
+                "required": ["when", "dir"],
+                "additionalProperties": false,
+                "properties": {
+                  "when": { "$ref": "#/definitions/contentWhen" },
+                  "dir": { "$ref": "#/definitions/absPath" }
+                }
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "download"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "dir"
+            ]
+          }
+        },
+        "fields": {
+          "type": "object",
+          "description": "Valeurs saisies pour chaque contenu (ADR-0030), offertes aux gabarits par content.<emplacement>.values.<champ>.",
+          "propertyNames": {
+            "$ref": "#/definitions/key"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "string",
+                  "list"
+                ]
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "prefill": {
+                "type": "object",
+                "required": [
+                  "description"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "description": "Expression régulière cherchée dans la description du contenu, avec un groupe : ce qu'il capture, découpé sur , et ;, donne les valeurs proposées."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "register": {
+          "type": "array",
+          "description": "Fichiers d'inscription (mode extract) : listes JSON tenues par Kuro, une entrée par paquet actif, réécrites à chaque démarrage.",
+          "items": {
+            "type": "object",
+            "required": ["file", "entry"],
+            "additionalProperties": false,
+            "properties": {
+              "file": { "type": "string", "description": "Chemin absolu sous un volume, gabarit permis ({{ settings.level_name }})." },
+              "when": { "$ref": "#/definitions/contentWhen" },
+              "entry": {
+                "type": "object",
+                "description": "Clé → texte fixe, ou {{ item.<chemin> }} : la valeur de la description du paquet.",
+                "additionalProperties": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "required": [
+        "service",
+        "stop"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "service": {
+          "$ref": "#/definitions/key",
+          "description": "Service principal, qui porte la console."
+        },
+        "ready": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "console": {
+              "type": "string",
+              "format": "regex"
+            },
+            "healthcheck": {
+              "const": true
+            }
+          }
+        },
+        "stop": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "console": {
+              "type": "string"
+            },
+            "signal": {
+              "enum": [
+                "SIGTERM",
+                "SIGINT",
+                "SIGQUIT"
+              ]
+            }
+          }
+        },
+        "timeout": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600,
+          "default": 30
+        }
+      }
+    }
+  }
+}

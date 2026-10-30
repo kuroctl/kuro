@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM oauth_tokens WHERE grant_id = $1 AND expires_at < now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f98e9a8565ba5b7c45c897fd1ef0bd3e97b5997de5e9e4d05b408bba64f69e6a"
+}

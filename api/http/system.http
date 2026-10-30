@@ -1,0 +1,25 @@
+### Sonde de vivacité
+GET {{baseUrl}}/api/health
+Accept: application/json
+
+> {%
+  client.test("health is ok", () => {
+    client.assert(response.status === 200, "expected 200");
+    client.assert(response.body.status === "ok", "expected status ok");
+  });
+%}
+
+### Sonde de disponibilité (base et listener daemon)
+GET {{baseUrl}}/api/ready
+Accept: application/json
+
+> {%
+  client.test("instance is ready", () => {
+    client.assert(response.status === 200, "expected 200");
+    client.assert(response.body.status === "ready", "expected status ready");
+  });
+%}
+
+### Document OpenAPI (JSON)
+GET {{baseUrl}}/api/openapi.json
+Accept: application/json

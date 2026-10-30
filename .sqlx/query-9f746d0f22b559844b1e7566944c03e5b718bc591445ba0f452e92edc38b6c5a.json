@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE prefab_drafts\n             SET files = $2, prefab_id = $3, prefab_version = $4, updated_by = $5, updated_at = now()\n             WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Jsonb",
+        "Text",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9f746d0f22b559844b1e7566944c03e5b718bc591445ba0f452e92edc38b6c5a"
+}

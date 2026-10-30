@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM prefab_draft_assets WHERE draft_id = $1 AND kind = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d0e53eff28bd0fcd36c8dfd81f5ad780e898801e9133172b17670f972211c001"
+}

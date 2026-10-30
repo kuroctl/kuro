@@ -1,0 +1,39 @@
+---
+title: "Fonctionnement"
+description: "Le pilotage et le trafic de jeu : deux circuits qui ne se croisent jamais."
+---
+
+Kuro sépare deux circuits qui ne se croisent jamais.
+
+## Le pilotage
+
+```txt
+Panel (navigateur) ──HTTPS──▶ API ◀──WebSocket mTLS── Daemon (nœud) ──▶ Docker
+```
+
+- Le panel parle à l'API.
+- Le **daemon ouvre lui-même** sa connexion vers l'API (WebSocket chiffré, certificat par
+  nœud). Le nœud n'expose donc aucune interface d'administration : pas de port d'API, pas de
+  SFTP à ouvrir.
+- Passent par ce circuit les ordres (démarrer, arrêter, créer, sauvegarder), les états, les
+  statistiques, la console et les fichiers ouverts dans le panel.
+
+## Le jeu
+
+```txt
+Joueur ──────────────▶ Nœud : IP (ou nom) et port du serveur
+```
+
+- Le client du jeu se connecte **directement** au port du serveur sur le nœud. L'API n'est
+  jamais sur ce chemin : elle n'est pas un goulot d'étranglement, et si elle redémarre, les
+  parties en cours continuent.
+- Les ports de jeu du nœud doivent donc être joignables par les joueurs. Derrière une box ou un
+  pare-feu, ouvrez la plage de ports allouée au nœud (25565-25600 par exemple).
+
+## Ports à ouvrir
+
+| Machine | Port | Pour |
+|---|---|---|
+| API | 443/tcp (reverse proxy) | Le panel et l'API |
+| API | 8443/tcp | Les daemons (mTLS) |
+| Nœud | Plage allouée aux serveurs (TCP et UDP) | Les joueurs |

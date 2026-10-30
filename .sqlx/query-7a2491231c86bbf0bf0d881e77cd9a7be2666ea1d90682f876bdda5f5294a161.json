@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO prefab_assets (prefab_id, prefab_version, kind, content_type, data)\n             VALUES ($1, $2, $3, $4, $5)\n             ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7a2491231c86bbf0bf0d881e77cd9a7be2666ea1d90682f876bdda5f5294a161"
+}

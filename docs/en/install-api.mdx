@@ -1,0 +1,122 @@
+---
+title: "Install the API and panel"
+sidebarTitle: "Install the API"
+description: "One script installs the API, the panel and the official prefabs, and can prepare a fresh server."
+---
+
+A single script installs Kuro, with one or two **roles**:
+
+- `api`: the API, its panel and the official prefabs;
+- `node`: the daemon that runs game servers ([Add a node](/en/add-a-node)).
+
+It checks every archive before installing it, and refuses an unverified binary
+([Verify what you install](/en/verification)).
+
+## 1. Pick a profile
+
+| Profile | For | What the script does |
+|---|---|---|
+| **Default** | A machine already set up (firewall, SSH, reverse proxy in place) | Installs Kuro, and Docker if missing. Nothing else. |
+| **`--full`** | A fresh server (Debian 12-13, Ubuntu 22.04-24.04) | Prepares the machine, then installs Kuro. |
+
+With `--full`, for the `api` role:
+
+- system updates, then automatic security updates;
+- `fail2ban` against SSH login attempts;
+- `ufw` firewall: everything inbound is closed except SSH, `80` and `443` (the panel) and
+  `8443` (nodes);
+- key-only SSH, **if a key is already authorized** for root or your user (otherwise SSH is left
+  alone);
+- Docker, from Docker's official repository;
+- Caddy, which serves the panel over HTTPS and gets the certificate on its own.
+
+The script shows what it will do and asks for confirmation. To only look, without changing
+anything:
+
+```bash
+sudo bash install.sh api --public-host panel.example.com --full --plan
+```
+
+## 2. Download, read, run
+
+<Warning>
+  The name given to `--public-host` must already point to the machine (DNS `A` or `AAAA`
+  record): Caddy needs it for the certificate, and nodes need it to connect.
+</Warning>
+
+```bash
+curl -fsSLo install.sh https://get.kuroctl.com/api
+less install.sh
+sudo bash install.sh --public-host panel.example.com --full
+```
+
+Or in one line, if you trust the source (`--yes` skips the confirmation):
+
+```bash
+curl -fsSL https://get.kuroctl.com/api | sudo bash -s -- --public-host panel.example.com --full --yes
+```
+
+`get.kuroctl.com/api` serves the script with the `api` role already chosen;
+`get.kuroctl.com/install.sh` serves it without a role, which you then pass (`install.sh api`).
+
+### Options
+
+| Option | Purpose |
+|---|---|
+| `--public-host` | Public name (or IP) of the API. Required on first install. Used for the daemon listener's certificate and the enrollment URL. |
+| `--full` | Prepares a fresh server (see above). |
+| `--plan` | Shows what would be done, without changing anything. |
+| `--yes` | No confirmation (`--full`). |
+| `--database-url` | An existing PostgreSQL. Without it, the script runs a local `kuro-postgres` container. |
+| `--http-bind` | Local HTTP listener, behind the reverse proxy (default `127.0.0.1:8080`). |
+| `--daemon-port` | Daemon listener port, mTLS (default `8443`). |
+| `--version` | Version to install (default: latest). |
+
+The script creates the `kuro` system user, writes the configuration to `/etc/kuro/`, creates the
+nodes' private certificate authority and starts the `kuro-api` service.
+
+## 3. Without `--full`: TLS and firewall
+
+The API listens locally: a reverse proxy publishes it over HTTPS. With
+[Caddy](https://caddyserver.com):
+
+```txt /etc/caddy/Caddyfile
+panel.example.com {
+    reverse_proxy 127.0.0.1:8080
+}
+```
+
+Nodes connect to the API on port `8443/tcp` (mTLS): open it in the firewall, from the Internet
+or only from your nodes.
+
+With `--full`, all of this is done. A `Caddyfile` you already edited is not overwritten: the
+script prints the block to add.
+
+## 4. Create the first admin
+
+```bash
+sudo kuro-api-admin admin create --email you@example.com --name "Your name"
+```
+
+The password is asked interactively, never passed as an argument. Two-step verification (TOTP)
+is required at first login.
+
+Then open `https://panel.example.com` and sign in.
+
+## Everything on one machine
+
+The API and a node can share a machine. Give both roles and the game server port range:
+
+```bash
+curl -fsSLo install.sh https://get.kuroctl.com/install.sh
+sudo bash install.sh api node --public-host panel.example.com --ports 25565-25600 --full
+```
+
+The script creates the node on the API it just installed and enrolls it itself: no token or
+fingerprint to copy.
+
+## Next
+
+<Card title="Add a node" icon="server" href="/en/add-a-node">
+  Enroll a machine to deploy your first servers.
+</Card>

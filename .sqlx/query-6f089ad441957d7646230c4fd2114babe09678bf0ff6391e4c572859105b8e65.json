@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE roles SET name = COALESCE($2, name), description = COALESCE($3, description),\n                              color = COALESCE($4, color),\n                              updated_at = now()\n             WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6f089ad441957d7646230c4fd2114babe09678bf0ff6391e4c572859105b8e65"
+}

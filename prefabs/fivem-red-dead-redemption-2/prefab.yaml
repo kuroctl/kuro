@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=../schema/prefab.v1.schema.json
+# FiveM (GTA V multijoueur, Cfx.re) : serveur Linux `FXServer`, livré avec sa propre bibliothèque
+# musl (`alpine/`). Installé par Kuro sans script : build épinglé (sha256) puis extraction du
+# `.tar.xz` ; les ressources de base (`cfx-server-data`) viennent d'un commit fixé.
+# Image d'exécution : celle des eggs Pterodactyl (Debian), dont le point d'entrée lit la ligne de
+# lancement dans `STARTUP`. Ce point d'entrée découpe la ligne sur les espaces : ce qui peut en
+# contenir (nom du serveur) passe par `kuro.cfg`, regénéré à chaque démarrage.
+schema: kuro.prefab/v1
+id: fivem
+version: 0.1.0
+category: game
+tags: [fivem, gta-v, redm, roleplay]
+authors:
+  - name: Kuro
+requires:
+  kuro: ">=0.2"
+  resources:
+    memory_mb: { min: 2048, recommended: 4096 }
+    disk_mb: { min: 2048, recommended: 10240 }
+assets:
+  icon: assets/icon.jpg
+  cover: assets/banner.jpg
+  thumbnail: assets/thumbnail.jpg
+x-status: "draft: not yet tried on a real node with a Cfx.re licence"
+
+services:
+  server:
+    # Épinglée par empreinte : le tag `yolks:debian` est mis à jour en continu.
+    image: ghcr.io/ptero-eggs/yolks@sha256:3a31e5b23e671dfa8c0f3487003cc6dc6e2f44b5fac1212e194e0954eac8bd71
+    env:
+      # Sans `server.cfg` quand txAdmin est activé : txAdmin gère alors le serveur (port 40120).
+      STARTUP: '$(pwd)/alpine/opt/cfx-server/ld-musl-x86_64.so.1 --library-path "$(pwd)/alpine/usr/lib/v8/:$(pwd)/alpine/lib/:$(pwd)/alpine/usr/lib/" -- $(pwd)/alpine/opt/cfx-server/FXServer +set citizen_dir $(pwd)/alpine/opt/cfx-server/citizen/ +set sv_licenseKey ${FIVEM_LICENSE} +set steam_webApiKey ${STEAM_WEBAPIKEY} +set sv_maxplayers ${MAX_PLAYERS} $( [ "$TXADMIN_ENABLE" = "1" ] || printf %s "+exec server.cfg" )'
+      FIVEM_LICENSE: "{{ settings.license }}"
+      STEAM_WEBAPIKEY: '{{ settings.steam_web_api_key | default("none") }}'
+      MAX_PLAYERS: "{{ settings.max_players }}"
+      TXADMIN_ENABLE: "{{ settings.txadmin }}"
+      TXHOST_TXA_PORT: "{{ ports.txadmin.container }}"
+      TXHOST_DATA_PATH: /home/container/txData
+    ports:
+      # Le jeu écoute en TCP et en UDP sur le même numéro.
+      game: { container: 30120, protocol: tcp+udp, public: true }
+      # Console web de txAdmin, quand elle est activée.
+      txadmin: { container: 40120, protocol: tcp, public: true }
+    volumes:
+      data: { path: /home/container }
+    # Le point d'entrée écrit son identité d'utilisateur (nss_wrapper) dans /tmp.
+    writable: [/tmp]
+    user: "1000:1000"
+
+install:
+  service: server
+  # Image des eggs Pterodactyl pour l'installation : `git` y est, lancé sans root.
+  image: ghcr.io/ptero-eggs/installers@sha256:084e7a28d9902d054b35bcad7c547bcd3b5739040b9e0f5bfe63bb18ce021423
+  steps:
+    # Build « recommended » 35245 ; une version plus récente = une nouvelle version du prefab.
+    - download:
+        url: https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/35245-6efb47dff473c0e2a12fb50b08d74c0eb24a50d5/fx.tar.xz
+        sha256: 16fcffd53a30a3909cbb2cfd26f89f950a59452792cafd0eda2174bdfeef9b2f
+        to: /home/container/fx.tar.xz
+    - extract:
+        from: /home/container/fx.tar.xz
+        to: /home/container
+        executable: [alpine/opt/cfx-server/FXServer, alpine/opt/cfx-server/ld-musl-x86_64.so.1]
+    - remove: { path: /home/container/fx.tar.xz }
+    # Ressources de base (chat, spawnmanager, mapmanager…), au commit fixé : git vérifie le contenu.
+    - script:
+        run: |
+          set -eu
+          rm -rf /tmp/cfx-server-data
+          git init -q /tmp/cfx-server-data
+          cd /tmp/cfx-server-data
+          git fetch -q --depth 1 https://github.com/citizenfx/cfx-server-data.git c6afa3909c763e3327ed76825e78453286c99f05
+          git checkout -q FETCH_HEAD
+          mkdir -p /home/container/resources
+          cp -R resources/. /home/container/resources/
+          rm -rf /tmp/cfx-server-data
+
+settings:
+  general:
+    server:
+      icon: server
+      fields:
+        license: { type: password, required: true, pattern: '^[A-Za-z0-9_-]{1,64}$', restart: true }
+        # Écrit entre guillemets dans kuro.cfg : ni guillemet ni barre oblique inverse.
+        server_name: { type: string, default: "Kuro FiveM", pattern: '^[^"\\]{1,80}$', required: true, restart: true }
+        max_players: { type: int, default: 48, min: 1, max: 48, restart: true }
+        game: { type: enum, options: [rdr3], default: rdr3, restart: true }
+  advanced:
+    administration:
+      icon: shield
+      fields:
+        txadmin: { type: enum, options: ["0", "1"], default: "0", restart: true }
+        steam_web_api_key: { type: password, pattern: '^[A-Za-z0-9]{0,64}$', restart: true }
+
+files:
+  # Réglages de Kuro, regénérés à chaque démarrage depuis le panel.
+  kuro-cfg:
+    service: server
+    path: /home/container/kuro.cfg
+    format: cfg
+    mode: template
+    template: templates/kuro.cfg
+  # Configuration libre (ressources, permissions) ; elle charge kuro.cfg.
+  server-cfg:
+    service: server
+    path: /home/container/server.cfg
+    format: cfg
+    mode: user
+    template: templates/server.cfg
+
+backup:
+  ignore:
+    server: [/home/container/alpine/**, /home/container/cache/**]
+
+lifecycle:
+  service: server
+  ready: { console: 'succeeded\. Welcome!' }
+  stop: { console: quit }
+  timeout: 60

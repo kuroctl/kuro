@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE server_content SET pending = false WHERE server_id = $1 AND pending",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5f0bc8ef11ff688d62fa515e865774c47340731f794bffb1039e5cca99b11c32"
+}

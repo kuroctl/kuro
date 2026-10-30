@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM allocations WHERE id = $1 AND server_id IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5dd5ad22bb3b48c6962d378b680d7a55745e248d2ba70d2ca3f3651bdb0fcfd3"
+}

@@ -1,0 +1,143 @@
+# yaml-language-server: $schema=../schema/prefab.v1.schema.json
+# Rust (Facepunch) : serveur dédié Linux (app Steam 258550), installé par SteamCMD. Image
+# d'exécution : celle de SteamCMD (Debian 12, utilisateur steam 1000), sans point d'entrée.
+# La console Linux de Rust n'est pas interactive : les commandes passent par WebRCON (port `rcon`,
+# interne au réseau du serveur). Les mises à jour forcées (premier jeudi du mois) demandent une
+# réinstallation, sans quoi les clients à jour ne peuvent plus se connecter.
+schema: kuro.prefab/v1
+id: rust
+version: 1.1.0
+category: game
+tags: [rust, survival, steam]
+authors:
+  - name: Kuro
+requires:
+  kuro: ">=0.2"
+  # Ressources du serveur entier (ADR-0031) : minimum bloquant, valeur recommandée pré-remplie.
+  resources:
+    memory_mb: { min: 8192, recommended: 12288 }
+    cpu_percent: { min: 200, recommended: 400 }
+    disk_mb: { min: 20480, recommended: 30720 }
+assets:
+  icon: assets/icon.png
+  cover: assets/banner.webp
+  thumbnail: assets/thumbnail.webp
+
+services:
+  server:
+    image: docker.io/cm2network/steamcmd@sha256:6420fb40313fc00ee0d7fe1ae02c4c32f2b085980f5795b7171022d3409e29fb
+    # Rust résout ses chemins (server/<identité>) depuis le dossier courant : le shell ne fait que
+    # s'y placer, les valeurs restent des arguments séparés ("$@"), jamais collées dans le script.
+    command:
+      - sh
+      - -c
+      - 'cd /data/server && exec ./RustDedicated "$@"'
+      - rust
+      - -batchmode
+      - -nographics
+      - -logfile
+      - /dev/stdout
+      - +server.identity
+      - kuro
+      - +server.ip
+      - 0.0.0.0
+      - +server.port
+      - "{{ ports.game.container }}"
+      - +server.queryport
+      - "{{ ports.query.container }}"
+      - +server.level
+      - Procedural Map
+      - +server.worldsize
+      - "{{ settings.world_size }}"
+      - +server.seed
+      - "{{ settings.seed }}"
+      - +server.maxplayers
+      - "{{ settings.max_players }}"
+      - +server.hostname
+      - "{{ settings.hostname }}"
+      - +server.description
+      - "{{ settings.description }}"
+      - +server.url
+      - "{{ settings.url }}"
+      - +server.headerimage
+      - "{{ settings.header_image }}"
+      - +server.saveinterval
+      - "{{ settings.save_interval }}"
+      - +rcon.web
+      - "1"
+      - +rcon.port
+      - "{{ ports.rcon.container }}"
+      - +rcon.password
+      - "{{ settings.rcon_password }}"
+      - +app.port
+      - "{{ ports.app.container }}"
+    env:
+      HOME: /data/home
+      LD_LIBRARY_PATH: /data/server:/data/server/RustDedicated_Data/Plugins/x86_64
+    ports:
+      # Rust annonce ses ports à Steam : allouer sur l'hôte les mêmes numéros.
+      game: { container: 28015, protocol: udp, public: true }
+      query: { container: 28017, protocol: udp, public: true }
+      # Rust+ (application compagnon).
+      app: { container: 28082, protocol: tcp, public: true }
+      # WebRCON : jamais publié.
+      rcon: { container: 28016 }
+    volumes:
+      data: { path: /data }
+    writable: [/tmp]
+    user: "1000:1000"
+
+install:
+  service: server
+  steps:
+    - steamcmd: { app: 258550, dir: /data/server, validate: true }
+    # La bibliothèque Steam du serveur est cherchée dans ~/.steam/sdk64 (HOME est sur le volume).
+    - script:
+        run: mkdir -p /data/home/.steam/sdk64 && cp -f /home/steam/steamcmd/linux64/steamclient.so /data/home/.steam/sdk64/
+
+settings:
+  general:
+    server:
+      icon: server
+      fields:
+        hostname: { type: string, default: "Kuro Rust", max_length: 64, required: true, restart: true }
+        description: { type: text, max_length: 512, restart: true }
+        url: { type: string, max_length: 256, pattern: "^(https://\\S+)?$", restart: true }
+        header_image: { type: string, max_length: 256, pattern: "^(https://\\S+\\.(png|jpe?g))?$", restart: true }
+        max_players: { type: int, default: 50, min: 1, max: 500, restart: true }
+    world:
+      icon: globe
+      fields:
+        world_size: { type: slider, default: 3000, min: 1000, max: 6000, step: 250, editable: deploy, restart: true }
+        seed: { type: int, default: 12345, min: 0, max: 2147483647, editable: deploy, restart: true }
+  advanced:
+    saves:
+      icon: archive
+      fields:
+        save_interval: { type: int, default: 300, min: 60, max: 3600, restart: true }
+    security:
+      icon: shield
+      fields:
+        rcon_password: { type: secret, generate: { length: 32 } }
+
+files:
+  server-cfg:
+    service: server
+    path: /data/server/server/kuro/cfg/server.cfg
+    format: cfg
+    mode: user
+  users-cfg:
+    service: server
+    path: /data/server/server/kuro/cfg/users.cfg
+    format: cfg
+    mode: user
+
+backup:
+  ignore:
+    server: [/data/server/RustDedicated_Data/**, /data/server/steamapps/**, /data/home/**]
+
+lifecycle:
+  service: server
+  ready: { console: 'Server startup complete' }
+  stop: { signal: SIGINT }
+  timeout: 300

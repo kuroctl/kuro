@@ -1,0 +1,108 @@
+[workspace]
+resolver = "3"
+members = ["api", "daemon", "shared/prefab", "shared/protocol", "shared/runtime", "xtask"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94"
+publish = false
+
+# Versions centralisées : les crates membres déclarent `dep.workspace = true`.
+# On n'ajoute une dépendance ici qu'au moment où une tranche l'utilise.
+[workspace.dependencies]
+kuro-prefab = { path = "shared/prefab" }
+kuro-protocol = { path = "shared/protocol" }
+kuro-runtime = { path = "shared/runtime" }
+
+anyhow = "1.0.104"
+argon2 = "0.6.0"
+axum = { version = "0.8.9", features = ["ws"] }
+axum-extra = { version = "0.12.6", features = ["cookie"] }
+# Docker (daemon) : socket Unix ou named pipe local, sans TLS.
+bollard = "0.20"
+base64 = "0.23.1"
+chacha20poly1305 = "0.11.0"
+clap = { version = "4.6.7", features = ["derive", "env"] }
+# `cargo xtask prefab-media` : images des prefabs redimensionnées, PNG optimisés sans perte.
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
+oxipng = { version = "10.2.1", default-features = false, features = ["parallel"] }
+# Tâches planifiées (ADR-0022) : expressions cron et fuseaux horaires IANA.
+croner = "4.0.2"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+chrono-tz = "0.10.4"
+figment = { version = "0.10.19", features = ["toml", "env"] }
+fastrand = "2.5.0"
+hmac = "0.13.0"
+http-body-util = "0.1.5"
+hyper = { version = "1.12.0", features = ["client", "server", "http1"] }
+indexmap = { version = "2.14.2", features = ["serde"] }
+hyper-util = { version = "0.1.21", features = ["tokio", "service"] }
+futures-util = { version = "0.3.34", default-features = false, features = ["sink", "std"] }
+regex = "1.13.1"
+rpassword = "7.5.4"
+semver = { version = "1.0.28", features = ["serde"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+# YAML des prefabs : Rust pur, sans panique, taille et profondeur bornées (contenu importé).
+serde-saphyr = "2.0.0"
+sha1 = "0.11"
+sha2 = "0.11.1"
+sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls-ring", "postgres", "macros", "migrate", "uuid", "time", "json"] }
+thiserror = "2.0.21"
+toml = "0.8.23"
+time = { version = "0.3.55", features = ["serde", "formatting", "parsing"] }
+tokio = { version = "1.54.1", features = ["fs", "macros", "rt-multi-thread", "net", "signal", "time"] }
+tokio-util = "0.7.20"
+totp-rs = { version = "6.0.0", features = ["otpauth"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
+utoipa = { version = "6.0.0", features = ["time", "uuid"] }
+uuid = { version = "1.29.0", features = ["v7", "serde"] }
+
+# TLS : rustls uniquement, fournisseur crypto `ring` (aws-lc-rs exige CMake/NASM).
+# Serveur MCP (ADR-0023) : SDK Rust officiel, transport Streamable HTTP monté dans axum.
+rmcp = { version = "3.8.0", default-features = false, features = ["server", "macros", "transport-streamable-http-server"] }
+rcgen = { version = "0.14.10", default-features = false, features = ["crypto", "pem", "ring", "x509-parser"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "logging", "std", "tls12"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "logging", "tls12"] }
+tokio-tungstenite = { version = "0.30.0", default-features = false, features = ["handshake"] }
+
+# Tests
+jsonschema = { version = "0.60.1", default-features = false }
+tempfile = "3.27.0"
+# Daemon : installation des serveurs (ADR-0017), archives en pur Rust.
+flate2 = "1.1.10"
+tar = "0.4.46"
+webpki-roots = "1.0.11"
+zip = { version = "9.1.2", default-features = false, features = ["deflate-flate2"] }
+zstd = { version = "0.14.3", default-features = false }
+lzma-rust2 = { version = "0.24.0", default-features = false, features = ["xz", "std"] }
+# Daemon (Linux) : `openat2` pour les fichiers des serveurs (ADR-0015).
+rustix = { version = "1.1.5", features = ["fs"] }
+testcontainers = { version = "0.27.3", features = ["reusable-containers"] }
+testcontainers-modules = { version = "0.15.0", features = ["postgres"] }
+tower = { version = "0.5.3", features = ["util"] }
+tower-http = { version = "0.7.1", features = ["cors", "fs", "request-id", "set-header", "util"] }
+x509-parser = "0.18.1"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+dbg_macro = "deny"
+todo = "deny"
+
+# Argon2 est volontairement coûteux : optimisé même en debug, sinon les tests prennent des minutes.
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.blake2]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

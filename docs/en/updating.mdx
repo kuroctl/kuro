@@ -1,0 +1,39 @@
+---
+title: "Updating"
+description: "Update the API, nodes and servers."
+---
+
+The install script also updates: run again, it replaces the binaries, the panel and the
+official prefabs, without touching the configuration, secrets or certificate authority. Database
+migrations run when the API starts.
+
+## The API and panel
+
+```bash
+curl -fsSLo install.sh https://get.kuroctl.com/api
+sudo bash install.sh
+```
+
+## A node
+
+An enrolled node is not re-enrolled: no token or fingerprint needed.
+
+```bash
+curl -fsSLo install.sh https://get.kuroctl.com/node
+sudo bash install.sh
+```
+
+<Note>
+  Update the API before the nodes. For a specific version, add `--version X.Y.Z`. A machine with
+  both roles: `sudo bash install.sh api node`.
+</Note>
+
+`--full` is only useful on first install; run again, it reapplies the same settings without
+breaking anything.
+
+## Servers
+
+A new prefab version is not applied to existing servers on its own. The panel shows "Update
+available"; the preview shows what changes (settings, ports, image) and the update can back up
+the server first. Several servers at once: server list, "Update available" filter, then
+**Actions › Update**.

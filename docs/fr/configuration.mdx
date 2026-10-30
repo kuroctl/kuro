@@ -1,0 +1,109 @@
+---
+title: "Fichier de configuration"
+sidebarTitle: "Configuration"
+description: "Les fichiers de l'API et du daemon, les sorties réseau des serveurs, plusieurs instances et les sondes."
+---
+
+L'API lit `/etc/kuro/api.toml`. Les secrets (URL de la base, clé de chiffrement) sont dans
+`/etc/kuro/api.env`, lisible par l'utilisateur `kuro` seulement. Le reste se règle dans le
+panel : **Paramètres**.
+
+Chaque clé peut être remplacée par une variable d'environnement `KURO_API_<SECTION>__<CLÉ>`,
+par exemple `KURO_API_HTTP__BIND=127.0.0.1:9000`.
+
+## Sections
+
+| Section | Clés principales |
+|---|---|
+| `[http]` | `bind` (écoute locale), `panel_dir` (panel servi par l'API), `allowed_origins`, `trusted_proxies` (adresses des reverse proxys dont `X-Forwarded-For` est cru, par défaut les adresses locales), `rate_limit_per_minute` (routes sans authentification, par adresse cliente, `0` : sans limite), `request_timeout_secs` (`0` : sans limite) |
+| `[database]` | `url`, `max_connections`, `min_connections`, `acquire_timeout_secs`, `idle_timeout_secs`, `max_lifetime_secs` |
+| `[daemon]` | `bind` (listener mTLS des nœuds), chemins de la CA et du certificat de l'API |
+| `[auth]` | `require_totp`, `access_ttl_secs`, `refresh_ttl_secs`, `session_max_age_secs` (30 jours par défaut : au-delà, rafraîchir ne suffit plus, il faut se reconnecter) |
+| `[prefabs]` | `dir` (prefabs officiels) |
+| `[mcp]` | `public_url` (adresse publique, active le serveur MCP), `panel_url` |
+| `[log]` | `format` (`json` ou `pretty`), `filter` |
+
+Après une modification : `sudo systemctl restart kuro-api`.
+
+## Sur un nœud
+
+Le daemon lit `/etc/kuro/daemon.toml`, écrit à l'enrôlement. Variables d'environnement :
+`KURO_DAEMON_<SECTION>__<CLÉ>`.
+
+| Section | Clés principales |
+|---|---|
+| `[api]` | `url` (connexion à l'API, `wss://` obligatoire) |
+| `[tls]` | certificat du nœud, sa clé et la CA |
+| `[servers]` | `data_root` (données des serveurs), `disk_measure_interval_secs`, `allow_insecure_fs` (développement hors Linux seulement : sans lui, le daemon refuse de démarrer là où les fichiers des volumes ne sont pas confinés) |
+| `[log]` | `format`, `filter` |
+
+`disk_measure_interval_secs` (60 par défaut, de 15 à 3600) : secondes entre deux mesures de
+l'espace disque des serveurs, pour les quotas. Chaque mesure parcourt tous les fichiers : sur
+un nœud aux très gros mondes, allongez-le. Une écriture (fichier, sauvegarde, installation)
+déclenche de toute façon sa propre mesure, et les refus au-delà du quota restent à jour.
+
+Après une modification : `sudo systemctl restart kuro-daemon`.
+
+## Sorties réseau des serveurs
+
+Chaque serveur a son réseau Docker, isolé des autres serveurs. En revanche, depuis ce réseau, un
+jeu peut joindre tout ce que l'hôte joint : son réseau privé, et sur un cloud les métadonnées de
+l'instance (`169.254.169.254`). Le daemon ne filtre pas ces sorties, car cela se règle dans le
+pare-feu de l'hôte. Sur un nœud Linux avec Docker en root, ces règles dans la chaîne
+`DOCKER-USER` refusent depuis les bridges Docker ce qui part vers les plages privées, sans gêner
+ni Internet, ni les services d'un même serveur, ni les ports publiés :
+
+```bash
+iptables -I DOCKER-USER -i br-+ ! -o br-+ -d 169.254.169.254/32 -j REJECT
+iptables -I DOCKER-USER -i br-+ ! -o br-+ -d 10.0.0.0/8 -j REJECT
+iptables -I DOCKER-USER -i br-+ ! -o br-+ -d 172.16.0.0/12 -j REJECT
+iptables -I DOCKER-USER -i br-+ ! -o br-+ -d 192.168.0.0/16 -j REJECT
+```
+
+Pour autoriser une adresse précise (une base de données du réseau local, par exemple), ajoutez
+son acceptation **avant** ces refus :
+
+```bash
+iptables -I DOCKER-USER -i br-+ -d 192.168.1.10/32 -j ACCEPT
+```
+
+<Note>
+  Rendez les règles persistantes avec l'outil de votre distribution (`iptables-persistent`,
+  `nftables`). Elles s'appliquent à tous les réseaux Docker de l'hôte, pas seulement à ceux de
+  Kuro. Avec Docker rootless, le pare-feu de l'hôte ne voit pas le trafic des conteneurs : ces
+  règles sont à poser dans l'espace réseau de l'utilisateur, ce qui dépasse ce guide.
+</Note>
+
+## Ce qui se règle dans le panel
+
+- **Paramètres › Projet** : valeurs par défaut et plafonds des ressources des serveurs,
+  conservation du journal d'audit, ouverture du serveur MCP.
+- **Paramètres › DNS** : zone et jeton du fournisseur DNS (voir [DNS](/fr/dns)).
+- **Accès** : comptes administrateurs et rôles.
+
+## Plusieurs instances de l'API
+
+Plusieurs `kuro-api` peuvent tourner sur la même base PostgreSQL, derrière un répartiteur de
+charge : déploiement sans coupure, résistance à la perte d'une machine. Rien à configurer, chaque
+instance s'inscrit en base au démarrage. À savoir :
+
+- Chaque instance garde une connexion dédiée aux notifications entre instances :
+  `database.max_connections` doit le prévoir (10 par défaut).
+- Les limites de débit (`http.rate_limit_per_minute`) sont comptées par instance.
+- La console et les statistiques en direct d'un serveur ne sont disponibles que depuis
+  l'instance à laquelle son nœud est relié ; depuis une autre, l'ouverture de la console est
+  refusée avec un message explicite. Les commandes, fichiers et sauvegardes fonctionnent depuis
+  n'importe quelle instance.
+
+## Sondes et journal des requêtes
+
+- `GET /api/health` : vivacité, répond `200` dès que le processus tourne.
+- `GET /api/ready` : disponibilité, `200` quand la base répond et que le listener des daemons
+  accepte les connexions, `503` sinon avec le détail (`database`, `daemon_listener`). C'est cette
+  sonde qu'un répartiteur de charge ou une supervision doit interroger.
+
+Chaque requête d'API produit une ligne de log `request` : méthode, chemin sans paramètres, statut,
+durée, adresse cliente, identifiant `x-request-id` et acteur authentifié. L'identifiant est aussi
+celui du journal d'audit : il relie une erreur technique à l'action qui l'a provoquée. Les sondes
+et les fichiers du panel ne sont journalisés qu'en `debug`
+(`log.filter = "info,kuro_api::http::trace=debug"` pour les voir).

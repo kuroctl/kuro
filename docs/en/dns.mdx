@@ -1,0 +1,50 @@
+---
+title: "DNS (optional)"
+sidebarTitle: "DNS"
+description: "A name for each game server, published automatically in your DNS zone."
+---
+
+Without DNS, players join a server with `IP:port`. With a DNS zone handed to Kuro, each server
+gets a name: `survival.play.example.com`.
+
+## What Kuro publishes
+
+| Name | Type | Points to |
+|---|---|---|
+| `<node>.nodes.play.example.com` | `A` (and `AAAA`) | The node's public address |
+| `<server>.play.example.com` | `CNAME` | Its node's name |
+| `_minecraft._tcp.<server>.play.example.com` | `SRV` | The node and server port, if the prefab declares it |
+
+The port stays in the address (`survival.play.example.com:25568`), since several servers share
+a node's IP. Games that read an `SRV` record, like Minecraft Java, do without it: the player only
+types the name.
+
+Kuro **never** touches a record it did not create, and recreates the ones deleted by hand.
+
+<Tip>
+  **A dedicated domain.** At Cloudflare, an API token covers a whole zone. Use a domain for game
+  servers that is separate from your website's: a stolen token could then change nothing on your
+  site or your other services.
+</Tip>
+
+## Cloudflare
+
+<Steps>
+  <Step title="Create the token">
+    **My Profile › API Tokens › Create Token**, "Edit zone DNS" template.
+  </Step>
+  <Step title="Limit its permissions">
+    Permissions: `Zone › DNS › Edit` and `Zone › Zone › Read`, on **this zone only**. Optional:
+    restrict the token to the API machine's IP address.
+  </Step>
+  <Step title="Give it to Kuro">
+    In Kuro, **Settings › DNS**: Cloudflare provider, server domain (for example
+    `play.example.com`), token, then **Save** and **Test**.
+  </Step>
+  <Step title="Fill in the nodes">
+    On each node's page, fill in its **public address**.
+  </Step>
+</Steps>
+
+Records appear within a minute, as "DNS only" (grey cloud): game traffic does not go through the
+Cloudflare proxy.

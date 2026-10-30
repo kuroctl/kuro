@@ -1,0 +1,280 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT n.id, n.name, n.display_name, n.status, n.region_id,\n                      r.slug AS \"region_slug?\", r.name AS \"region_name?\",\n                      r.latitude AS \"region_latitude?\", r.longitude AS \"region_longitude?\",\n                      n.location, n.latitude, n.longitude, n.daemon_version, n.os, n.arch,\n                      n.cpu_cores, n.memory_bytes, n.last_heartbeat_at, n.created_at, n.trials, n.public_ipv4, n.public_ipv6\n               FROM nodes n LEFT JOIN regions r ON r.id = n.region_id\n               WHERE n.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "display_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "region_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "region_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "region_slug?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "regions",
+            "name": "slug"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "region_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "regions",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "region_latitude?",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "regions",
+            "name": "latitude"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "region_longitude?",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "regions",
+            "name": "longitude"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "location",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "location"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "latitude",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "latitude"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "longitude",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "longitude"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "daemon_version",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "daemon_version"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "os",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "os"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "arch",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "arch"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "cpu_cores",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "cpu_cores"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "memory_bytes",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "memory_bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "last_heartbeat_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "last_heartbeat_at"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "trials",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "trials"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "public_ipv4",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "public_ipv4"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "public_ipv6",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "public_ipv6"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "ffb51bc4164d9174d4b96fb3f02e12cf7673e35a5fe775782e7d27894b3b48b1"
+}

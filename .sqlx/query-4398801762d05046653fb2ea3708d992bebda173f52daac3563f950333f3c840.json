@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT provider, api_key FROM content_sources",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "provider",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_sources",
+            "name": "provider"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "api_key",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "content_sources",
+            "name": "api_key"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "4398801762d05046653fb2ea3708d992bebda173f52daac3563f950333f3c840"
+}

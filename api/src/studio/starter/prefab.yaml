@@ -1,0 +1,37 @@
+# Nouveau prefab (format v1, ADR-0011). La validation se met à jour pendant la saisie ;
+# « Aperçu » montre le formulaire de réglages tel qu'un admin le verra.
+schema: kuro.prefab/v1
+id: my-prefab
+version: 0.1.0
+category: game
+tags: []
+authors:
+  - name: Kuro
+requires:
+  kuro: ">=0.2"
+
+services:
+  server:
+    # Registre explicite et tag daté : jamais `latest`.
+    image: docker.io/library/debian:bookworm-20261020-slim
+    command: ["/data/start.sh"]
+    ports:
+      game: { container: 25565, protocol: tcp, public: true }
+    volumes:
+      data: { path: /data }
+    writable: [/tmp]
+    user: "1000:1000"
+
+settings:
+  general:
+    server:
+      icon: server
+      fields:
+        max_players: { type: int, default: 10, min: 1, max: 100, restart: true }
+
+# Démarrage et arrêt : ligne de console « prêt », commande d'arrêt propre.
+lifecycle:
+  service: server
+  ready: { console: 'Server started' }
+  stop: { console: stop }
+  timeout: 60

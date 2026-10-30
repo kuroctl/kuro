@@ -1,0 +1,283 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE server_content c\n             SET state = CASE WHEN $4::text IS NULL THEN 'installed' ELSE 'failed' END,\n                 failure = $4, operation_id = NULL, updated_at = now()\n             FROM servers s\n             WHERE c.server_id = s.id AND s.id = $2 AND s.node_id = $1\n               AND c.operation_id = $3 AND c.state = 'installing'\n             RETURNING c.id, c.server_id, c.slot, c.source, c.project_id, c.version_id, c.name,\n                       c.version_name, c.icon_url, c.file_name, c.sha512, c.size_bytes, c.enabled,\n                       c.state, c.failure, c.modpack_id, c.operation_id, c.replaces, c.kind,\n                       c.field_values, c.created_at, c.updated_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "server_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "server_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "slot",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "slot"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "source"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "project_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "project_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "version_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "version_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "version_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "version_name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "icon_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "icon_url"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "file_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "file_name"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "sha512",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "sha512"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "size_bytes",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "size_bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "enabled"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "state",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "state"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "failure",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "failure"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "modpack_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "modpack_id"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "operation_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "operation_id"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "replaces",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "replaces"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "field_values",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "field_values"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a2877c1eb7a19829261b2287f677fac2f1034c8f505527b64270f9f8a29af1ca"
+}

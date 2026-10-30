@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE oauth_tokens SET consumed_at = now() WHERE token_hash = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "18cafc4d2b63adeae1c472edb308e74b623b1ebbf7e8b5d9f67a831f92f91b23"
+}

@@ -1,0 +1,137 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, server_id, name, cron, timezone, enabled, only_when_online, next_run_at,\n                    running_since, created_at\n             FROM server_schedules\n             WHERE enabled AND next_run_at <= $1\n             ORDER BY next_run_at\n             LIMIT $2\n             FOR UPDATE SKIP LOCKED",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "server_schedules",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "server_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "server_schedules",
+            "name": "server_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_schedules",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "cron",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_schedules",
+            "name": "cron"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "timezone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_schedules",
+            "name": "timezone"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "server_schedules",
+            "name": "enabled"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "only_when_online",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "server_schedules",
+            "name": "only_when_online"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "next_run_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "server_schedules",
+            "name": "next_run_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "running_since",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "server_schedules",
+            "name": "running_since"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "server_schedules",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "c2035fb40b520fd66edd935ff733190a1e84379c4fc9c2699168ec33bd7be9f4"
+}

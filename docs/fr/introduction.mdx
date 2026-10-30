@@ -1,0 +1,33 @@
+---
+title: "Introduction"
+description: "Les trois pièces de Kuro et ce qu'il faut pour l'installer."
+---
+
+Kuro est un panel open source pour héberger des serveurs de jeu sur vos propres machines. Il se
+compose de trois pièces :
+
+- **l'API** : le centre de décision. Elle garde les comptes, les permissions, les nœuds, les
+  serveurs et le journal d'audit, et sert le panel ;
+- **le daemon** : installé sur chaque machine qui fait tourner des serveurs (un **nœud**), il
+  pilote Docker, applique les limites et remonte l'état, les statistiques et la console ;
+- **le panel** : l'interface web d'administration, servie par l'API.
+
+## Ce qu'il faut
+
+| Pour | Il faut |
+|---|---|
+| L'API et le panel | Une machine Linux (x86_64 ou arm64) avec systemd, un nom de domaine ou une IP publique, un reverse proxy TLS (Caddy conseillé). PostgreSQL : le vôtre, ou un conteneur local installé par le script (Docker requis). |
+| Un nœud | Une machine Linux (x86_64 ou arm64) avec systemd et Docker. Elle peut être la même que celle de l'API. |
+| Les joueurs | Joindre les ports de jeu du nœud (redirection de ports si le nœud est derrière une box). |
+
+## Par où commencer
+
+1. [Installer l'API et le panel](/fr/install-api).
+2. Créer le premier compte administrateur.
+3. [Ajouter un nœud](/fr/add-a-node).
+4. Déployer un premier serveur depuis le panel : **Serveurs › Nouveau serveur**.
+
+<Note>
+  Sans domaine ni configuration supplémentaire, les joueurs rejoignent un serveur par
+  `IP:port`. Le [DNS](/fr/dns) et les [agents IA](/fr/mcp) sont facultatifs.
+</Note>

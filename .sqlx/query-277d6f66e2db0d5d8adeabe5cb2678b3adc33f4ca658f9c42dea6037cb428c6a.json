@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM prefab_drafts WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "277d6f66e2db0d5d8adeabe5cb2678b3adc33f4ca658f9c42dea6037cb428c6a"
+}

@@ -1,0 +1,43 @@
+# Page d'accueil (get.kuroctl.com) et scripts d'installation servis sous /install/, publiés sur
+# GitHub Pages à chaque changement de main. La documentation est publiée par Mintlify depuis
+# `docs/`, hors de ce workflow. Aucune dépendance Node : `site/build.sh` suffit.
+name: site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "scripts/install.sh"
+      - ".github/workflows/site.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: bash site/build.sh
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

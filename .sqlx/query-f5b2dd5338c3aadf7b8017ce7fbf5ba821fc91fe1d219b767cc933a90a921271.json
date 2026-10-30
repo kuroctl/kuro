@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM oauth_clients c\n             WHERE c.registration = 'dynamic'\n               AND c.created_at < now() - make_interval(secs => $1)\n               AND NOT EXISTS (SELECT 1 FROM oauth_grants g WHERE g.client_id = c.id)\n               AND NOT EXISTS (SELECT 1 FROM oauth_requests r WHERE r.client_id = c.id)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f5b2dd5338c3aadf7b8017ce7fbf5ba821fc91fe1d219b767cc933a90a921271"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM api_instances\n             WHERE id <> $1 AND last_seen_at < now() - $2 * interval '1 second'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a6ae277ec6572887bcecd7a5471c21f5e12cb89a178b00408ae8afb458d3b7b0"
+}

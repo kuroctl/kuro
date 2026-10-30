@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE server_content SET state = 'failed', failure = $2, operation_id = NULL,\n                    updated_at = now()\n             WHERE id = ANY($1) AND state = 'installing'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "635a7e185f02b354109a1b19188ef52bb533e4d63387ab90dc48e52ba014a171"
+}

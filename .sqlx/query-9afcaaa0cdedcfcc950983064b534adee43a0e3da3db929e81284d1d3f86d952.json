@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE server_schedule_runs\n             SET outcome = 'failed', finished_at = now(), reason = 'interrupted'\n             WHERE outcome = 'running'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "9afcaaa0cdedcfcc950983064b534adee43a0e3da3db929e81284d1d3f86d952"
+}

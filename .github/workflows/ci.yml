@@ -1,0 +1,137 @@
+# CI (ADR-0016) : formatage, lint, tests (Linux : chemin `openat2` du daemon), chaîne
+# d'approvisionnement et panel. Rien ne fusionne si un job échoue.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Requêtes sqlx vérifiées contre le cache commité `.sqlx/` (docs/developpement.md).
+  SQLX_OFFLINE: "true"
+
+jobs:
+  rust:
+    name: Rust (fmt, clippy, tests)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      # Docker du runner : Postgres de testcontainers et conteneurs des tests du daemon.
+      - run: cargo test --workspace --exclude kuro-daemon
+      # Le daemon tourne en root en production (fichiers des volumes attribués à l'utilisateur de
+      # chaque service, ADR-0013/0015) : ses tests aussi.
+      - run: sudo -E env "PATH=$PATH" cargo test -p kuro-daemon
+      # Un test en échec laisse ses conteneurs : leurs journaux expliquent la cause.
+      - if: failure()
+        run: |
+          docker ps -a --filter label=kuro.managed --format '{{.Names}} {{.Status}}'
+          for name in $(docker ps -aq --filter label=kuro.managed); do
+            echo "::group::$(docker inspect -f '{{.Name}}' "$name")"
+            docker inspect -f '{{json .NetworkSettings.Networks}}' "$name"
+            docker logs --tail 50 "$name" 2>&1
+            echo "::endgroup::"
+          done
+      # Rend `target/` au runner : le cache est sauvegardé à la fin du job.
+      - if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" target
+
+  supply-chain:
+    name: Dépendances (cargo deny, cargo audit)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-audit
+      - run: cargo deny check
+      - run: cargo audit
+
+  openapi:
+    name: Types du panel à jour
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: panel/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: panel/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: panel
+      # Une modification de l'OpenAPI sans `pnpm gen:api` échoue ici.
+      - run: pnpm gen:api
+        working-directory: panel
+      - run: git diff --exit-code -- panel/src/shared/api/schema.d.ts
+
+  panel:
+    name: Panel (typecheck, lint, tests, build)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: panel
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: panel/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: panel/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+
+  install:
+    name: Scripts d'installation (binaires musl, banc de test)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: shellcheck scripts/*.sh scripts/tests/*.sh
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: musl
+      - uses: mlugg/setup-zig@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
+      # Même compilation que la publication (release.yml).
+      - run: cargo zigbuild --release --locked --target x86_64-unknown-linux-musl -p kuro-api -p kuro-daemon
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: panel/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: panel/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile && pnpm build
+        working-directory: panel
+      # Release signée avec une clé jetable, vrai PostgreSQL, refus des archives altérées.
+      - run: scripts/tests/install-test.sh target/x86_64-unknown-linux-musl/release panel/dist

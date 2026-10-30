@@ -1,0 +1,76 @@
+[package]
+name = "kuro-api"
+description = "Orchestrateur central Kuro"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "kuro-api"
+path = "src/bin/kuro-api/main.rs"
+
+[dependencies]
+kuro-prefab = { workspace = true, features = ["media"] }
+kuro-protocol = { workspace = true, features = ["openapi"] }
+kuro-runtime.workspace = true
+
+anyhow.workspace = true
+argon2.workspace = true
+axum.workspace = true
+axum-extra.workspace = true
+base64.workspace = true
+chacha20poly1305.workspace = true
+clap.workspace = true
+figment.workspace = true
+hmac.workspace = true
+hyper.workspace = true
+http-body-util.workspace = true
+hyper-util.workspace = true
+futures-util.workspace = true
+rcgen.workspace = true
+rmcp.workspace = true
+rustls.workspace = true
+rpassword.workspace = true
+serde.workspace = true
+semver.workspace = true
+# Manifest d'une version importée réécrit en YAML (copie dans le Studio).
+serde-saphyr.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+time.workspace = true
+croner.workspace = true
+chrono.workspace = true
+chrono-tz.workspace = true
+tokio.workspace = true
+tokio-rustls.workspace = true
+tokio-util.workspace = true
+totp-rs.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+utoipa.workspace = true
+uuid.workspace = true
+webpki-roots.workspace = true
+zip.workspace = true
+# Backend de décompression des `.mrpack` (le zip seul n'en choisit pas).
+flate2.workspace = true
+
+[dev-dependencies]
+kuro-daemon = { path = "../daemon" }
+# Dates écrites en dur dans les tests (`datetime!`).
+time = { workspace = true, features = ["macros"] }
+# `start_paused` : tests de délai sans attendre le temps réel.
+tokio = { workspace = true, features = ["test-util"] }
+tempfile.workspace = true
+tokio-tungstenite.workspace = true
+testcontainers.workspace = true
+testcontainers-modules.workspace = true
+x509-parser.workspace = true
+# Images de test hors convention (optimisation des images d'un prefab).
+image.workspace = true
+
+[lints]
+workspace = true

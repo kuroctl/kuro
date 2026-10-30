@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE enrollment_tokens SET expires_at = now()\n             WHERE node_id = $1 AND used_at IS NULL AND expires_at > now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dc49f6b64cf1a69131396ebf94d4536db96d3d6b10efed6efbfae3a80ed04c5a"
+}

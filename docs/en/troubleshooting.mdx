@@ -1,0 +1,37 @@
+---
+title: "Troubleshooting"
+description: "Logs, a node that stays offline, players who cannot connect, a DNS name that does not resolve."
+---
+
+## Where to read logs
+
+```bash
+journalctl -u kuro-api -f      # on the API machine
+journalctl -u kuro-daemon -f   # on a node
+```
+
+The panel also keeps an **audit log**: **Settings › Audit log**.
+
+## A node stays offline
+
+- From the node, the API's daemon port must answer: `nc -vz panel.example.com 8443`.
+- The name given to `--api` must be the one given to `--public-host` when installing the API
+  (the certificate carries it).
+- A revoked node does not reconnect: issue a new token and re-enroll it.
+
+## Players cannot connect
+
+The server runs in the panel, but nobody can join: game traffic does not reach the node.
+
+1. Is the server's port open in the node's firewall (TCP and UDP depending on the game)?
+2. The node is behind a home router: is the port range forwarded to it?
+3. Test from outside (a phone on mobile data, an online port checker): from the local network,
+   many routers cannot loop back to their own public IP.
+
+## The DNS name does not resolve
+
+- **Settings › DNS** lists each record with its status and last error.
+- Is the node's public address filled in? Without it, the node's name does not exist and server
+  names lead nowhere.
+- The SRV record only exists if the server's prefab declares it (Minecraft Java: prefab version
+  1.2.0 or later).

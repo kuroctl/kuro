@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO server_content (id, server_id, slot, source, project_id, version_id, name,\n                                         version_name, icon_url, file_name, sha512, size_bytes,\n                                         state, operation_id, replaces, kind, modpack_id, sha1,\n                                         field_values)\n             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $15, $13, $14, $16, $17,\n                     $18, $19)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Uuid",
+        "Text",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f000d8f0884ffb87568da207f8e5d725fd03e02063956a4f7fc6c89798e6288a"
+}

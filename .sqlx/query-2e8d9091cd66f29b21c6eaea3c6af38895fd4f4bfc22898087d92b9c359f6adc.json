@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE nodes SET status = 'offline', instance_id = NULL, updated_at = now()\n             WHERE instance_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2e8d9091cd66f29b21c6eaea3c6af38895fd4f4bfc22898087d92b9c359f6adc"
+}

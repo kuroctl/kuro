@@ -1,0 +1,9 @@
+{
+  "prefab": {
+    "name": "Enshrouded",
+    "description": "Serveur dédié officiel d'Enshrouded (version Windows sous Proton). Nom, mot de passe et nombre de joueurs se règlent dans enshrouded_server.json."
+  },
+  "files": {
+    "server-json": { "description": "Configuration du serveur (nom, groupes et mots de passe, places, réglages de partie). À modifier serveur arrêté." }
+  }
+}

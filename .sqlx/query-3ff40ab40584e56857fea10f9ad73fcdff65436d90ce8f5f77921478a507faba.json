@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM tickets WHERE token_hash = $1\n               RETURNING server_id, backup_id, admin_id, (expires_at <= now()) AS \"expired!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "server_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "tickets",
+            "name": "server_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "backup_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "tickets",
+            "name": "backup_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "admin_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "tickets",
+            "name": "admin_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "expired!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "3ff40ab40584e56857fea10f9ad73fcdff65436d90ce8f5f77921478a507faba"
+}

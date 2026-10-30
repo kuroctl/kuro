@@ -1,0 +1,50 @@
+---
+title: "Kuro"
+sidebarTitle: "Home"
+description: "Your game servers, on your machines. An open source panel to deploy and run Minecraft, Terraria, ARK and many more across a fleet of nodes."
+---
+
+<CardGroup cols={2}>
+  <Card title="Install Kuro" icon="download" href="/en/install-api">
+    The API and panel in one command, on a fresh server or one you already set up.
+  </Card>
+  <Card title="How it works" icon="diagram-project" href="/en/how-it-works">
+    Control and game traffic: two paths that never cross.
+  </Card>
+</CardGroup>
+
+## Why Kuro
+
+<CardGroup cols={2}>
+  <Card title="One API, many nodes" icon="server">
+    The API drives your machines; on each one, a daemon runs Docker. The daemon opens its own
+    encrypted connection to the API and exposes no admin interface.
+  </Card>
+  <Card title="A prefab for every game" icon="cubes">
+    A server is deployed from a prefab (image, settings, files, install, backup). Write your own
+    in the Studio, try them on a test node, upgrade your servers to the new version.
+  </Card>
+  <Card title="Secure by default" icon="shield-halved">
+    TLS everywhere, mTLS between the API and nodes, non-root and limited containers, fine-grained
+    permissions and a chained audit log.
+  </Card>
+  <Card title="What you need, nothing more" icon="sliders">
+    Live console, files, backups, schedules, mods, quotas. A DNS name per server and an MCP
+    server for AI, if you want them.
+  </Card>
+</CardGroup>
+
+## Where to start
+
+<Steps>
+  <Step title="Install the API and panel">
+    Follow [Install the API and panel](/en/install-api), then create the first admin
+    account.
+  </Step>
+  <Step title="Add a node">
+    Enroll a machine that will run the servers: [Add a node](/en/add-a-node).
+  </Step>
+  <Step title="Deploy a server">
+    In the panel: **Servers › New server**.
+  </Step>
+</Steps>

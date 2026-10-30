@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT role_id FROM admin_user_roles WHERE user_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "role_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "admin_user_roles",
+            "name": "role_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "72292dd6687e7d7d7476aaa32895d76eadb739daab31be399949851b34ec4051"
+}

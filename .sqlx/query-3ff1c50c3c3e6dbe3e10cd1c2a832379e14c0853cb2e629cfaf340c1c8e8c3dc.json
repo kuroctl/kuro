@@ -1,0 +1,137 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, server_id, name, state, size_bytes, sha256, locked, failure, created_at,\n                    completed_at\n             FROM backups WHERE server_id = $1 AND id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "backups",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "server_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "backups",
+            "name": "server_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "backups",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "state",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "backups",
+            "name": "state"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "size_bytes",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "backups",
+            "name": "size_bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "sha256",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "backups",
+            "name": "sha256"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "locked",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "backups",
+            "name": "locked"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "failure",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "backups",
+            "name": "failure"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "backups",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "completed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "backups",
+            "name": "completed_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "3ff1c50c3c3e6dbe3e10cd1c2a832379e14c0853cb2e629cfaf340c1c8e8c3dc"
+}

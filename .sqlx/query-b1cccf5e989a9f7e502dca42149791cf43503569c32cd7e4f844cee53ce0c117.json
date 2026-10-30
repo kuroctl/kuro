@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT kind, content_type, data FROM prefab_draft_assets\n             WHERE draft_id = $1 ORDER BY kind",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "prefab_draft_assets",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "content_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "prefab_draft_assets",
+            "name": "content_type"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "data",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "prefab_draft_assets",
+            "name": "data"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b1cccf5e989a9f7e502dca42149791cf43503569c32cd7e4f844cee53ce0c117"
+}

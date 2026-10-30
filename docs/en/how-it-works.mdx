@@ -1,0 +1,37 @@
+---
+title: "How it works"
+description: "Control and game traffic: two paths that never cross."
+---
+
+Kuro keeps two paths apart; they never cross.
+
+## Control
+
+```txt
+Panel (browser) ──HTTPS──▶ API ◀──WebSocket mTLS── Daemon (node) ──▶ Docker
+```
+
+- The panel talks to the API.
+- The **daemon opens its own** connection to the API (encrypted WebSocket, one certificate per
+  node). The node therefore exposes no admin interface: no API port, no SFTP to open.
+- This path carries commands (start, stop, create, back up), states, stats, the console and
+  the files opened in the panel.
+
+## Game
+
+```txt
+Player ──────────────▶ Node: IP (or name) and server port
+```
+
+- The game client connects **directly** to the server's port on the node. The API is never on
+  this path: it is not a bottleneck, and if it restarts, running games carry on.
+- The node's game ports must be reachable by players. Behind a home router or firewall, open
+  the port range allocated to the node (25565-25600, for example).
+
+## Ports to open
+
+| Machine | Port | For |
+|---|---|---|
+| API | 443/tcp (reverse proxy) | The panel and API |
+| API | 8443/tcp | Daemons (mTLS) |
+| Node | Range allocated to servers (TCP and UDP) | Players |

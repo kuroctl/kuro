@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE servers SET restart_required = true,\n                    pending_removals = pending_removals + $2\n             WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "41c7cb96a0c038c10c6a7535271662e079965c77009ecaa7665e3760c2f19520"
+}

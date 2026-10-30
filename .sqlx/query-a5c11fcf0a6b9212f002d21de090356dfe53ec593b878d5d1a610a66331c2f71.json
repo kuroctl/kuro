@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO nodes (id, name, status, region_id, display_name, location, latitude, longitude)\n             VALUES ($1, $2, 'pending', $3, $4, $5, $6, $7)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Text",
+        "Text",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a5c11fcf0a6b9212f002d21de090356dfe53ec593b878d5d1a610a66331c2f71"
+}

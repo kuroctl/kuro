@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM server_schedule_runs\n             WHERE schedule_id = $1 AND id NOT IN (\n                 SELECT id FROM server_schedule_runs WHERE schedule_id = $1\n                 ORDER BY started_at DESC, id DESC LIMIT $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "854e14faa28a00b6791e0550ecc601829784c46c8f1d1f6c5db061761291e502"
+}

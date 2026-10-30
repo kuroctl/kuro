@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT permission FROM role_permissions WHERE role_id = ANY($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "permission",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "role_permissions",
+            "name": "permission"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "64db2fefed9345a59c030d1936a1b8a8cec63c137f2653d45a2da28d5266d1e6"
+}

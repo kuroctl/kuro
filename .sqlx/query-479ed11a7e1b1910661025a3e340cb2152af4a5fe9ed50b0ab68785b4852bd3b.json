@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE allocations SET server_id = NULL, port_name = NULL WHERE server_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "479ed11a7e1b1910661025a3e340cb2152af4a5fe9ed50b0ab68785b4852bd3b"
+}

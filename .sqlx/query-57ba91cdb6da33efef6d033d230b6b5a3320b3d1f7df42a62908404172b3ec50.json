@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO backups (id, server_id, name, state) VALUES ($1, $2, $3, 'creating')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "57ba91cdb6da33efef6d033d230b6b5a3320b3d1f7df42a62908404172b3ec50"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE admin_sessions SET rotated_at = now(), successor_secret = $2 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4509665e3b941664a9cfb28559bcff7e095d56013aec6d3874dc37a3d6429456"
+}

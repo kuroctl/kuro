@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT mcp_enabled FROM platform_settings",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mcp_enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "mcp_enabled"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2b764f5f4eec140530ec54067369d4e625e8e4c6569e973da005de61348586b3"
+}

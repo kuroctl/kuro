@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT kind, data FROM prefab_assets\n             WHERE prefab_id = $1 AND prefab_version = $2 ORDER BY kind",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "prefab_assets",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "data",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "prefab_assets",
+            "name": "data"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "739aedd6cff454d8847b6cd261f01ab854ce25ec39f80abf3afdc35f3a7f2bc7"
+}

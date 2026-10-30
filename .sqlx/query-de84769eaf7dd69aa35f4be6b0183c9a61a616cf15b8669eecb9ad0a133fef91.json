@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO tickets (token_hash, server_id, backup_id, admin_id, expires_at)\n             VALUES ($1, $2, $3, $4, now() + $5 * interval '1 second')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "de84769eaf7dd69aa35f4be6b0183c9a61a616cf15b8669eecb9ad0a133fef91"
+}

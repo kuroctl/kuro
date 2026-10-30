@@ -1,0 +1,64 @@
+# Comptes, rôles, permissions, journal d'audit. Lancer d'abord la connexion (admin-auth.http).
+
+### Catalogue des permissions (iam.roles.read)
+GET {{baseUrl}}/api/admin/v1/permissions
+Authorization: Bearer {{accessToken}}
+
+### Rôles (iam.roles.read)
+GET {{baseUrl}}/api/admin/v1/roles
+Authorization: Bearer {{accessToken}}
+
+### Créer un rôle (iam.roles.manage)
+POST {{baseUrl}}/api/admin/v1/roles
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "support-n1",
+  "description": "Support niveau 1",
+  "permissions": ["iam.users.read", "audit.read"]
+}
+
+> {% client.global.set("roleId", response.body.id); %}
+
+### Modifier un rôle (iam.roles.manage)
+PATCH {{baseUrl}}/api/admin/v1/roles/{{roleId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "permissions": ["iam.users.read"] }
+
+### Comptes (iam.users.read)
+GET {{baseUrl}}/api/admin/v1/users
+Authorization: Bearer {{accessToken}}
+
+### Créer un compte (iam.users.create)
+POST {{baseUrl}}/api/admin/v1/users
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "email": "support@example.com",
+  "display_name": "Support",
+  "password": "change me at first login"
+}
+
+> {% client.global.set("userId", response.body.id); %}
+
+### Attribuer des rôles (iam.roles.assign)
+PUT {{baseUrl}}/api/admin/v1/users/{{userId}}/roles
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "role_ids": ["{{roleId}}"] }
+
+### Désactiver un compte (iam.users.update)
+PATCH {{baseUrl}}/api/admin/v1/users/{{userId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "disabled": true }
+
+### Journal d'audit (audit.read) — la consultation est elle-même journalisée
+GET {{baseUrl}}/api/admin/v1/audit?limit=20
+Authorization: Bearer {{accessToken}}

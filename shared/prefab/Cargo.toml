@@ -1,0 +1,38 @@
+[package]
+name = "kuro-prefab"
+description = "Prefabs Kuro : modèle, validation, gabarits et résolution en déploiement (ADR-0011)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+kuro-protocol.workspace = true
+
+indexmap.workspace = true
+regex.workspace = true
+semver.workspace = true
+serde.workspace = true
+serde-saphyr.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+# Archives `.kprefab` importées (zip), décompression en Rust pur.
+zip.workspace = true
+# Backend de décompression de `zip` : sans cette dépendance directe, `flate2` n'a aucun backend.
+flate2.workspace = true
+# Mise aux dimensions des images (`media`), seulement pour qui en a besoin (API, xtask).
+image = { workspace = true, optional = true }
+oxipng = { workspace = true, optional = true }
+
+[features]
+media = ["dep:image", "dep:oxipng"]
+
+[dev-dependencies]
+jsonschema.workspace = true
+# Archives de test (écriture).
+zip = { workspace = true, features = ["deflate-flate2"] }
+tempfile.workspace = true
+
+[lints]
+workspace = true

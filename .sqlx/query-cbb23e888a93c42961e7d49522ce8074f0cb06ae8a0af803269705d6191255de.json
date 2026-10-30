@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE nodes SET\n                region_id    = CASE WHEN $2 THEN $3 ELSE region_id END,\n                display_name = CASE WHEN $4 THEN $5 ELSE display_name END,\n                location     = CASE WHEN $6 THEN $7 ELSE location END,\n                latitude     = CASE WHEN $8 THEN $9 ELSE latitude END,\n                longitude    = CASE WHEN $8 THEN $10 ELSE longitude END,\n                updated_at   = now()\n             WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Uuid",
+        "Bool",
+        "Text",
+        "Bool",
+        "Text",
+        "Bool",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cbb23e888a93c42961e7d49522ce8074f0cb06ae8a0af803269705d6191255de"
+}

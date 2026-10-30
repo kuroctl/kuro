@@ -1,0 +1,39 @@
+---
+title: "Mettre à jour"
+description: "Mettre à jour l'API, les nœuds et les serveurs."
+---
+
+Le script d'installation sert aussi à la mise à jour : relancé, il remplace les binaires, le
+panel et les prefabs officiels, sans toucher à la configuration, aux secrets ni à l'autorité de
+certification. Les migrations de la base s'appliquent au démarrage de l'API.
+
+## L'API et le panel
+
+```bash
+curl -fsSLo install.sh https://get.kuroctl.com/api
+sudo bash install.sh
+```
+
+## Un nœud
+
+Un nœud déjà enrôlé n'est pas réenrôlé : ni jeton ni empreinte à fournir.
+
+```bash
+curl -fsSLo install.sh https://get.kuroctl.com/node
+sudo bash install.sh
+```
+
+<Note>
+  Mettez à jour l'API avant les nœuds. Pour une version précise, ajoutez `--version X.Y.Z`. Une
+  machine qui porte les deux rôles : `sudo bash install.sh api node`.
+</Note>
+
+`--full` n'est utile qu'à la première installation ; relancé, il refait les mêmes réglages sans
+rien casser.
+
+## Les serveurs
+
+Une nouvelle version d'un prefab ne s'applique pas toute seule aux serveurs existants. Le panel
+signale « Mise à jour disponible » ; l'aperçu montre ce qui change (réglages, ports, image) et
+la mise à jour peut sauvegarder le serveur d'abord. Plusieurs serveurs à la fois : liste des
+serveurs, filtre « Mise à jour disponible », puis **Actions › Mettre à jour**.

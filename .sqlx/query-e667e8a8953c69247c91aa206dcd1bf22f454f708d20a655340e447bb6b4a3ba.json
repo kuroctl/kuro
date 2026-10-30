@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM audit_log\n                 WHERE seq IN (SELECT seq FROM audit_log WHERE occurred_at < $1\n                               ORDER BY seq LIMIT $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e667e8a8953c69247c91aa206dcd1bf22f454f708d20a655340e447bb6b4a3ba"
+}

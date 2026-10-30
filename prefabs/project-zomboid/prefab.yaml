@@ -1,0 +1,142 @@
+# yaml-language-server: $schema=../schema/prefab.v1.schema.json
+# Project Zomboid : serveur dédié Linux (app Steam 380870, branche publique : Build 42 stable),
+# installé par SteamCMD. Le serveur embarque sa JVM (`jre64/`) ; l'image d'exécution est celle de
+# SteamCMD (Debian 12, utilisateur steam 1000), sans point d'entrée.
+# Le nom du serveur est fixé (`kuro`) : il nomme ses fichiers (Server/kuro.ini…).
+schema: kuro.prefab/v1
+id: project-zomboid
+version: 1.2.0
+category: game
+tags: [project-zomboid, zombie, survival, steam]
+authors:
+  - name: Kuro
+requires:
+  kuro: ">=0.2"
+  # Ressources du serveur entier (ADR-0031) : la JVM réserve environ 3 Go ; la création du
+  # monde en demande davantage.
+  resources:
+    memory_mb: { min: 4096, recommended: 8192 }
+    cpu_percent: { min: 200, recommended: 400 }
+    disk_mb: { min: 10240, recommended: 20480 }
+assets:
+  icon: assets/icon.png
+  cover: assets/banner.webp
+  thumbnail: assets/thumbnail.webp
+
+services:
+  server:
+    image: docker.io/cm2network/steamcmd@sha256:6420fb40313fc00ee0d7fe1ae02c4c32f2b085980f5795b7171022d3409e29fb
+    # `start-server.sh` se place dans son dossier et lance la JVM livrée avec le jeu. Le mot de
+    # passe admin ne sert qu'à la création du compte, au premier démarrage.
+    command:
+      - /data/server/start-server.sh
+      - -cachedir=/data/zomboid
+      - -servername
+      - kuro
+      - -adminusername
+      - admin
+      - -adminpassword
+      - "{{ settings.admin_password }}"
+    env:
+      # La JVM et le lanceur écrivent sous HOME : sur le volume, la racine étant en lecture seule.
+      HOME: /data/home
+      LD_LIBRARY_PATH: /data/server/jre64/lib
+    ports:
+      game: { container: 16261, protocol: udp, public: true }
+      udp: { container: 16262, protocol: udp, public: true }
+    volumes:
+      data: { path: /data }
+    writable: [/tmp]
+    user: "1000:1000"
+
+install:
+  service: server
+  steps:
+    - steamcmd: { app: 380870, dir: /data/server, validate: true }
+
+settings:
+  general:
+    server:
+      icon: server
+      fields:
+        public_name: { type: string, default: "Kuro Zomboid", max_length: 64, restart: true }
+        public_description: { type: text, max_length: 512, restart: true }
+        welcome_message: { type: text, default: "Welcome!", max_length: 512, restart: true }
+        public: { type: bool, default: true, restart: true }
+        max_players: { type: int, default: 16, min: 1, max: 254, restart: true }
+    rules:
+      icon: users
+      fields:
+        pvp: { type: bool, default: true, restart: true }
+        pause_empty: { type: bool, default: true, restart: true }
+        open: { type: bool, default: true, restart: true }
+        save_minutes: { type: int, default: 0, min: 0, max: 1440, restart: true }
+  advanced:
+    security:
+      icon: shield
+      fields:
+        password: { type: password, max_length: 64, restart: true }
+        admin_password: { type: secret, generate: { length: 24 } }
+
+files:
+  server-ini:
+    service: server
+    path: /data/zomboid/Server/kuro.ini
+    format: ini
+    mode: managed-keys
+    keys:
+      PublicName: "{{ settings.public_name }}"
+      PublicDescription: "{{ settings.public_description }}"
+      ServerWelcomeMessage: "{{ settings.welcome_message }}"
+      Public: "{{ settings.public }}"
+      MaxPlayers: "{{ settings.max_players }}"
+      PVP: "{{ settings.pvp }}"
+      PauseEmpty: "{{ settings.pause_empty }}"
+      Open: "{{ settings.open }}"
+      SaveWorldEveryMinutes: "{{ settings.save_minutes }}"
+      Password: "{{ settings.password }}"
+      DefaultPort: "{{ ports.game.container }}"
+      UDPPort: "{{ ports.udp.container }}"
+      # Objets Workshop de l'emplacement `mods`, et identifiants des mods qu'ils contiennent
+      # (`mod.info`), saisis pour chacun ; préfixés `\` en Build 42.
+      WorkshopItems: "{{ content.mods.ids | join(\";\") }}"
+      Mods: "{{ content.mods.values.mod_ids | prefix(\"\\\") | join(\";\") }}"
+  sandbox:
+    service: server
+    path: /data/zomboid/Server/kuro_SandboxVars.lua
+    format: lua
+    mode: user
+  spawnregions:
+    service: server
+    path: /data/zomboid/Server/kuro_spawnregions.lua
+    format: lua
+    mode: user
+
+content:
+  mods:
+    kind: mods
+    service: server
+    providers:
+      # Identifiant Steam du jeu (pas celui du serveur dédié, 380870).
+      - { provider: steam-workshop, game: "108600" }
+    # Le serveur télécharge lui-même les objets listés dans `WorkshopItems` au démarrage.
+    install: { mode: reference }
+    # Un objet Workshop contient un ou plusieurs mods, chacun activé par son identifiant :
+    # télécharger ne suffit pas, il faut dire lesquels activer (`Mods=`).
+    fields:
+      # Les pages Workshop de Zomboid citent leurs identifiants : « Mod ID: Hydrocraft ».
+      mod_ids:
+        type: list
+        required: true
+        prefill: { description: '(?im)^\s*Mod ?IDs?\s*:\s*(.+)$' }
+
+backup:
+  ignore:
+    server: [/data/server/**, /data/home/**]
+
+lifecycle:
+  service: server
+  ready: { console: 'SERVER STARTED' }
+  # `quit` enregistre le monde puis arrête le serveur.
+  stop: { console: quit }
+  timeout: 120

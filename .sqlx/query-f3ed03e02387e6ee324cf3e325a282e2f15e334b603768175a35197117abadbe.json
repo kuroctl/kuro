@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO allocations (id, node_id, ip, port)\n             SELECT id, $2, $3, port FROM UNNEST($1::uuid[], $4::int[]) AS t(id, port)\n             ON CONFLICT (node_id, ip, port) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Uuid",
+        "Text",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f3ed03e02387e6ee324cf3e325a282e2f15e334b603768175a35197117abadbe"
+}

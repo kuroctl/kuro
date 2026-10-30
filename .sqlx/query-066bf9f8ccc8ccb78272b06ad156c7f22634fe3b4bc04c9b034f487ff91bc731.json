@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT c.slot, p.description\n             FROM server_content_packages p JOIN server_content c ON c.id = p.content_id\n             WHERE c.server_id = $1 AND c.enabled AND c.state = 'installed'\n             ORDER BY c.created_at, c.id, p.position",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "slot",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "server_content",
+            "name": "slot"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "description",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "server_content_packages",
+            "name": "description"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "066bf9f8ccc8ccb78272b06ad156c7f22634fe3b4bc04c9b034f487ff91bc731"
+}

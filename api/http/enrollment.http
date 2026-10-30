@@ -1,0 +1,38 @@
+# Listener daemon (port 8443), servi par la CA privée : la vérification du certificat
+# serveur est désactivée pour l'environnement `dev` (voir http-client.env.json).
+# Le vrai client, `kuro-daemonctl enroll`, épingle l'empreinte de la CA.
+#
+# Le token vient de `kuro-api node add` : le placer dans http-client.private.env.json
+# (ignoré par git), par exemple { "dev": { "enrollToken": "kuro_enr_…" } }.
+
+### Token invalide : 401
+POST {{daemonUrl}}/api/enroll
+Content-Type: application/json
+
+{
+  "token": "kuro_enr_invalid",
+  "csr_pem": "-----BEGIN CERTIFICATE REQUEST-----\n-----END CERTIFICATE REQUEST-----\n"
+}
+
+> {%
+  client.test("invalid token is rejected", () => {
+    client.assert(response.status === 401, "expected 401");
+    client.assert(response.body.error === "invalid_token", "expected invalid_token");
+  });
+%}
+
+### CSR invalide avec un vrai token : 400, le token n'est pas consommé
+POST {{daemonUrl}}/api/enroll
+Content-Type: application/json
+
+{
+  "token": "{{enrollToken}}",
+  "csr_pem": "not a csr"
+}
+
+> {%
+  client.test("invalid csr is rejected", () => {
+    client.assert(response.status === 400, "expected 400");
+    client.assert(response.body.error === "invalid_csr", "expected invalid_csr");
+  });
+%}

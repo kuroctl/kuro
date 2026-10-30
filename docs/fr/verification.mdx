@@ -1,0 +1,61 @@
+---
+title: "Vérifier ce qu'on installe"
+sidebarTitle: "Vérification"
+description: "La signature des téléchargements et l'empreinte de l'autorité de certification."
+---
+
+Deux vérifications protègent l'installation. Aucune ne demande de créer quoi que ce soit : le
+script fait la première tout seul, Kuro fournit la valeur de la seconde.
+
+## La signature des téléchargements
+
+Chaque release de Kuro publie, à côté des archives :
+
+- `SHA256SUMS` : la somme SHA-256 de chaque archive ;
+- `SHA256SUMS.minisig` : la signature de cette liste, faite avec la clé privée
+  [minisign](https://jedisct1.github.io/minisign/) du projet.
+
+La clé **publique** correspondante est écrite dans le script d'installation
+(`MINISIGN_PUBKEY`). Avant d'installer quoi que ce soit, le script :
+
+1. vérifie la signature de `SHA256SUMS` avec cette clé ;
+2. vérifie la somme de l'archive téléchargée ;
+3. refuse d'installer si l'une des deux échoue.
+
+Un miroir ou un compte GitHub compromis ne peut donc pas glisser un binaire modifié : il lui
+faudrait la clé privée, qui n'est jamais publiée. `minisign` est installé par le gestionnaire de
+paquets s'il manque.
+
+Pour vérifier une archive à la main :
+
+```bash
+minisign -Vm SHA256SUMS -P <clé publique du script>
+sha256sum -c --ignore-missing SHA256SUMS
+```
+
+<Note>
+  Le script lui-même n'est pas signé : lisez-le avant de l'exécuter (`less install.sh`). C'est
+  pourquoi la doc montre d'abord « télécharger, lire, exécuter ».
+</Note>
+
+## L'empreinte de l'autorité de certification
+
+L'API et les nœuds se parlent en TLS mutuel : chacun présente un certificat signé par une
+**autorité de certification (CA) privée**, créée par le script à l'installation de l'API. Elle
+n'appartient qu'à votre installation.
+
+Au premier enrôlement, le nœud ne connaît pas encore cette CA. L'**empreinte** (`sha256:…`) est
+la somme SHA-256 de son certificat : le nœud la compare à la CA que lui présente l'API, et
+n'envoie son jeton que si elles correspondent. Une machine qui se ferait passer pour votre API
+ne recevrait jamais le jeton.
+
+Vous n'avez rien à calculer : Kuro affiche l'empreinte à la création de chaque nœud, avec le
+jeton. Pour la retrouver sur la machine de l'API :
+
+```bash
+sudo openssl x509 -in /etc/kuro/pki/ca.pem -outform der | sha256sum
+```
+
+Le résultat est la même empreinte, sans le préfixe `sha256:`.
+
+Après l'enrôlement, le nœud garde la CA dans sa configuration : l'empreinte ne resservira plus.

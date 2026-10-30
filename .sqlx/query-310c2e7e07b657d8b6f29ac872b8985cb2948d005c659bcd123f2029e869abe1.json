@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE admin_sessions SET revoked_at = COALESCE(revoked_at, now()) WHERE family_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "310c2e7e07b657d8b6f29ac872b8985cb2948d005c659bcd123f2029e869abe1"
+}

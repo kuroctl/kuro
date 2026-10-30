@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../schema/prefab.v1.schema.json
+# Enshrouded : le serveur dédié (app Steam 2278520) n'existe qu'en version Windows ; il tourne sous
+# Linux avec Proton GE 11, fourni par l'image SteamCMD Proton des eggs Pterodactyl (utilisateur
+# 1000, Proton dans /usr/local/bin, tini en point d'entrée), utilisée seulement comme
+# environnement d'exécution (ADR-0032). Lancement : templates/start.sh.
+# Essayé sous les contraintes de Kuro (racine en lecture seule, sans root, capacités retirées) :
+# « HostOnline » en quelques secondes, monde enregistré à l'arrêt par SIGINT.
+schema: kuro.prefab/v1
+id: enshrouded
+version: 0.4.0
+category: game
+tags: [enshrouded, survival, steam]
+authors:
+  - name: Kuro
+requires:
+  kuro: ">=0.2"
+  # Ressources du serveur entier (ADR-0031) : minimum bloquant, valeur recommandée pré-remplie.
+  resources:
+    memory_mb: { min: 8192, recommended: 16384 }
+    cpu_percent: { min: 200, recommended: 400 }
+    disk_mb: { min: 30720, recommended: 51200 }
+assets:
+  icon: assets/icon.png
+  cover: assets/banner.webp
+  thumbnail: assets/thumbnail.webp
+
+services:
+  server:
+    # Tag `proton` (GE-Proton 11-11) épinglé par empreinte. Proton 10 refuse la bibliothèque Steam
+    # actuelle (« Version Mismatch »).
+    image: ghcr.io/parkervcp/steamcmd@sha256:543ac8eced2e305146b77d7a717e6432c5c35d3f05777709a0c967200d4e97fd
+    command: [bash, /data/kuro-start.sh]
+    env:
+      HOME: /data/home
+      # Préfixe Wine sur le volume : créé au premier démarrage, conservé ensuite.
+      STEAM_COMPAT_DATA_PATH: /data/compat
+      # Bibliothèque Steam copiée depuis SteamCMD à l'installation (`/data/steam/linux64`).
+      STEAM_COMPAT_CLIENT_INSTALL_PATH: /data/steam
+      UMU_ID: "0"
+      WINEDEBUG: "-all"
+    ports:
+      # Port unique, jeu et requêtes Steam (`queryPort` de enshrouded_server.json).
+      game: { container: 15637, protocol: udp, public: true }
+    volumes:
+      data: { path: /data }
+    writable: [/tmp]
+    user: "1000:1000"
+
+install:
+  service: server
+  steps:
+    - steamcmd: { app: 2278520, dir: /data/server, platform: windows, validate: true }
+    # Bibliothèque Steam Linux (relayée au serveur par Proton), prise dans un SteamCMD à jour : celle
+    # du redistribuable Steamworks (app 1007) est trop ancienne pour le serveur.
+    - script:
+        image: docker.io/cm2network/steamcmd@sha256:6420fb40313fc00ee0d7fe1ae02c4c32f2b085980f5795b7171022d3409e29fb
+        run: /home/steam/steamcmd/steamcmd.sh +quit > /dev/null 2>&1 || true; mkdir -p /data/steam && cp -r /home/steam/steamcmd/linux64 /home/steam/steamcmd/linux32 /data/steam/
+    - copy: { template: templates/start.sh, to: /data/kuro-start.sh }
+
+files:
+  # Créé par le serveur au premier démarrage ; JSON, donc édité à la main, serveur arrêté (il le
+  # réécrit à l'arrêt). Mot de passe : `userGroups[].password`.
+  server-json:
+    service: server
+    path: /data/server/enshrouded_server.json
+    format: json
+    mode: user
+
+backup:
+  ignore:
+    # Les mondes sont dans /data/server/savegame : le dossier du jeu reste dans l'archive.
+    server: [/data/compat/**, /data/home/**]
+
+lifecycle:
+  service: server
+  ready: { console: "'HostOnline' \\(up\\)!" }
+  stop: { signal: SIGINT }
+  timeout: 120

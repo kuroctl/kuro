@@ -1,0 +1,24 @@
+{
+  "prefab": {
+    "name": "WordPress",
+    "description": "WordPress site with its MariaDB database."
+  },
+  "groups": {
+    "site": { "title": "Site" },
+    "database": { "title": "Database" },
+    "config": { "title": "PHP configuration" }
+  },
+  "fields": {
+    "debug": { "label": "Debug mode", "help": "Shows PHP errors. Avoid in production." },
+    "table_prefix": { "label": "Table prefix", "help": "Set at deployment." },
+    "db_password": { "label": "Database password", "help": "Generated at deployment, shared by WordPress and MariaDB." },
+    "config_extra": { "label": "Extra configuration", "help": "PHP code appended to wp-config.php (define constants…)." }
+  },
+  "files": {
+    "wp-config": { "description": "WordPress configuration." },
+    "htaccess": { "description": "Apache rules (URL rewriting, redirects)." }
+  },
+  "content": {
+    "plugins": { "title": "Plugins" }
+  }
+}

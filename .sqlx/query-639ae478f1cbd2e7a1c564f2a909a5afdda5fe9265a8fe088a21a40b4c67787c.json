@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO server_content_dependencies (content_id, required_by)\n             SELECT $2, required_by FROM server_content_dependencies WHERE content_id = $1\n             ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "639ae478f1cbd2e7a1c564f2a909a5afdda5fe9265a8fe088a21a40b4c67787c"
+}

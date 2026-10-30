@@ -1,0 +1,35 @@
+{
+  "prefab": {
+    "name": "Minecraft Bedrock Edition",
+    "description": "Official Minecraft Bedrock server (consoles, mobile, Windows), downloaded and updated at start."
+  },
+  "groups": {
+    "server": { "title": "Server" },
+    "version": { "title": "Version" },
+    "world": { "title": "World" },
+    "security": { "title": "Security" }
+  },
+  "fields": {
+    "server_name": { "label": "Server name" },
+    "max_players": { "label": "Max players" },
+    "gamemode": { "label": "Game mode", "options": { "survival": "Survival", "creative": "Creative", "adventure": "Adventure" } },
+    "difficulty": { "label": "Difficulty", "options": { "peaceful": "Peaceful", "easy": "Easy", "normal": "Normal", "hard": "Hard" } },
+    "allow_cheats": { "label": "Cheat commands" },
+    "version": { "label": "Version", "help": "LATEST follows the latest release at each start; a precise version (1.21.120) pins it." },
+    "level_name": { "label": "World name", "help": "Set at deployment." },
+    "level_seed": { "label": "World seed", "help": "Empty: random. Set at deployment." },
+    "view_distance": { "label": "View distance (chunks)" },
+    "tick_distance": { "label": "Simulation distance (chunks)" },
+    "online_mode": { "label": "Require Xbox Live accounts" },
+    "allow_list": { "label": "Allow list", "help": "On: only players in allowlist.json can join." },
+    "ops": { "label": "Operators", "help": "Gamertags or XUIDs, comma separated." }
+  },
+  "files": {
+    "server-properties": { "description": "Server configuration. Keys driven by the settings are rewritten at each start." },
+    "allowlist": { "description": "Allowed players when the allow list is on." },
+    "permissions": { "description": "Player permission levels (operator, member, visitor)." }
+  },
+  "content": {
+    "addons": { "title": "Add-ons" }
+  }
+}

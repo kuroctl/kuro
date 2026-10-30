@@ -1,0 +1,122 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Kuro",
+  "colors": {
+    "primary": "#4e61ed",
+    "light": "#4e61ed",
+    "dark": "#667efe"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "languages": [
+      {
+        "language": "fr",
+        "default": true,
+        "groups": [
+          {
+            "group": "Démarrer",
+            "pages": [
+              "fr/index",
+              "fr/introduction",
+              "fr/how-it-works"
+            ]
+          },
+          {
+            "group": "Installer",
+            "pages": [
+              "fr/install-api",
+              "fr/add-a-node",
+              "fr/verification",
+              "fr/updating"
+            ]
+          },
+          {
+            "group": "Configurer",
+            "pages": [
+              "fr/configuration",
+              "fr/dns",
+              "fr/mcp"
+            ]
+          },
+          {
+            "group": "Aide",
+            "pages": [
+              "fr/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "language": "en",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              "en/index",
+              "en/introduction",
+              "en/how-it-works"
+            ]
+          },
+          {
+            "group": "Install",
+            "pages": [
+              "en/install-api",
+              "en/add-a-node",
+              "en/verification",
+              "en/updating"
+            ]
+          },
+          {
+            "group": "Configure",
+            "pages": [
+              "en/configuration",
+              "en/dns",
+              "en/mcp"
+            ]
+          },
+          {
+            "group": "Help",
+            "pages": [
+              "en/troubleshooting"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/logo/light.png",
+    "dark": "/logo/dark.png"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/kuroctl/kuro"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Kuroctl",
+      "href": "https://kuroctl.com"
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/kuroctl/kuro"
+    }
+  }
+}

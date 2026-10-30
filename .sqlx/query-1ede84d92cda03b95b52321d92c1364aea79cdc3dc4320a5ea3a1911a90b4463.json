@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT a.id, a.node_id, a.ip, a.port, a.server_id,\n                      s.name AS \"server_name?\", a.port_name, a.created_at\n               FROM allocations a LEFT JOIN servers s ON s.id = a.server_id\n               WHERE a.node_id = $1\n               ORDER BY a.ip, a.port",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "allocations",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "node_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "allocations",
+            "name": "node_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "ip",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "allocations",
+            "name": "ip"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "port",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "allocations",
+            "name": "port"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "server_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "allocations",
+            "name": "server_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "server_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "port_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "allocations",
+            "name": "port_name"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "allocations",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "1ede84d92cda03b95b52321d92c1364aea79cdc3dc4320a5ea3a1911a90b4463"
+}

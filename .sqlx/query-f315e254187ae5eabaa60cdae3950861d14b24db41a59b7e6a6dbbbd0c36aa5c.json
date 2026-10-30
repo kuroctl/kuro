@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE admin_users\n             SET totp_secret = totp_pending_secret, totp_pending_secret = NULL,\n                 totp_last_step = $2, updated_at = now()\n             WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f315e254187ae5eabaa60cdae3950861d14b24db41a59b7e6a6dbbbd0c36aa5c"
+}

@@ -1,0 +1,3 @@
+# Construit par build.sh (scripts d'installation compris).
+dist/
+public/install/

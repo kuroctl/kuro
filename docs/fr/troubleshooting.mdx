@@ -1,0 +1,39 @@
+---
+title: "Dépannage"
+description: "Journaux, nœud hors ligne, joueurs qui ne se connectent pas, nom DNS qui ne répond pas."
+---
+
+## Où lire les journaux
+
+```bash
+journalctl -u kuro-api -f      # sur la machine de l'API
+journalctl -u kuro-daemon -f   # sur un nœud
+```
+
+Le panel garde aussi un **journal d'audit** : **Paramètres › Journal d'audit**.
+
+## Un nœud reste hors ligne
+
+- Depuis le nœud, le port des daemons de l'API doit répondre :
+  `nc -vz panel.example.com 8443`.
+- Le nom passé à `--api` doit être celui donné à `--public-host` à l'installation de l'API (le
+  certificat le porte).
+- Un nœud révoqué ne se reconnecte pas : réémettez un jeton et réenrôlez-le.
+
+## Les joueurs n'arrivent pas à se connecter
+
+Le serveur tourne dans le panel, mais personne ne peut entrer : le trafic de jeu ne joint pas
+le nœud.
+
+1. Le port du serveur est-il ouvert dans le pare-feu du nœud (TCP et UDP selon le jeu) ?
+2. Le nœud est derrière une box : la plage de ports est-elle redirigée vers lui ?
+3. Testez depuis l'extérieur (un téléphone en 4G, un vérificateur de ports en ligne) : depuis
+   le réseau local, beaucoup de box ne savent pas reboucler vers leur propre IP publique.
+
+## Le nom DNS ne répond pas
+
+- **Paramètres › DNS** liste chaque enregistrement avec son statut et sa dernière erreur.
+- L'adresse publique du nœud est-elle renseignée ? Sans elle, le nom du nœud n'existe pas et
+  les noms des serveurs ne mènent nulle part.
+- Le SRV n'existe que si le prefab du serveur le déclare (Minecraft Java : version 1.2.0 ou
+  plus récente du prefab).

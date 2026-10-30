@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE node_commands SET claimed_at = now()\n               WHERE id IN (SELECT id FROM node_commands\n                            WHERE instance_id = $1 AND replied_at IS NULL AND claimed_at IS NULL\n                            ORDER BY created_at\n                            FOR UPDATE SKIP LOCKED)\n               RETURNING id, node_id, message",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "node_commands",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "node_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "node_commands",
+            "name": "node_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "message",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "node_commands",
+            "name": "message"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a81408326c885c2b0b0ea91518053b15b47e1462f2b17062a439d7f7a298d7f1"
+}

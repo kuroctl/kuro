@@ -1,0 +1,27 @@
+{
+  "prefab": {
+    "name": "Rust",
+    "description": "Serveur dédié officiel de Rust, installé et mis à jour par SteamCMD. Réinstallez-le après chaque mise à jour forcée (premier jeudi du mois)."
+  },
+  "groups": {
+    "server": { "title": "Serveur" },
+    "world": { "title": "Carte" },
+    "saves": { "title": "Enregistrement" },
+    "security": { "title": "Sécurité" }
+  },
+  "fields": {
+    "hostname": { "label": "Nom du serveur", "help": "Affiché dans la liste des serveurs." },
+    "description": { "label": "Description" },
+    "url": { "label": "Site web", "help": "Adresse https, facultative." },
+    "header_image": { "label": "Image d'en-tête", "help": "Adresse https d'une image PNG ou JPEG, facultative." },
+    "max_players": { "label": "Joueurs maximum" },
+    "world_size": { "label": "Taille de la carte", "help": "Fixée au déploiement : une autre taille impose un effacement de la carte." },
+    "seed": { "label": "Graine de la carte", "help": "Fixée au déploiement." },
+    "save_interval": { "label": "Intervalle d'enregistrement (secondes)" },
+    "rcon_password": { "label": "Mot de passe WebRCON" }
+  },
+  "files": {
+    "server-cfg": { "description": "Commandes lues au démarrage (server.xxx valeur) ; elles priment sur les réglages." },
+    "users-cfg": { "description": "Propriétaires et modérateurs du serveur." }
+  }
+}

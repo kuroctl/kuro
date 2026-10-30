@@ -1,0 +1,27 @@
+{
+  "prefab": {
+    "name": "Rust",
+    "description": "Official Rust dedicated server, installed and updated with SteamCMD. Reinstall it after each forced update (first Thursday of the month)."
+  },
+  "groups": {
+    "server": { "title": "Server" },
+    "world": { "title": "Map" },
+    "saves": { "title": "Saving" },
+    "security": { "title": "Security" }
+  },
+  "fields": {
+    "hostname": { "label": "Server name", "help": "Shown in the server browser." },
+    "description": { "label": "Description" },
+    "url": { "label": "Website", "help": "https address, optional." },
+    "header_image": { "label": "Header image", "help": "https address of a PNG or JPEG image, optional." },
+    "max_players": { "label": "Max players" },
+    "world_size": { "label": "Map size", "help": "Set at deployment: another size requires a map wipe." },
+    "seed": { "label": "Map seed", "help": "Set at deployment." },
+    "save_interval": { "label": "Save interval (seconds)" },
+    "rcon_password": { "label": "WebRCON password" }
+  },
+  "files": {
+    "server-cfg": { "description": "Commands read at start (server.xxx value); they take precedence over the settings." },
+    "users-cfg": { "description": "Server owners and moderators." }
+  }
+}

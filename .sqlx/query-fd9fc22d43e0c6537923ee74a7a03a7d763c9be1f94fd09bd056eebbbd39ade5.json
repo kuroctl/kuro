@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT reply, failure FROM node_commands WHERE id = $1 AND replied_at IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "reply",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "node_commands",
+            "name": "reply"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "failure",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "node_commands",
+            "name": "failure"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "fd9fc22d43e0c6537923ee74a7a03a7d763c9be1f94fd09bd056eebbbd39ade5"
+}

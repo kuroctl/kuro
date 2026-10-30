@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (\n                 SELECT 1 FROM admin_sessions s JOIN admin_users u ON u.id = s.user_id\n                 WHERE s.family_id = $2 AND s.user_id = $1 AND s.revoked_at IS NULL\n                   AND u.disabled_at IS NULL\n               ) AS \"active!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "active!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "0341c1a4260173cd52192a09045d8e5a9a6a274e7e781d61979adb05b29c7934"
+}

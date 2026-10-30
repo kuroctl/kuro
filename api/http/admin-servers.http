@@ -1,0 +1,68 @@
+# Prefabs, ports et serveurs (ADR-0011, ADR-0013). Lancer d'abord la connexion (admin-auth.http).
+# `nodeId` : un nœud en ligne (voir admin-nodes.http, ou `cargo xtask dev` pour `dev-1`).
+
+### Prefabs importés (prefabs.read)
+GET {{baseUrl}}/api/admin/v1/prefabs
+Authorization: Bearer {{accessToken}}
+
+### Manifest d'une version : sections, groupes et champs dans l'ordre d'affichage (prefabs.read)
+GET {{baseUrl}}/api/admin/v1/prefabs/minecraft-java/1.0.0
+Authorization: Bearer {{accessToken}}
+
+### Traductions d'une langue (prefabs.read)
+GET {{baseUrl}}/api/admin/v1/prefabs/minecraft-java/1.0.0/locales/fr
+Authorization: Bearer {{accessToken}}
+
+### Ports du nœud (nodes.allocations.read)
+GET {{baseUrl}}/api/admin/v1/nodes/{{nodeId}}/allocations
+Authorization: Bearer {{accessToken}}
+
+### Ajouter une plage de ports (nodes.allocations.manage)
+POST {{baseUrl}}/api/admin/v1/nodes/{{nodeId}}/allocations
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "ports": "25565-25575" }
+
+### Déployer un serveur Minecraft (servers.create)
+POST {{baseUrl}}/api/admin/v1/servers
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Survie",
+  "node_id": "{{nodeId}}",
+  "prefab_id": "minecraft-java",
+  "memory_mb": 2048,
+  "cpu_percent": 200,
+  "disk_mb": 10240,
+  "settings": { "motd": "Bienvenue sur Kuro", "max_players": 10 }
+}
+
+> {% client.global.set("serverId", response.body.id); %}
+
+### Serveurs (servers.read)
+GET {{baseUrl}}/api/admin/v1/servers
+Authorization: Bearer {{accessToken}}
+
+### Détail : `state` passe de deploying à offline (servers.read)
+GET {{baseUrl}}/api/admin/v1/servers/{{serverId}}
+Authorization: Bearer {{accessToken}}
+
+### Démarrer (servers.power) : start, stop, restart, kill
+POST {{baseUrl}}/api/admin/v1/servers/{{serverId}}/power
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "action": "start" }
+
+### Modifier des réglages : redéploiement, redémarrage s'il tournait (servers.update)
+PATCH {{baseUrl}}/api/admin/v1/servers/{{serverId}}/settings
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "settings": { "max_players": 20, "pvp": false } }
+
+### Supprimer le serveur et ses données (servers.delete)
+DELETE {{baseUrl}}/api/admin/v1/servers/{{serverId}}
+Authorization: Bearer {{accessToken}}

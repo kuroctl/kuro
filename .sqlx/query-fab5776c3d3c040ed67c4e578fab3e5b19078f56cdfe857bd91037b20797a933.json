@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE prefab_assets SET data = $4\n             WHERE prefab_id = $1 AND prefab_version = $2 AND kind = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fab5776c3d3c040ed67c4e578fab3e5b19078f56cdfe857bd91037b20797a933"
+}

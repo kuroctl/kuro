@@ -1,0 +1,40 @@
+{
+  "prefab": {
+    "name": "Project Zomboid",
+    "description": "Official Project Zomboid dedicated server (Build 42), installed and updated with SteamCMD."
+  },
+  "groups": {
+    "server": { "title": "Server" },
+    "rules": { "title": "Rules" },
+    "security": { "title": "Security" }
+  },
+  "fields": {
+    "public_name": { "label": "Public name", "help": "Shown in the server browser." },
+    "public_description": { "label": "Public description" },
+    "welcome_message": { "label": "Welcome message" },
+    "public": { "label": "Listed in the server browser" },
+    "max_players": { "label": "Max players" },
+    "pvp": { "label": "Player versus player" },
+    "pause_empty": { "label": "Pause when empty" },
+    "open": { "label": "Open", "help": "Off: only existing accounts (allow list) can join." },
+    "save_minutes": { "label": "World save (minutes)", "help": "0: on shutdown and at the game's own pace." },
+    "password": { "label": "Server password", "help": "Empty: anyone can join." },
+    "admin_password": { "label": "Admin account password", "help": "Account “admin”, created on the first start." }
+  },
+  "files": {
+    "server-ini": { "description": "Server configuration. Keys managed by the settings are rewritten at start; the server rewrites the file on shutdown." },
+    "sandbox": { "description": "World settings (zombies, loot, seasons…). Edit while the server is stopped." },
+    "spawnregions": { "description": "Player spawn regions." }
+  },
+  "content": {
+    "mods": {
+      "title": "Workshop mods",
+      "fields": {
+        "mod_ids": {
+          "label": "Mods to enable",
+          "help": "A Workshop item can hold several mods (variants, options): the server downloads the item, then only enables the mods listed here. One identifier per line, as the author gives it (often “Mod ID: …” in the description)."
+        }
+      }
+    }
+  }
+}

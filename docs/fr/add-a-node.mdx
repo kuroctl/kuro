@@ -1,0 +1,83 @@
+---
+title: "Ajouter un nœud"
+description: "Créer le nœud dans le panel, installer le daemon et lui donner des ports."
+---
+
+Un nœud est une machine qui fait tourner des serveurs de jeu : Linux (x86_64 ou arm64) et
+systemd. Docker est installé par le script s'il manque. Le nœud peut être la machine de l'API
+([Tout sur une seule machine](/fr/install-api#tout-sur-une-seule-machine)).
+
+## 1. Créer le nœud dans Kuro
+
+Dans le panel : **Infrastructure › Nœuds › Ajouter un nœud**. Donnez-lui un nom technique
+(`a-z`, `0-9`, `-`), inscrit dans son certificat et donc non modifiable, et un libellé si vous
+voulez.
+
+Kuro affiche, **une seule fois** :
+
+- un **jeton d'enrôlement**, à usage unique et valable quelques minutes ;
+- l'**empreinte de l'autorité de certification** (`sha256:…`) ;
+- la **commande** à lancer sur le nœud, empreinte et adresse de l'API comprises.
+
+Vous ne créez ni le jeton ni l'empreinte : Kuro les fournit. L'empreinte permet au nœud de
+vérifier qu'il parle bien à **votre** API avant de lui envoyer le jeton
+([pourquoi](/fr/verification)).
+
+<Tip>
+  Jeton expiré ou perdu : sur la fiche du nœud, **Enrôlement › Émettre un jeton** (les
+  précédents ne valent plus rien). Même chose pour réenrôler un nœud révoqué.
+</Tip>
+
+En ligne de commande, sur la machine de l'API :
+
+```bash
+sudo kuro-api-admin node add --name mon-noeud     # options : --display-name, --region, --location
+sudo kuro-api-admin node token --name mon-noeud   # nouveau jeton
+```
+
+## 2. Installer le daemon
+
+Sur le nœud, collez la commande affichée par le panel.
+
+<Warning>
+  Le jeton passe par une variable d'environnement ou un fichier, **jamais en argument** : il
+  finirait dans l'historique du shell. La ligne `read` l'attend : collez-le, puis Entrée.
+</Warning>
+
+```bash
+curl -fsSLo install.sh https://get.kuroctl.com/node
+less install.sh
+read -rs KURO_ENROLL_TOKEN && export KURO_ENROLL_TOKEN   # collez le jeton, puis Entrée
+sudo -E bash install.sh \
+  --api https://panel.example.com:8443 \
+  --ca-fingerprint sha256:… \
+  --ports 25565-25600 --full
+```
+
+Le daemon génère sa clé privée sur la machine (elle ne la quitte jamais), obtient son
+certificat, puis ouvre sa connexion vers l'API. Le nœud passe **en ligne** dans le panel.
+
+Avec `--full` (serveur vierge, Debian 12-13 ou Ubuntu 22.04-24.04), le script prépare d'abord
+la machine : mises à jour, `fail2ban`, SSH par clé si une clé est déjà autorisée, Docker, et un
+pare-feu `ufw` qui n'ouvre que SSH et la plage `--ports` (TCP et UDP). Le nœud n'a besoin
+d'aucun autre port : c'est lui qui se connecte à l'API. `--plan` montre tout sans rien changer.
+
+| Option | Rôle |
+|---|---|
+| `--api` | Listener des daemons de l'API (`https://hôte:8443`). Requis au premier enrôlement. |
+| `--ca-fingerprint` | Empreinte affichée à la création du nœud. Requise au premier enrôlement. |
+| `--token-file` | Fichier contenant le jeton, à la place de `KURO_ENROLL_TOKEN`. |
+| `--ports` | Plage des serveurs de jeu, ouverte dans le pare-feu par `--full` (ex. `25565-25600`). |
+| `--full` | Prépare un serveur vierge (voir ci-dessus). |
+| `--plan` | Affiche ce qui serait fait, sans rien changer. |
+| `--yes` | Pas de confirmation (`--full`). |
+| `--version` | Version à installer (défaut : la dernière). |
+
+## 3. Donner des ports au nœud
+
+Dans la fiche du nœud, **Ports** : ajoutez la même plage (par exemple `25565-25600`). Chaque
+serveur reçoit un port de cette plage.
+
+Ces ports doivent être joignables par les joueurs. Sans `--full`, ouvrez-les dans le pare-feu du
+nœud ; si le nœud est chez vous, redirigez-les aussi depuis la box (voir
+[Fonctionnement](/fr/how-it-works)).

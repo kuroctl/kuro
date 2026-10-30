@@ -1,0 +1,66 @@
+[package]
+name = "kuro-daemon"
+description = "Agent Kuro installé sur chaque hôte"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# Service systemd.
+[[bin]]
+name = "kuro-daemon"
+path = "src/main.rs"
+
+# CLI de maintenance pour l'exploitation (devops / infra).
+[[bin]]
+name = "kuro-daemonctl"
+path = "src/bin/kuro-daemonctl/main.rs"
+
+[dependencies]
+kuro-protocol.workspace = true
+kuro-runtime.workspace = true
+
+anyhow.workspace = true
+base64.workspace = true
+bollard.workspace = true
+clap.workspace = true
+fastrand.workspace = true
+flate2.workspace = true
+figment.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
+rcgen.workspace = true
+regex.workspace = true
+futures-util.workspace = true
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha1.workspace = true
+sha2.workspace = true
+tar.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-rustls.workspace = true
+tokio-tungstenite.workspace = true
+tokio-util.workspace = true
+toml.workspace = true
+tracing.workspace = true
+time.workspace = true
+uuid.workspace = true
+webpki-roots.workspace = true
+zip.workspace = true
+lzma-rust2.workspace = true
+zstd.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+rustix.workspace = true
+
+[dev-dependencies]
+bollard.workspace = true
+# Encodeur pour fabriquer les archives `.tar.xz` des tests.
+lzma-rust2 = { workspace = true, features = ["encoder"] }
+tempfile.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=../schema/prefab.v1.schema.json
+# WordPress + MariaDB : deux services sur le réseau privé du serveur, seul le web est publié.
+schema: kuro.prefab/v1
+id: wordpress
+version: 1.0.0
+category: web
+tags: [wordpress, php, cms]
+authors:
+  - name: Kuro
+requires:
+  kuro: ">=0.2"
+assets:
+  icon: assets/icon.png
+  cover: assets/banner.png
+  thumbnail: assets/thumbnail.png
+
+services:
+  web:
+    image: docker.io/library/wordpress:6.8-php8.3-apache
+    env:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: "{{ settings.db_password }}"
+      WORDPRESS_TABLE_PREFIX: "{{ settings.table_prefix }}"
+      WORDPRESS_DEBUG: "{{ settings.debug }}"
+      WORDPRESS_CONFIG_EXTRA: "{{ settings.config_extra }}"
+    ports:
+      # Docker autorise un utilisateur non-root à écouter sur un port < 1024 dans le conteneur.
+      http: { container: 80, protocol: tcp, public: true }
+    volumes:
+      html: { path: /var/www/html }
+    writable: [/tmp, /var/run/apache2, /var/lock/apache2]
+    user: "33:33"
+    depends_on: [db]
+    resources: { share: 60 }
+
+  db:
+    image: docker.io/library/mariadb:11.4
+    env:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: "{{ settings.db_password }}"
+      MARIADB_RANDOM_ROOT_PASSWORD: "yes"
+    volumes:
+      data: { path: /var/lib/mysql }
+    writable: [/tmp, /run/mysqld]
+    user: "999:999"
+    resources: { share: 40 }
+    healthcheck:
+      command: [healthcheck.sh, --connect, --innodb_initialized]
+      interval: 10
+      retries: 5
+
+settings:
+  general:
+    site:
+      icon: globe
+      fields:
+        debug: { type: bool, default: false, restart: true }
+  advanced:
+    database:
+      icon: database
+      fields:
+        table_prefix: { type: string, default: wp_, pattern: "^[A-Za-z0-9_]{1,16}$", editable: deploy }
+        db_password: { type: secret, generate: { length: 32 } }
+    config:
+      icon: file-code
+      fields:
+        config_extra: { type: text, max_length: 4000, restart: true }
+
+files:
+  wp-config:
+    service: web
+    path: /var/www/html/wp-config.php
+    format: php
+    mode: user
+  htaccess:
+    service: web
+    path: /var/www/html/.htaccess
+    format: text
+    mode: user
+
+content:
+  plugins:
+    kind: plugins
+    service: web
+    providers:
+      - { provider: upload }
+    install: { mode: download, dir: /var/www/html/wp-content/plugins }
+
+lifecycle:
+  service: web
+  stop: { signal: SIGTERM }
+  timeout: 20

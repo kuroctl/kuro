@@ -1,0 +1,121 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT r.id, r.slug, r.name, r.latitude, r.longitude, r.created_at,\n                      count(n.id) AS \"nodes_total!\",\n                      count(n.id) FILTER (WHERE n.status = 'online') AS \"nodes_online!\",\n                      count(n.id) FILTER (WHERE n.status = 'offline') AS \"nodes_offline!\",\n                      count(n.id) FILTER (WHERE n.status = 'pending') AS \"nodes_pending!\",\n                      count(n.id) FILTER (WHERE n.status = 'revoked') AS \"nodes_revoked!\"\n               FROM regions r LEFT JOIN nodes n ON n.region_id = r.id\n               GROUP BY r.id\n               ORDER BY r.name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "regions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "slug",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "regions",
+            "name": "slug"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "regions",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "latitude",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "regions",
+            "name": "latitude"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "longitude",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "regions",
+            "name": "longitude"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "regions",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "nodes_total!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "nodes_online!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "nodes_offline!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "nodes_pending!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "nodes_revoked!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "b4fffbfbacbb109e6d99b971003aadee3bd7d9e77d3461d2620ff581bcd8769a"
+}

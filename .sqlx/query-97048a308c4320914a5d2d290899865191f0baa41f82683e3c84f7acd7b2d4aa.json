@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE nodes SET last_heartbeat_at = now()\n             WHERE id = ANY($1) AND status = 'online'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "97048a308c4320914a5d2d290899865191f0baa41f82683e3c84f7acd7b2d4aa"
+}

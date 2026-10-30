@@ -1,0 +1,22 @@
+# Configuration du daemon (exemple). Écrite par `install.sh node` à l'enrôlement.
+# Surcharge possible par variables d'environnement : KURO_DAEMON_<SECTION>__<CLÉ>.
+
+[api]
+url = "wss://panel.example.com/api/daemon"
+
+[tls]
+ca_cert = "/etc/kuro/ca.pem"
+cert = "/etc/kuro/node.pem"
+key = "/etc/kuro/node.key"
+
+[log]
+format = "json"
+filter = "info"
+
+[servers]
+# Données des serveurs : <data_root>/<server_id>/.
+# data_root = "/var/lib/kuro/servers"
+# Secondes entre deux mesures de l'espace disque des serveurs (15 à 3600). Chaque mesure parcourt
+# tous les volumes : à allonger sur un nœud aux très gros mondes. Une écriture déclenche de toute
+# façon sa propre mesure.
+# disk_measure_interval_secs = 60
