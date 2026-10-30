@@ -34,6 +34,7 @@ rustls.workspace = true
 rpassword.workspace = true
 serde.workspace = true
 semver.workspace = true
+minisign-verify.workspace = true
 # Manifest d'une version importée réécrit en YAML (copie dans le Studio).
 serde-saphyr.workspace = true
 serde_json.workspace = true
@@ -59,6 +60,8 @@ zip.workspace = true
 flate2.workspace = true
 
 [dev-dependencies]
+# Signature minisign des index de store simulés dans les tests (format legacy `Ed`).
+ed25519-dalek = "2.2.0"
 kuro-daemon = { path = "../daemon" }
 # Dates écrites en dur dans les tests (`datetime!`).
 time = { workspace = true, features = ["macros"] }

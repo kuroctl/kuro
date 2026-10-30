@@ -177,6 +177,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             dir: config.prefabs.dir.clone(),
             publish_to_dir: config.prefabs.publish_to_dir,
         },
+        stores: kuro_api::prefabs::store::StoresState::new(
+            config.prefabs.stores.clone(),
+            Arc::new(kuro_api::prefabs::store::HttpFetcher::new().context("tls client")?),
+        ),
         http: kuro_api::http::policy::HttpPolicy::from_config(&config.http),
         readiness: daemon_listener.readiness(),
     };

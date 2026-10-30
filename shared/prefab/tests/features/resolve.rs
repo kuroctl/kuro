@@ -484,7 +484,10 @@ fn active_packs_are_registered_in_the_world_by_type() {
 fn wordpress_with_json_keys(keys: &str, format: &str) -> Variant {
     let variant = Variant::copy("wordpress");
     let manifest_path = variant.path().join("prefab.yaml");
-    let manifest = std::fs::read_to_string(&manifest_path).unwrap();
+    // Fins de ligne normalisées : un checkout Windows du sous-module peut être en CRLF.
+    let manifest = std::fs::read_to_string(&manifest_path)
+        .unwrap()
+        .replace("\r\n", "\n");
     let manifest = manifest.replacen(
         "files:
 ",

@@ -33,6 +33,8 @@ pub struct TestAdmin {
     pub metadata: std::sync::Arc<super::oauth::FakeFetcher>,
     /// Fournisseur DNS simulé, et l'état du DNS pour lancer une réconciliation.
     pub dns_provider: std::sync::Arc<super::dns::FakeDns>,
+    /// Store de prefabs simulé (`test`, `https://store.test`), signé par sa propre clé.
+    pub store: std::sync::Arc<super::store::FakeStore>,
     pub dns: kuro_api::dns::application::DnsState,
     /// État lu par `/api/ready` : aucun listener ne tourne ici, les tests le simulent.
     pub readiness: kuro_api::system::Readiness,
@@ -90,6 +92,7 @@ impl TestAdmin {
         let steam_grid = std::sync::Arc::new(super::content::FakeSteamGrid::default());
         let metadata = std::sync::Arc::new(super::oauth::FakeFetcher::default());
         let dns_provider = std::sync::Arc::new(super::dns::FakeDns::default());
+        let store = std::sync::Arc::new(super::store::FakeStore::default());
         let dns = kuro_api::dns::application::DnsState::new(
             pool.clone(),
             *iam.keys.server_secrets(),
@@ -126,6 +129,7 @@ impl TestAdmin {
                 dir: std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs"),
                 publish_to_dir: false,
             },
+            stores: kuro_api::prefabs::store::StoresState::new(vec![store.config()], store.clone()),
             oauth: Some(super::oauth::oauth_state(&pool, metadata.clone())),
             dns: dns.clone(),
             content_sources,
@@ -144,6 +148,7 @@ impl TestAdmin {
             servers,
             metadata,
             dns_provider,
+            store,
             dns,
             readiness,
         }

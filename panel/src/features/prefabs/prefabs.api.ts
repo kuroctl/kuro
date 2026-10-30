@@ -53,5 +53,13 @@ export function usePrefabsApi() {
     /** Archive `.kprefab` de la version (ADR-0042). */
     exportArchive: (id: string, version: string) =>
       http.get<Blob>(`${BASE}/${id}/${version}/export`, { responseType: 'blob' }).then((response) => response.data),
+
+    /** Stores de prefabs configurés et leurs versions ; `refresh` relit les index côté API (ADR-0042). */
+    stores: (refresh = false) =>
+      http.get<Schemas['StoreDto'][]>(`${BASE}/stores`, { params: refresh ? { refresh: true } : undefined }).then((response) => response.data),
+
+    /** Installe une version depuis un store : archive vérifiée contre l'index signé, importée en source `store`. */
+    installFromStore: (store: string, id: string, version: string) =>
+      http.post<Prefab>(`${BASE}/stores/${store}/install`, { id, version }).then((response) => response.data),
   }
 }

@@ -42,7 +42,10 @@ impl Variant {
         let dir = TempDir::new().unwrap();
         copy_dir(&prefabs_dir().join(id), dir.path());
         let manifest = dir.path().join("prefab.yaml");
-        let text = std::fs::read_to_string(&manifest).unwrap();
+        // Fins de ligne normalisées : un checkout Windows du sous-module peut être en CRLF.
+        let text = std::fs::read_to_string(&manifest)
+            .unwrap()
+            .replace("\r\n", "\n");
         let edited = edit(text.clone());
         assert_ne!(edited, text, "the edit did not change the manifest");
         std::fs::write(&manifest, edited).unwrap();

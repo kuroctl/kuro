@@ -13,6 +13,7 @@ pub mod media;
 pub mod package;
 pub mod resolve;
 pub mod settings;
+pub mod store;
 pub mod template;
 pub mod validate;
 

@@ -187,6 +187,62 @@ describe('prefabs', () => {
     click.mockRestore()
   })
 
+  it('browses the stores and installs a version into the catalog', async () => {
+    setup()
+    const entry = (overrides: Partial<Schemas['StorePrefabDto']>): Schemas['StorePrefabDto'] => ({
+      id: 'wordpress',
+      version: '1.2.0',
+      category: 'web',
+      tags: [],
+      names: { fr: 'WordPress' },
+      descriptions: { fr: 'Site WordPress.' },
+      requires_kuro: '>=0.2',
+      draft_reason: null,
+      assets: ['icon'],
+      size: 2048,
+      compatible: true,
+      installed: false,
+      ...overrides,
+    })
+    let installed: unknown
+    server.use(
+      http.get(`${API}/prefabs/stores`, () =>
+        HttpResponse.json([
+          {
+            name: 'official',
+            url: 'https://kuroctl.github.io/prefabs/',
+            error: null,
+            prefabs: [
+              entry({}),
+              entry({ id: 'terraria', version: '1.0.0', category: 'game', names: { fr: 'Terraria' }, descriptions: {}, requires_kuro: '>=99', compatible: false }),
+              entry({ id: 'minecraft-java', version: '1.0.0', category: 'game', names: { fr: 'Minecraft' }, installed: true }),
+            ],
+          },
+          { name: 'broken', url: 'https://broken.test/', error: 'signature check failed', prefabs: [] },
+        ]),
+      ),
+      http.post(`${API}/prefabs/stores/official/install`, async ({ request }) => {
+        installed = await request.json()
+        return HttpResponse.json({ ...prefabSummary, id: 'wordpress', version: '1.2.0', source: 'store', store: 'official' }, { status: 201 })
+      }),
+    )
+    const { user, router } = await renderApp('/prefabs')
+    await user.click(await screen.findByRole('link', { name: 'Store' }))
+
+    const wordpress = (await screen.findByText('WordPress')).closest<HTMLElement>('[data-store-prefab]')!
+    expect(screen.getByText('signature check failed')).toBeTruthy()
+    const terraria = screen.getByText('Terraria').closest<HTMLElement>('[data-store-prefab]')!
+    expect(within(terraria).getByText('Demande Kuro >=99')).toBeTruthy()
+    expect(within(terraria).getByRole('button', { name: 'Installer' }).hasAttribute('disabled')).toBe(true)
+    const minecraft = screen.getByText('Minecraft').closest<HTMLElement>('[data-store-prefab]')!
+    expect(within(minecraft).getByText('Au catalogue')).toBeTruthy()
+
+    await user.click(within(wordpress).getByRole('button', { name: 'Installer' }))
+
+    await waitFor(() => expect(installed).toEqual({ id: 'wordpress', version: '1.2.0' }))
+    await waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/prefabs/wordpress?version=1.2.0'))
+  })
+
   it('optimizes the images of a version and warns about the ones too small', async () => {
     setup([v1, { ...v2, assets: ['icon', 'thumbnail'] }])
     let optimized: string | undefined

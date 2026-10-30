@@ -157,6 +157,7 @@ pub async fn import_dir_as(
                     source: "official",
                     imported_by: None,
                     draft_id: None,
+                    store: None,
                 };
                 PrefabRepository::insert(&mut tx, &prefab).await?;
                 let added = insert_assets(&mut tx, &id, &version, &assets).await?;
@@ -324,6 +325,8 @@ pub enum ImportAs {
         draft: uuid::Uuid,
         version: semver::Version,
     },
+    /// Version installée depuis un store (ADR-0042), nommé.
+    Store { store: String },
 }
 
 /// Importe un paquet chargé (archive ou brouillon du Studio). `origin` complète l'événement
@@ -335,9 +338,10 @@ pub async fn import_loaded(
     origin: Value,
     import_as: ImportAs,
 ) -> Result<Imported, PrefabsError> {
-    let (source, draft_id) = match &import_as {
-        ImportAs::Uploaded => ("uploaded", None),
-        ImportAs::Trial { draft, .. } => ("trial", Some(*draft)),
+    let (source, draft_id, store) = match &import_as {
+        ImportAs::Uploaded => ("uploaded", None, None),
+        ImportAs::Trial { draft, .. } => ("trial", Some(*draft), None),
+        ImportAs::Store { store } => ("store", None, Some(store.as_str())),
     };
     let with_origin = |mut details: Value| {
         if let (Some(details), Some(origin)) = (details.as_object_mut(), origin.as_object()) {
@@ -388,6 +392,7 @@ pub async fn import_loaded(
         source,
         imported_by: context.actor.id,
         draft_id,
+        store,
     };
     PrefabRepository::insert(&mut tx, &prefab).await?;
     let added = insert_assets(&mut tx, &id, &version, &assets).await?;

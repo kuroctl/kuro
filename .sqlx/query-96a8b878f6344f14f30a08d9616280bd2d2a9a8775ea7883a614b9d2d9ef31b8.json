@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, version, manifest, locales, templates, imported_at, source\n             FROM prefabs WHERE id = $1 AND version = $2",
+  "query": "SELECT id, version, manifest, locales, templates, imported_at, source, store\n             FROM prefabs WHERE id = $1 AND version = $2",
   "describe": {
     "columns": [
       {
@@ -79,6 +79,17 @@
             "name": "source"
           }
         }
+      },
+      {
+        "ordinal": 7,
+        "name": "store",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "prefabs",
+            "name": "store"
+          }
+        }
       }
     ],
     "parameters": {
@@ -94,8 +105,9 @@
       false,
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "5d409e9dab483da8dd11659a4851ec5283d9b3dc40ea02864957cb6069d1c901"
+  "hash": "96a8b878f6344f14f30a08d9616280bd2d2a9a8775ea7883a614b9d2d9ef31b8"
 }

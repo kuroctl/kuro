@@ -247,3 +247,17 @@ impl PrefabFiles for ArchiveFiles {
             .collect())
     }
 }
+
+/// Archive zip des fichiers d'un prefab, sous un dossier de tête `<folder>/` (que l'import
+/// retire) : une archive `.kprefab` prête à être téléchargée ou publiée dans un store.
+pub fn zip_folder(folder: &str, files: &BTreeMap<String, Vec<u8>>) -> std::io::Result<Vec<u8>> {
+    use std::io::Write;
+    let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+    for (path, data) in files {
+        writer.start_file(format!("{folder}/{path}"), options)?;
+        writer.write_all(data)?;
+    }
+    Ok(writer.finish()?.into_inner())
+}

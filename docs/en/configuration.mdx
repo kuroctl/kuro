@@ -20,6 +20,7 @@ Every key can be overridden by an environment variable `KURO_API_<SECTION>__<KEY
 | `[daemon]` | `bind` (nodes' mTLS listener), paths of the CA and the API certificate |
 | `[auth]` | `require_totp`, `access_ttl_secs`, `refresh_ttl_secs`, `session_max_age_secs` (30 days by default: past it, refreshing is not enough, you must sign in again) |
 | `[prefabs]` | `dir` (official prefabs), `publish_to_dir` (development: “Publish” in the Studio writes the prefab into `dir`; keep `false` in production) |
+| `[[prefabs.stores]]` | One block per prefab store: `name`, `url` (HTTPS root serving `index.json`, its signature and the archives), `public_key` (minisign public key signing the index), `token` (optional, private store). Defaults to the official `kuroctl/prefabs` store; `stores = []` under `[prefabs]` for none |
 | `[mcp]` | `public_url` (public address, enables the MCP server), `panel_url` |
 | `[log]` | `format` (`json` or `pretty`), `filter` |
 

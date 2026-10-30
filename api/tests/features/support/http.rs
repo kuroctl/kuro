@@ -110,6 +110,10 @@ pub async fn get_with_panel(panel: Option<&std::path::Path>, path: &str) -> Test
             dir: std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs"),
             publish_to_dir: false,
         },
+        stores: kuro_api::prefabs::store::StoresState::new(
+            Vec::new(),
+            std::sync::Arc::new(super::store::FakeStore::default()),
+        ),
         oauth: None,
         dns,
         content_sources,

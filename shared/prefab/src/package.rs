@@ -160,3 +160,40 @@ fn read_text(files: &impl PrefabFiles, relative: &str, max: u64) -> Result<Strin
         .ok_or_else(|| io(std::io::ErrorKind::NotFound))?;
     String::from_utf8(data).map_err(|_| io(std::io::ErrorKind::InvalidData))
 }
+
+/// Tous les fichiers d'un dossier de prefab que l'import lit : le manifest, les traductions, les
+/// gabarits et les images qu'il déclare (chemin relatif → octets). Rien d'autre : un fichier
+/// que le manifest ne mentionne pas n'existe pas pour Kuro.
+pub fn read_folder(dir: &Path) -> Result<BTreeMap<String, Vec<u8>>, LoadError> {
+    let files = DirFiles(dir);
+    let manifest_text = read_text(&files, MANIFEST_FILE, MAX_MANIFEST_BYTES)?;
+    let manifest = parse_manifest(&manifest_text)?;
+    let mut out = BTreeMap::from([(MANIFEST_FILE.to_owned(), manifest_text.into_bytes())]);
+    for relative in files.locale_files()? {
+        if let Some(data) = files.read(&relative, MAX_LOCALE_BYTES)? {
+            out.insert(relative, data);
+        }
+    }
+    for relative in template_paths(&manifest) {
+        if validate::is_prefab_path(&relative)
+            && let Some(data) = files.read(&relative, MAX_TEMPLATE_BYTES)?
+        {
+            out.insert(relative, data);
+        }
+    }
+    for relative in [
+        manifest.assets.icon.as_deref(),
+        manifest.assets.cover.as_deref(),
+        manifest.assets.thumbnail.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if validate::is_prefab_path(relative)
+            && let Some(data) = files.read(relative, crate::assets::MAX_ASSET_BYTES)?
+        {
+            out.insert(relative.to_owned(), data);
+        }
+    }
+    Ok(out)
+}

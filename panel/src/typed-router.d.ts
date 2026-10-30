@@ -87,6 +87,13 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/prefabs/store': RouteRecordInfo<
+      '/prefabs/store',
+      '/prefabs/store',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/prefabs/studio/': RouteRecordInfo<
       '/prefabs/studio/',
       '/prefabs/studio',
@@ -359,6 +366,14 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | 'id'
+    }
+    'src/pages/prefabs/store.vue': {
+      routes:
+        | '/prefabs/store'
+      views:
+        | never
+      pathParamNames:
+        | never
     }
     'src/pages/prefabs/studio/index.vue': {
       routes:

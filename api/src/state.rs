@@ -22,6 +22,8 @@ pub struct AppState {
     pub panel: Option<crate::http::panel::Panel>,
     /// Dossier des prefabs officiels, relu par le bouton « Recharger » du panel.
     pub prefabs_dir: crate::prefabs::application::PrefabsDir,
+    /// Stores de prefabs (ADR-0042) : index signés, installation à la demande.
+    pub stores: crate::prefabs::store::StoresState,
     /// Serveur d'autorisation du MCP, si `mcp.public_url` est configurée (ADR-0023).
     pub oauth: Option<crate::oauth::application::OAuthState>,
     /// DNS des serveurs et des nœuds (ADR-0026).
@@ -67,6 +69,12 @@ impl FromRef<AppState> for Option<crate::oauth::application::OAuthState> {
 impl FromRef<AppState> for crate::prefabs::application::PrefabsDir {
     fn from_ref(state: &AppState) -> Self {
         state.prefabs_dir.clone()
+    }
+}
+
+impl FromRef<AppState> for crate::prefabs::store::StoresState {
+    fn from_ref(state: &AppState) -> Self {
+        state.stores.clone()
     }
 }
 

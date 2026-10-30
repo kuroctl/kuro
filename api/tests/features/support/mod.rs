@@ -10,3 +10,4 @@ pub mod link;
 pub mod oauth;
 pub mod pki;
 pub mod platform;
+pub mod store;

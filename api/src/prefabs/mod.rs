@@ -7,3 +7,4 @@ pub mod application;
 pub mod export;
 pub mod http;
 pub mod infra;
+pub mod store;

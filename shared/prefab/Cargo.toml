@@ -13,6 +13,9 @@ indexmap.workspace = true
 regex.workspace = true
 semver.workspace = true
 serde.workspace = true
+# Index d'un store (ADR-0042) : somme des archives, date de génération.
+sha2.workspace = true
+time.workspace = true
 serde-saphyr.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

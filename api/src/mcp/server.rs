@@ -52,6 +52,8 @@ pub struct McpState {
     pub servers: ServersState,
     /// Dossier des prefabs officiels (copie d'une version dans le Studio).
     pub prefabs_dir: PathBuf,
+    /// Stores de prefabs (ADR-0042).
+    pub stores: crate::prefabs::store::StoresState,
 }
 
 /// Agent authentifié, posé dans les extensions de la requête HTTP par `/mcp`.
@@ -169,6 +171,40 @@ const TOOLS: &[ToolDef] = &[
         permission: Permission::PrefabsRead,
         read_only: true,
         schema: no_arguments,
+    },
+    ToolDef {
+        name: "list_store_prefabs",
+        description: "List the prefab versions published by the configured stores (signed indexes), with compatibility with this Kuro and whether they are already in the catalog.",
+        permission: Permission::PrefabsRead,
+        read_only: true,
+        schema: || {
+            json!({
+                "type": "object",
+                "properties": {
+                    "store": { "type": "string", "description": "Only this store" },
+                    "refresh": { "type": "boolean", "default": false, "description": "Re-read the indexes now" },
+                },
+                "additionalProperties": false,
+            })
+        },
+    },
+    ToolDef {
+        name: "install_store_prefab",
+        description: "Install a prefab version from a store into the catalog: the archive is downloaded, checked against the signed index and imported (source `store`).",
+        permission: Permission::PrefabsManage,
+        read_only: false,
+        schema: || {
+            json!({
+                "type": "object",
+                "properties": {
+                    "store": { "type": "string" },
+                    "id": { "type": "string" },
+                    "version": { "type": "string" },
+                },
+                "required": ["store", "id", "version"],
+                "additionalProperties": false,
+            })
+        },
     },
     ToolDef {
         name: "get_prefab_schema",
@@ -415,6 +451,18 @@ fn servers_failure(error: ServersError) -> CallToolResult {
     }
 }
 
+fn store_failure(error: crate::prefabs::store::StoreError) -> CallToolResult {
+    use crate::prefabs::store::StoreError;
+    match error {
+        StoreError::UnknownStore => failed("unknown_store", Value::Null),
+        StoreError::NotInIndex => failed("not_in_store_index", Value::Null),
+        StoreError::Unavailable(reason) => failed("store_unavailable", json!(reason)),
+        StoreError::Untrusted(reason) => failed("store_untrusted", json!(reason)),
+        StoreError::Corrupted => failed("store_corrupted", Value::Null),
+        StoreError::Prefabs(error) => prefabs_failure(error),
+    }
+}
+
 fn prefabs_failure(error: PrefabsError) -> CallToolResult {
     match error {
         PrefabsError::NotFound => failed("not_found", Value::Null),
@@ -504,6 +552,22 @@ fn arguments<T: DeserializeOwned>(arguments: Option<JsonObject>) -> Result<T, Ca
 #[serde(deny_unknown_fields)]
 struct ServerArgs {
     server_id: Uuid,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+struct StoreListArgs {
+    store: Option<String>,
+    #[serde(default)]
+    refresh: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StoreInstallArgs {
+    store: String,
+    id: String,
+    version: String,
 }
 
 #[derive(Deserialize)]
@@ -640,6 +704,47 @@ impl KuroMcp {
                             failed("internal_error", Value::Null)
                         })?;
                 ok(json!(nodes.iter().map(node_summary).collect::<Vec<_>>()))
+            }
+            "list_store_prefabs" => {
+                let StoreListArgs { store, refresh } = arguments(args)?;
+                let views = state
+                    .stores
+                    .catalog(&state.pool, refresh)
+                    .await
+                    .map_err(prefabs_failure)?;
+                ok(json!(
+                    views
+                        .into_iter()
+                        .filter(|view| store.as_deref().is_none_or(|name| name == view.name))
+                        .map(|view| json!({
+                            "store": view.name,
+                            "url": view.url,
+                            "error": view.error,
+                            "prefabs": view.prefabs.iter().map(|item| json!({
+                                "id": item.entry.id,
+                                "version": item.entry.version,
+                                "category": item.entry.category,
+                                "tags": item.entry.tags,
+                                "names": item.entry.names,
+                                "requires_kuro": item.entry.requires_kuro,
+                                "draft": item.entry.draft,
+                                "compatible": item.compatible,
+                                "installed": item.installed,
+                            })).collect::<Vec<_>>(),
+                        }))
+                        .collect::<Vec<_>>()
+                ))
+            }
+            "install_store_prefab" => {
+                let StoreInstallArgs { store, id, version } = arguments(args)?;
+                let imported = state
+                    .stores
+                    .install(&state.pool, context, &store, &id, &version)
+                    .await
+                    .map_err(store_failure)?;
+                ok(
+                    json!({ "id": imported.id, "version": imported.version, "store": store, "installed": true }),
+                )
             }
             "list_prefabs" => {
                 let prefabs = crate::prefabs::application::list(&state.pool)

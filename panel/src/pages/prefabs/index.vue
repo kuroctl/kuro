@@ -2,7 +2,7 @@
 // Catalogue des prefabs (ADR-0011) : une carte par prefab (dernière version, nombre de versions
 // et de serveurs, origine) avec recherche, filtres, tri et pagination ; import d'une archive
 // `.kprefab` avec le détail d'un refus.
-import { Boxes, RefreshCw, Upload } from '@lucide/vue'
+import { Boxes, RefreshCw, Store, Upload } from '@lucide/vue'
 import { isAxiosError } from 'axios'
 import { computed, ref, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -100,6 +100,9 @@ async function upload(event: Event) {
 <template>
   <div class="flex flex-1 flex-col">
     <PageHeader :title="t('prefabs.catalog.title')">
+      <Button variant="outline" as-child>
+        <RouterLink to="/prefabs/store"><Store />{{ t('prefabs.catalog.storeLink') }}</RouterLink>
+      </Button>
       <template v-if="can('prefabs.manage')">
         <Button variant="outline" :disabled="reloading" :title="t('prefabs.catalog.reloadHelp')" @click="reload">
           <RefreshCw :class="{ 'animate-spin': reloading }" />{{ t('prefabs.catalog.reload') }}

@@ -94,13 +94,26 @@ export function usePrefabServers(id: MaybeRefOrGetter<string | undefined>, versi
   )
 }
 
-/** Après un import ou une suppression : le catalogue et ses recherches se rechargent (les versions restent en cache). */
+/** Stores de prefabs et leurs versions (ADR-0042) ; l'API garde les index dix minutes. */
+export function usePrefabStores(enabled: MaybeRefOrGetter<boolean> = true) {
+  return useQuery(
+    computed(() => ({
+      queryKey: ['prefabs', 'stores'],
+      queryFn: () => usePrefabsApi().stores(),
+      staleTime: 60_000,
+      enabled: toValue(enabled),
+    })),
+  )
+}
+
+/** Après un import ou une suppression : le catalogue, ses recherches et les stores (présence au catalogue) se rechargent. */
 export function useInvalidatePrefabs() {
   const client = useQueryClient()
   return () =>
     Promise.all([
       client.invalidateQueries({ queryKey: ['prefabs'], exact: true }),
       client.invalidateQueries({ queryKey: ['prefabs', 'search'] }),
+      client.invalidateQueries({ queryKey: ['prefabs', 'stores'] }),
     ])
 }
 

@@ -291,6 +291,12 @@ fn protected_routes() -> Vec<(Method, String, Option<Value>, Vec<Permission>)> {
         ),
         (
             Method::GET,
+            "/prefabs/stores".into(),
+            None,
+            vec![Permission::PrefabsRead],
+        ),
+        (
+            Method::GET,
             format!("/prefabs/{id}/1.0.0"),
             None,
             vec![Permission::PrefabsRead],
@@ -516,6 +522,12 @@ fn protected_routes() -> Vec<(Method, String, Option<Value>, Vec<Permission>)> {
             format!("/nodes/{id}/allocations"),
             Some(json!({"ports": "x"})),
             vec![Permission::NodesAllocationsManage],
+        ),
+        (
+            Method::POST,
+            "/prefabs/stores/official/install".into(),
+            Some(json!({ "id": "wordpress", "version": "1.2.0" })),
+            vec![Permission::PrefabsManage],
         ),
         (
             Method::POST,
@@ -986,7 +998,7 @@ fn shape(path: &str) -> String {
                 || uuid(segment)
                 || matches!(
                     segment,
-                    "mods" | "x" | "1.0.0" | "fr" | "curseforge" | "icon" | "cron"
+                    "mods" | "x" | "1.0.0" | "fr" | "curseforge" | "icon" | "cron" | "official"
                 );
             if placeholder { "{}" } else { segment }
         })

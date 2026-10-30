@@ -24,6 +24,7 @@ mod search;
 mod security;
 mod steam;
 mod steam_account;
+mod store;
 mod studio;
 mod trials;
 mod upgrades;

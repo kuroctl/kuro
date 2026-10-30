@@ -47,6 +47,13 @@ require_totp = false
 # Développement : « Publier » dans le Studio écrit le prefab dans `dir` et l'importe en `official`
 # (ADR-0042). En production, `dir` est remplacé à chaque mise à jour : laisser false.
 # publish_to_dir = false
+# Stores de prefabs (ADR-0042) : par défaut le store officiel kuroctl/prefabs, signé par la clé
+# des releases de Kuro. Un store privé s'ajoute par un bloc ; `stores = []` pour n'en avoir aucun.
+# [[prefabs.stores]]
+# name = "official"
+# url = "https://kuroctl.github.io/prefabs/"
+# public_key = "RWRtWneTRrp1ruOA8XasvWbs6Uch5gWhK3EzHnwQPsbREM/DKJvnWcTY"
+# token = ""
 
 [log]
 format = "pretty"   # "pretty" ou "json"

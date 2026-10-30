@@ -568,3 +568,47 @@ async fn an_agent_tries_its_draft_reads_its_console_and_runs_actions() {
     assert_eq!(unknown["isError"], true);
     assert_eq!(unknown["structuredContent"]["error"], "unknown_action");
 }
+
+#[tokio::test]
+async fn an_agent_browses_a_store_and_installs_a_version() {
+    let fixture = fixture(&[Permission::PrefabsRead, Permission::PrefabsManage]).await;
+    let (token, _) = agent(&fixture, "prefabs.read prefabs.manage").await;
+    let store = &fixture.admin.store;
+    let entry = store.publish_folder("terraria", |m| {
+        m.replace("version: 1.0.0", "version: 9.0.0")
+    });
+    store.publish(&kuro_prefab::store::StoreIndex::new(
+        "2026-10-30T12:00:00Z".to_owned(),
+        vec![entry],
+    ));
+
+    let listed = tool(&fixture, &token, "list_store_prefabs", json!({})).await;
+    assert_eq!(listed["isError"], false, "{listed}");
+    let stores = listed["structuredContent"].as_array().unwrap();
+    assert_eq!(stores[0]["store"], "test");
+    assert_eq!(stores[0]["prefabs"][0]["id"], "terraria");
+    assert_eq!(stores[0]["prefabs"][0]["installed"], false);
+
+    let installed = tool(
+        &fixture,
+        &token,
+        "install_store_prefab",
+        json!({ "store": "test", "id": "terraria", "version": "9.0.0" }),
+    )
+    .await;
+    assert_eq!(installed["isError"], false, "{installed}");
+    assert_eq!(installed["structuredContent"]["installed"], true);
+    let event = fixture.admin.last_audit("prefab.imported").await;
+    assert_eq!(event.actor_kind, "agent");
+    assert_eq!(event.details["store"], "test");
+
+    let missing = tool(
+        &fixture,
+        &token,
+        "install_store_prefab",
+        json!({ "store": "test", "id": "terraria", "version": "1.2.3" }),
+    )
+    .await;
+    assert_eq!(missing["isError"], true);
+    assert_eq!(missing["structuredContent"]["error"], "not_in_store_index");
+}

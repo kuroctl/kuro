@@ -47,6 +47,7 @@ pub fn router(state: AppState) -> Router {
                 pool: state.pool.clone(),
                 servers: state.servers.clone(),
                 prefabs_dir: state.prefabs_dir.dir.clone(),
+                stores: state.stores.clone(),
             },
             oauth,
         )

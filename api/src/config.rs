@@ -104,6 +104,11 @@ pub struct PrefabsConfig {
     /// chaque mise à jour ; publier importe alors en `uploaded`, exporter donne l'archive.
     #[serde(default)]
     pub publish_to_dir: bool,
+    /// Stores de prefabs (ADR-0042) : index signé d'un dépôt de prefabs, parcouru dans le panel
+    /// et installé à la demande. Par défaut le store officiel `kuroctl/prefabs` ; `stores = []`
+    /// pour n'en avoir aucun.
+    #[serde(default = "default_stores")]
+    pub stores: Vec<StoreConfig>,
 }
 
 impl Default for PrefabsConfig {
@@ -112,8 +117,35 @@ impl Default for PrefabsConfig {
             dir: default_prefabs_dir(),
             watch: false,
             publish_to_dir: false,
+            stores: default_stores(),
         }
     }
+}
+
+/// Un store de prefabs : la racine HTTPS qui sert `index.json`, sa signature
+/// `index.json.minisig` et les archives, et la clé publique minisign qui signe l'index.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StoreConfig {
+    /// Nom affiché et clé de la source (`store` d'une version importée).
+    pub name: String,
+    /// Racine du store, en `https://`.
+    pub url: String,
+    /// Clé publique minisign (base64, telle que dans un fichier `.pub`).
+    pub public_key: String,
+    /// Jeton d'accès (`Authorization: Bearer`) d'un store privé, facultatif.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+}
+
+/// Store officiel : le dépôt `kuroctl/prefabs`, publié sur GitHub Pages et signé par la clé des
+/// releases de Kuro (ADR-0028).
+pub fn default_stores() -> Vec<StoreConfig> {
+    vec![StoreConfig {
+        name: "official".to_owned(),
+        url: "https://kuroctl.github.io/prefabs/".to_owned(),
+        public_key: "RWRtWneTRrp1ruOA8XasvWbs6Uch5gWhK3EzHnwQPsbREM/DKJvnWcTY".to_owned(),
+        token: None,
+    }]
 }
 
 fn default_prefabs_dir() -> PathBuf {

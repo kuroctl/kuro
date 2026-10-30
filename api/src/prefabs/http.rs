@@ -25,10 +25,11 @@ use crate::iam::domain::Permission;
 use crate::iam::http::AdminSession;
 use crate::prefabs::application::{self as prefabs, PrefabsDir, PrefabsError};
 use crate::prefabs::infra::PrefabRecord;
+use crate::prefabs::store::{StoreError, StoresState};
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(list, search, get, locale, asset, export, import, delete, servers, reload, optimize_assets),
+    paths(list, search, get, locale, asset, export, import, delete, servers, reload, optimize_assets, stores, store_install),
     tags((name = "admin-prefabs", description = "Prefabs : modèles de serveurs (ADR-0011)"))
 )]
 pub struct PrefabsApi;
@@ -39,10 +40,13 @@ where
     IamState: FromRef<S>,
     PgPool: FromRef<S>,
     PrefabsDir: FromRef<S>,
+    StoresState: FromRef<S>,
 {
     Router::new()
         .route("/prefabs", route_get(list))
         .route("/prefabs/search", route_get(search))
+        .route("/prefabs/stores", route_get(stores))
+        .route("/prefabs/stores/{store}/install", route_post(store_install))
         .route("/prefabs/reload", route_post(reload))
         // Archive bornée par `files::MAX_ARCHIVE_BYTES` : la limite par défaut (2 Mio) est levée
         // pour cette seule route.
@@ -92,6 +96,158 @@ impl From<PrefabsError> for ApiError {
     }
 }
 
+impl IntoResponse for StoreError {
+    fn into_response(self) -> Response {
+        match self {
+            Self::UnknownStore | Self::NotInIndex => {
+                error_response(StatusCode::NOT_FOUND, ErrorCode::NotFound)
+            }
+            Self::Unavailable(reason) => {
+                Problem::new(StatusCode::BAD_GATEWAY, ErrorCode::StoreUnavailable)
+                    .param("reason", reason)
+                    .into_response()
+            }
+            Self::Untrusted(reason) => {
+                Problem::new(StatusCode::BAD_GATEWAY, ErrorCode::StoreUntrusted)
+                    .param("reason", reason)
+                    .into_response()
+            }
+            Self::Corrupted => error_response(StatusCode::BAD_GATEWAY, ErrorCode::StoreCorrupted),
+            Self::Prefabs(error) => error.into_response(),
+        }
+    }
+}
+
+impl From<StoreError> for ApiError {
+    fn from(error: StoreError) -> Self {
+        Self::from(error.into_response())
+    }
+}
+
+/// Un store de prefabs et ses versions ; `error` quand son index ne peut pas être lu ou cru.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct StoreDto {
+    pub name: String,
+    pub url: String,
+    /// Store injoignable, index absent ou signature refusée : rien n'en est proposé.
+    pub error: Option<String>,
+    pub prefabs: Vec<StorePrefabDto>,
+}
+
+/// Une version publiée par un store.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct StorePrefabDto {
+    pub id: String,
+    pub version: String,
+    pub category: String,
+    pub tags: Vec<String>,
+    pub names: BTreeMap<String, String>,
+    pub descriptions: BTreeMap<String, String>,
+    /// Versions de Kuro acceptées (`requires.kuro`), si déclaré.
+    pub requires_kuro: Option<String>,
+    /// Brouillon (`x-status`) : ce qui reste à vérifier.
+    pub draft_reason: Option<String>,
+    /// Images embarquées : `icon`, `cover`, `thumbnail`.
+    pub assets: Vec<String>,
+    /// Taille de l'archive en octets.
+    pub size: u64,
+    /// Cette API satisfait `requires.kuro`.
+    pub compatible: bool,
+    /// Déjà au catalogue.
+    pub installed: bool,
+}
+
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct StoresQuery {
+    /// Relire les index sans attendre l'expiration du cache (dix minutes).
+    #[serde(default)]
+    pub refresh: bool,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct StoreInstallRequest {
+    pub id: String,
+    pub version: String,
+}
+
+/// Stores de prefabs configurés (ADR-0042) et les versions qu'ils publient, avec leur
+/// compatibilité et leur présence au catalogue. Permission : `prefabs.read`.
+#[utoipa::path(get, path = "/api/admin/v1/prefabs/stores", tag = "admin-prefabs", security(("bearer" = [])),
+    params(StoresQuery),
+    responses((status = 200, body = [StoreDto]), (status = 403, body = Problem)))]
+pub async fn stores(
+    State(iam): State<IamState>,
+    State(pool): State<PgPool>,
+    State(stores): State<StoresState>,
+    session: AdminSession,
+    Query(query): Query<StoresQuery>,
+) -> Result<Json<Vec<StoreDto>>, ApiError> {
+    session.require(&iam, Permission::PrefabsRead).await?;
+    let views = stores.catalog(&pool, query.refresh).await?;
+    Ok(Json(
+        views
+            .into_iter()
+            .map(|view| StoreDto {
+                name: view.name,
+                url: view.url,
+                error: view.error,
+                prefabs: view
+                    .prefabs
+                    .into_iter()
+                    .map(|item| StorePrefabDto {
+                        id: item.entry.id,
+                        version: item.entry.version,
+                        category: item.entry.category,
+                        tags: item.entry.tags,
+                        names: item.entry.names,
+                        descriptions: item.entry.descriptions,
+                        requires_kuro: item.entry.requires_kuro,
+                        draft_reason: item.entry.draft,
+                        assets: item.entry.assets,
+                        size: item.entry.size,
+                        compatible: item.compatible,
+                        installed: item.installed,
+                    })
+                    .collect(),
+            })
+            .collect(),
+    ))
+}
+
+/// Installe une version depuis un store : archive téléchargée à l'adresse de l'index signé,
+/// somme SHA-256 vérifiée, puis importée comme une archive (source `store`). Permission :
+/// `prefabs.manage`.
+#[utoipa::path(post, path = "/api/admin/v1/prefabs/stores/{store}/install", tag = "admin-prefabs",
+    security(("bearer" = [])), params(("store" = String, Path)), request_body = StoreInstallRequest,
+    responses((status = 201, body = PrefabDto), (status = 403, body = Problem),
+        (status = 404, description = "Store inconnu ou version absente de l'index", body = Problem),
+        (status = 409, description = "Version déjà importée", body = Problem),
+        (status = 422, description = "Prefab invalide", body = Problem),
+        (status = 502, description = "Store injoignable, index non signé ou archive altérée", body = Problem)))]
+pub async fn store_install(
+    State(iam): State<IamState>,
+    State(pool): State<PgPool>,
+    State(stores): State<StoresState>,
+    session: AdminSession,
+    Path(store): Path<String>,
+    Json(request): Json<StoreInstallRequest>,
+) -> Result<(StatusCode, Json<PrefabDto>), ApiError> {
+    session.require(&iam, Permission::PrefabsManage).await?;
+    let imported = stores
+        .install(
+            &pool,
+            &session.context,
+            &store,
+            &request.id,
+            &request.version,
+        )
+        .await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(detail(&pool, &imported.id, &imported.version).await?),
+    ))
+}
+
 #[derive(Debug, Serialize, ToSchema)]
 pub struct PrefabSummaryDto {
     #[schema(example = "minecraft-java")]
@@ -123,8 +279,11 @@ pub struct PrefabSummaryDto {
     /// Images disponibles sur `/assets/{kind}` : `icon`, `cover`.
     #[schema(example = json!(["icon"]))]
     pub assets: Vec<String>,
-    /// `official` (dossier `prefabs/`, réimporté au démarrage) ou `uploaded` (panel).
+    /// `official` (dossier `prefabs/`, réimporté au démarrage), `uploaded` (panel) ou `store`.
     pub source: PrefabSourceDto,
+    /// Store d'origine d'une version `store` (ADR-0042).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub store: Option<String>,
     /// Serveurs déployés depuis cette version.
     pub servers: i64,
     #[serde(with = "time::serde::rfc3339")]
@@ -156,6 +315,8 @@ pub enum PrefabSourceDto {
     Uploaded,
     /// Version d'essai d'un brouillon du Studio, hors catalogue.
     Trial,
+    /// Installée depuis un store de prefabs (ADR-0042).
+    Store,
 }
 
 /// Images et serveurs de chaque version, et plafonds de la plateforme, pour les résumés.
@@ -242,8 +403,10 @@ fn summary(record: &PrefabRecord, manifest: &Manifest, counts: &Counts) -> Prefa
         source: match record.source.as_str() {
             "uploaded" => PrefabSourceDto::Uploaded,
             "trial" => PrefabSourceDto::Trial,
+            "store" => PrefabSourceDto::Store,
             _ => PrefabSourceDto::Official,
         },
+        store: record.store.clone(),
         servers: counts.servers.get(&key).copied().unwrap_or(0),
         imported_at: record.imported_at,
     }

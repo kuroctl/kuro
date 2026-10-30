@@ -12,8 +12,11 @@ pub struct PrefabRecord {
     pub locales: Value,
     pub templates: Value,
     pub imported_at: OffsetDateTime,
-    /// `official` (dossier `prefabs/`) ou `uploaded` (archive importée depuis le panel).
+    /// `official` (dossier `prefabs/`), `uploaded` (archive importée depuis le panel), `store`
+    /// (installé depuis un store, ADR-0042) ou `trial` (essai d'un brouillon).
     pub source: String,
+    /// Store d'origine d'une version `store`.
+    pub store: Option<String>,
 }
 
 /// Prefab à stocker.
@@ -28,6 +31,8 @@ pub struct NewPrefab<'a> {
     pub imported_by: Option<uuid::Uuid>,
     /// Brouillon figé par une version d'essai.
     pub draft_id: Option<uuid::Uuid>,
+    /// Store d'origine (source `store`).
+    pub store: Option<&'a str>,
 }
 
 #[derive(Debug)]
@@ -41,7 +46,7 @@ impl PrefabRepository {
     ) -> Result<Option<PrefabRecord>, sqlx::Error> {
         sqlx::query_as!(
             PrefabRecord,
-            "SELECT id, version, manifest, locales, templates, imported_at, source
+            "SELECT id, version, manifest, locales, templates, imported_at, source, store
              FROM prefabs WHERE id = $1 AND version = $2",
             id,
             version,
@@ -53,7 +58,7 @@ impl PrefabRepository {
     pub async fn list(conn: &mut PgConnection) -> Result<Vec<PrefabRecord>, sqlx::Error> {
         sqlx::query_as!(
             PrefabRecord,
-            "SELECT id, version, manifest, locales, templates, imported_at, source
+            "SELECT id, version, manifest, locales, templates, imported_at, source, store
              FROM prefabs WHERE source <> 'trial' ORDER BY id, imported_at",
         )
         .fetch_all(conn)
@@ -161,8 +166,8 @@ impl PrefabRepository {
     ) -> Result<(), sqlx::Error> {
         sqlx::query!(
             "INSERT INTO prefabs (id, version, manifest, locales, templates, source, imported_by,
-                                  draft_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                                  draft_id, store)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
             prefab.id,
             prefab.version,
             prefab.manifest,
@@ -171,6 +176,7 @@ impl PrefabRepository {
             prefab.source,
             prefab.imported_by,
             prefab.draft_id,
+            prefab.store,
         )
         .execute(conn)
         .await?;

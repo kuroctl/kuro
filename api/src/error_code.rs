@@ -118,6 +118,9 @@ error_codes! {
     UnknownPrefab => "unknown_prefab", "Unknown prefab or version";
     InvalidPrefab => "invalid_prefab", "Invalid prefab or archive";
     PrefabExists => "prefab_exists", "This prefab version is already imported";
+    StoreUnavailable => "store_unavailable", "The prefab store cannot be reached";
+    StoreUntrusted => "store_untrusted", "The prefab store index is missing, invalid or not signed by the expected key";
+    StoreCorrupted => "store_corrupted", "The downloaded archive does not match the store index";
     PrefabInUse => "prefab_in_use", "Servers still use this prefab version";
     InvalidSetting => "invalid_setting", "Invalid setting value";
     SettingNotEditable => "setting_not_editable", "This setting is fixed after deployment";
