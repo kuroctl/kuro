@@ -1,9 +1,0 @@
-{
-  "prefab": {
-    "name": "Enshrouded",
-    "description": "Official Enshrouded dedicated server (Windows build under Proton). Name, password and slots are set in enshrouded_server.json."
-  },
-  "files": {
-    "server-json": { "description": "Server configuration (name, groups and passwords, slots, game settings). Edit while the server is stopped." }
-  }
-}
