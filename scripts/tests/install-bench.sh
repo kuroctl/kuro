@@ -17,7 +17,9 @@ expect_failure() {
 apt-get update -qq >/dev/null
 apt-get install -y -qq minisign python3 curl ca-certificates >/dev/null
 
-VERSION=0.1.0
+# La fausse release porte la version du binaire (Cargo.toml) : install.sh la relit par `--version`.
+VERSION="$(/bin-musl/kuro-api --version | awk '{print $2}')"
+[ -n "$VERSION" ] || fail "cannot read the version of /bin-musl/kuro-api"
 T=x86_64-unknown-linux-musl
 R=/release/v$VERSION
 mkdir -p "$R" /work
