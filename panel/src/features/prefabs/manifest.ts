@@ -1,5 +1,5 @@
 // Partie du manifest de prefab (format v1, ADR-0011) dont le panel a besoin. Le JSON Schema
-// publié (`prefabs/schema/prefab.v1.schema.json`) reste la référence complète.
+// publié (`shared/prefab/schema/prefab.v1.schema.json`) reste la référence complète.
 
 export type FieldType =
   | 'string'

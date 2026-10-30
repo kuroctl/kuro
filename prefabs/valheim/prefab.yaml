@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../schema/prefab.v1.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kuroctl/kuro/main/shared/prefab/schema/prefab.v1.schema.json
 # Valheim : serveur dédié Linux (app Steam 896660), installé par SteamCMD.
 # Image d'exécution : celle des eggs Pterodactyl pour Valheim (Ubuntu 22.04, bibliothèques audio
 # et SDL du serveur). Kuro garde son point d'entrée, qui lit la ligne de lancement dans `STARTUP` ;

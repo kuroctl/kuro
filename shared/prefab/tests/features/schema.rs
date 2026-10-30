@@ -4,10 +4,13 @@
 use kuro_prefab::LoadError;
 use serde_json::Value;
 
-use crate::support::{OFFICIAL, Variant, manifest_json, official, prefabs_dir};
+use crate::support::{Variant, manifest_json, official, official_dirs, prefabs_dir};
 
 fn schema() -> jsonschema::Validator {
-    let text = std::fs::read_to_string(prefabs_dir().join("schema/prefab.v1.schema.json")).unwrap();
+    let text = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("schema/prefab.v1.schema.json"),
+    )
+    .unwrap();
     let schema: Value = serde_json::from_str(&text).unwrap();
     jsonschema::validator_for(&schema).unwrap()
 }
@@ -15,8 +18,8 @@ fn schema() -> jsonschema::Validator {
 #[test]
 fn official_prefabs_match_the_published_schema() {
     let schema = schema();
-    for id in OFFICIAL {
-        let instance = manifest_json(&prefabs_dir().join(id));
+    for id in official_dirs() {
+        let instance = manifest_json(&prefabs_dir().join(&id));
         let errors: Vec<String> = schema
             .iter_errors(&instance)
             .map(|e| e.to_string())

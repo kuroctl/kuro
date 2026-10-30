@@ -1,0 +1,3 @@
+[submodule "prefabs"]
+	path = prefabs
+	url = https://github.com/kuroctl/prefabs.git

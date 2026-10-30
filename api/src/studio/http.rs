@@ -36,7 +36,7 @@ use crate::studio::trials::{self, EndReason};
 const MAX_DRAFT_BODY: usize = 40 * 1024 * 1024;
 
 /// JSON Schema publié du format v1, pour l'autocomplétion de l'éditeur.
-const SCHEMA: &str = include_str!("../../../prefabs/schema/prefab.v1.schema.json");
+const SCHEMA: &str = include_str!("../../../shared/prefab/schema/prefab.v1.schema.json");
 
 #[derive(OpenApi)]
 #[openapi(

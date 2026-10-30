@@ -10,7 +10,7 @@ use kuro_prefab::files::{MAX_ARCHIVE_ENTRIES, MAX_ENTRY_BYTES};
 use kuro_prefab::{LoadError, Package};
 use zip::write::SimpleFileOptions;
 
-use crate::support::{OFFICIAL, prefabs_dir};
+use crate::support::{official_dirs, prefabs_dir};
 
 /// Archive des fichiers du prefab officiel `id`, sous `prefix` (vide : à la racine).
 fn zip_official(id: &str, prefix: &str) -> Vec<u8> {
@@ -56,13 +56,13 @@ fn refused(bytes: &[u8]) -> LoadError {
 
 #[test]
 fn an_archive_loads_exactly_like_its_folder() {
-    for id in OFFICIAL {
-        let (package, files) = Package::load_zip(&zip_official(id, "")).unwrap();
-        let from_dir = Package::load_dir(&prefabs_dir().join(id)).unwrap();
+    for id in official_dirs() {
+        let (package, files) = Package::load_zip(&zip_official(&id, "")).unwrap();
+        let from_dir = Package::load_dir(&prefabs_dir().join(&id)).unwrap();
         assert_eq!(package, from_dir, "{id}");
         assert_eq!(
             load_assets_from(&files, &package.manifest).unwrap(),
-            load_assets(&prefabs_dir().join(id), &from_dir.manifest).unwrap(),
+            load_assets(&prefabs_dir().join(&id), &from_dir.manifest).unwrap(),
             "{id}"
         );
     }

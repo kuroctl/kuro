@@ -64,13 +64,23 @@ Control and game traffic never cross: players connect straight to the node, so t
 | `shared/prefab/` | `kuro-prefab` | Prefab format and validation |
 | `shared/runtime/` | `kuro-runtime` | Common base: logging, graceful shutdown, TLS |
 | `panel/` | | Vue 3 admin panel, served by the API |
-| `prefabs/` | | Official prefabs |
+| `prefabs/` | | Official prefabs: the [kuroctl/prefabs](https://github.com/kuroctl/prefabs) submodule |
 | `docs/` | | Documentation site (Mintlify), in English and French |
 | `site/` | | Install page published at get.kuroctl.com |
 
 ## Development
 
 Requirements: Rust stable (1.94 or later), Docker with Compose, and Node.js 24 or later (pnpm through `corepack`).
+
+The official prefabs live in their own repository, included as a submodule: clone with it, or fetch it in an existing clone.
+
+```bash
+git clone --recurse-submodules https://github.com/kuroctl/kuro.git
+```
+
+```bash
+git submodule update --init
+```
 
 ```bash
 cargo xtask dev

@@ -2,7 +2,7 @@
 //! puis contrôles croisés qu'un schéma ne peut pas exprimer (références de gabarits, chemins
 //! sous un volume, valeurs par défaut, traductions).
 //!
-//! Le JSON Schema publié (`prefabs/schema/prefab.v1.schema.json`) et cette validation sont
+//! Le JSON Schema publié (`shared/prefab/schema/prefab.v1.schema.json`) et cette validation sont
 //! comparés par les tests sur les prefabs officiels et sur des cas piégés.
 
 use std::collections::{BTreeSet, HashSet};

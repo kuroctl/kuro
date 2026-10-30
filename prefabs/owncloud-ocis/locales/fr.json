@@ -1,0 +1,41 @@
+{
+  "prefab": {
+    "name": "ownCloud Infinite Scale",
+    "description": "Synchronisation et partage de fichiers ownCloud (oCIS), sans base de données séparée."
+  },
+  "groups": {
+    "tls": {
+      "title": "Certificat"
+    },
+    "logs": {
+      "title": "Journaux"
+    },
+    "admin": {
+      "title": "Administrateur"
+    }
+  },
+  "fields": {
+    "log_level": {
+      "label": "Niveau de journalisation",
+      "options": {
+        "info": "Information",
+        "warn": "Avertissements",
+        "debug": "Débogage",
+        "error": "Erreurs"
+      }
+    },
+    "admin_password": {
+      "help": "Identifiant : admin. Généré au déploiement et appliqué au premier démarrage seulement : changez-le ensuite dans ownCloud.",
+      "label": "Mot de passe administrateur"
+    },
+    "trust_any_certificate": {
+      "help": "oCIS appelle sa propre adresse et vérifie son certificat. Seulement pour un nœud de développement dont le proxy délivre un certificat interne ; à laisser désactivé en production.",
+      "label": "Accepter tout certificat du site"
+    }
+  },
+  "files": {
+    "config": {
+      "description": "Configuration et secrets internes d'oCIS, générés à l'installation. À conserver : les données en dépendent."
+    }
+  }
+}

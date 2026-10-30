@@ -96,7 +96,10 @@ jobs:
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
+      # Prefabs officiels : sous-module `kuroctl/prefabs` au commit épinglé (ADR-0041).
       - uses: actions/checkout@v7
+        with:
+          submodules: true
       - uses: actions/download-artifact@v8
         with:
           path: artifacts
@@ -109,7 +112,9 @@ jobs:
             mkdir -p "$api"
             install -m 0755 "$bin/kuro-api" "$api/"
             cp -r artifacts/panel "$api/panel"
+            # Les prefabs seuls : sans les métadonnées du sous-module.
             cp -r prefabs "$api/prefabs"
+            rm -rf "$api/prefabs/.git" "$api/prefabs/.github" "$api/prefabs/.gitattributes"
             tar -czf "dist/$api.tar.gz" "$api"
 
             daemon="kuro-daemon-$VERSION-$target"

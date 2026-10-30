@@ -31,7 +31,7 @@ use crate::studio::application::{self as studio, Check, DraftFiles, Start};
 use crate::studio::trials;
 
 /// JSON Schema publié du format des prefabs, pour qu'un agent écrive un manifest valide.
-const PREFAB_SCHEMA: &str = include_str!("../../../prefabs/schema/prefab.v1.schema.json");
+const PREFAB_SCHEMA: &str = include_str!("../../../shared/prefab/schema/prefab.v1.schema.json");
 
 /// Consignes données au client à l'initialisation.
 const INSTRUCTIONS: &str = "Kuro manages game servers on a fleet of nodes. You act on behalf of \

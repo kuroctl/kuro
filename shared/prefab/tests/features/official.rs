@@ -4,13 +4,13 @@ use std::collections::HashSet;
 
 use kuro_prefab::manifest::{FieldType, Section};
 
-use crate::support::{OFFICIAL, official};
+use crate::support::{official, official_dirs};
 
 #[test]
 fn every_official_prefab_loads() {
     let mut seen = HashSet::new();
-    for dir in OFFICIAL {
-        let package = official(dir);
+    for dir in official_dirs() {
+        let package = official(&dir);
         // Deux dossiers au même `id@version` entrent en conflit au rechargement du catalogue.
         let label = format!("{}@{}", package.manifest.id, package.manifest.version);
         assert!(seen.insert(label.clone()), "{dir}: {label} already used");

@@ -1,0 +1,41 @@
+{
+  "prefab": {
+    "name": "ownCloud Infinite Scale",
+    "description": "ownCloud file sync and sharing (oCIS), without a separate database."
+  },
+  "groups": {
+    "tls": {
+      "title": "Certificate"
+    },
+    "logs": {
+      "title": "Logs"
+    },
+    "admin": {
+      "title": "Administrator"
+    }
+  },
+  "fields": {
+    "log_level": {
+      "label": "Log level",
+      "options": {
+        "info": "Information",
+        "warn": "Warnings",
+        "debug": "Debug",
+        "error": "Errors"
+      }
+    },
+    "admin_password": {
+      "help": "Login: admin. Generated at deployment and applied at the first start only: change it in ownCloud afterwards.",
+      "label": "Administrator password"
+    },
+    "trust_any_certificate": {
+      "help": "oCIS calls its own address and checks its certificate. Only for a development node whose proxy issues an internal certificate; leave off in production.",
+      "label": "Trust any certificate of the site"
+    }
+  },
+  "files": {
+    "config": {
+      "description": "oCIS configuration and internal secrets, generated at installation. Keep it: the data depends on it."
+    }
+  }
+}

@@ -1,0 +1,31 @@
+# Chaque prefab est chargé et validé exactement comme l'import de Kuro (crate `kuro-prefab`, binaire
+# `kuro-prefab-check`) : manifest, traductions, gabarits, images ; deux dossiers au même
+# `id@version` sont refusés.
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Prefabs valides pour Kuro
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: prefabs
+      # Validation de la branche principale de Kuro : le format qu'elle accepte.
+      - uses: actions/checkout@v7
+        with:
+          repository: kuroctl/kuro
+          path: kuro
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: kuro
+      - run: cargo run --locked --manifest-path kuro/Cargo.toml -p kuro-prefab --bin kuro-prefab-check -- prefabs

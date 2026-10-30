@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../schema/prefab.v1.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kuroctl/kuro/main/shared/prefab/schema/prefab.v1.schema.json
 # RedM (Red Dead Redemption 2 multijoueur, Cfx.re) : serveur Linux `FXServer`, livré avec sa
 # propre bibliothèque musl (`alpine/`). Installé par Kuro sans script : build épinglé (sha256)
 # puis extraction du `.tar.xz` ; les ressources de base (`cfx-server-data`) viennent d'un commit fixé.

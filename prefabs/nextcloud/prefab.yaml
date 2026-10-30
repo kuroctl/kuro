@@ -1,0 +1,130 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kuroctl/kuro/main/shared/prefab/schema/prefab.v1.schema.json
+# Nextcloud (image officielle Apache) + MariaDB : deux services sur le réseau privé du serveur. Le
+# web n'est pas publié sur l'hôte : le proxy du nœud le sert en HTTPS à l'adresse du site
+# (ADR-0038). L'installation se fait au premier démarrage par le point d'entrée de l'image
+# (`occ maintenance:install` d'après les variables MYSQL_* et NEXTCLOUD_ADMIN_*).
+schema: kuro.prefab/v1
+id: nextcloud
+version: 1.0.0
+category: web
+tags: [nextcloud, php, cloud, files]
+authors:
+  - name: Kuro
+requires:
+  kuro: ">=0.2"
+  resources:
+    memory_mb: { min: 1024, recommended: 2048 }
+    disk_mb: { min: 4096, recommended: 20480 }
+assets:
+  icon: assets/icon.png
+  cover: assets/banner.png
+  thumbnail: assets/thumbnail.png
+x-status: "draft: not yet tried on a real node (first install, config/ written before the entrypoint, non-root Apache)"
+
+services:
+  web:
+    # nextcloud:34.0.5-apache (canal production), épinglée par empreinte : on ne saute jamais
+    # une version majeure de Nextcloud, une montée se fait par une nouvelle version du prefab.
+    image: docker.io/library/nextcloud@sha256:515c072ea1cf82ece3503f301fdf75dd5a7148abcc8fa10aaefd5ec56643b703
+    env:
+      MYSQL_HOST: db
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+      MYSQL_PASSWORD: "{{ settings.db_password }}"
+      # Lus seulement à la première installation.
+      NEXTCLOUD_ADMIN_USER: "{{ settings.admin_user }}"
+      NEXTCLOUD_ADMIN_PASSWORD: "{{ settings.admin_password }}"
+      PHP_UPLOAD_LIMIT: "{{ settings.upload_limit_mb }}M"
+      PHP_MEMORY_LIMIT: "{{ settings.memory_limit_mb }}M"
+    ports:
+      # Docker autorise un utilisateur non-root à écouter sur un port < 1024 dans le conteneur.
+      # Port web : servi par le proxy du nœud, jamais publié sur l'hôte.
+      http: { container: 80, protocol: tcp, web: true }
+    volumes:
+      html: { path: /var/www/html }
+    writable: [/tmp, /var/run/apache2, /var/lock/apache2]
+    # www-data : le point d'entrée sait tourner sans root (rsync sans changement de propriétaire).
+    user: "33:33"
+    depends_on: [db]
+    resources: { share: 70 }
+
+  db:
+    image: docker.io/library/mariadb@sha256:d1891ede5a559f1086f55053bb8cc1569b0298338c4d72d71725a7f74f6ba620
+    # mariadb:11.4.13. Niveau d'isolation recommandé par Nextcloud.
+    command: ["--transaction-isolation=READ-COMMITTED"]
+    env:
+      MARIADB_DATABASE: nextcloud
+      MARIADB_USER: nextcloud
+      MARIADB_PASSWORD: "{{ settings.db_password }}"
+      MARIADB_RANDOM_ROOT_PASSWORD: "yes"
+    volumes:
+      data: { path: /var/lib/mysql }
+    writable: [/tmp, /run/mysqld]
+    user: "999:999"
+    resources: { share: 30 }
+    healthcheck:
+      command: [healthcheck.sh, --connect, --innodb_initialized]
+      interval: 10
+      retries: 5
+
+settings:
+  general:
+    site:
+      icon: globe
+      fields:
+        upload_limit_mb: { type: int, default: 512, min: 16, max: 512, restart: true }
+        memory_limit_mb: { type: int, default: 512, min: 256, max: 4096, restart: true }
+  advanced:
+    admin:
+      icon: shield
+      fields:
+        admin_user: { type: string, default: admin, pattern: "^[A-Za-z0-9_.@-]{1,64}$", editable: deploy }
+        admin_password: { type: secret, generate: { length: 24 } }
+    database:
+      icon: database
+      fields:
+        db_password: { type: secret, generate: { length: 32 } }
+
+files:
+  # Regénéré à chaque démarrage : adresse du site, proxy, chemins d'applications. Il remplace les
+  # fichiers par défaut de l'image, que le point d'entrée ne copie pas dans un config/ non vide.
+  kuro-config:
+    service: web
+    path: /var/www/html/config/kuro.config.php
+    format: php
+    mode: template
+    template: templates/kuro.config.php
+  config:
+    service: web
+    path: /var/www/html/config/config.php
+    format: php
+    mode: user
+
+# Entretien par `occ` (ADR-0039) ; `cron` se planifie toutes les 5 minutes, après `use-cron`.
+actions:
+  cron:
+    service: web
+    command: [php, -f, /var/www/html/cron.php]
+    timeout: 120
+    schedulable: true
+  use-cron:
+    service: web
+    command: [php, occ, "background:cron"]
+  repair:
+    service: web
+    command: [php, occ, "maintenance:repair"]
+    timeout: 300
+  files-scan:
+    service: web
+    command: [php, occ, "files:scan", --all]
+    timeout: 300
+  upgrade:
+    service: web
+    command: [php, occ, upgrade]
+    timeout: 300
+
+lifecycle:
+  service: web
+  # STOPSIGNAL de l'image (SIGWINCH : arrêt en douceur d'Apache).
+  stop: { signal: image }
+  timeout: 30

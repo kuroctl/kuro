@@ -14,21 +14,23 @@ pub fn official(id: &str) -> Package {
     Package::load_dir(&prefabs_dir().join(id)).unwrap()
 }
 
-/// Dossiers des prefabs officiels (nom libre ; l'`id` est celui du manifest).
-pub const OFFICIAL: &[&str] = &[
-    "minecraft-java",
-    "wordpress",
-    "ark-survival-ascended",
-    "terraria",
-    "valheim",
-    "project-zomboid",
-    "rust",
-    "enshrouded",
-    "minecraft-bedrock",
-    "arma-3",
-    "fivem-gta5",
-    "fivem-red-dead-redemption-2",
-];
+/// Dossiers des prefabs officiels : chaque sous-dossier de `prefabs/` qui contient un
+/// `prefab.yaml` (nom libre ; l'`id` est celui du manifest). Lus plutôt que listés : `prefabs/`
+/// est le sous-module `kuroctl/prefabs` (ADR-0041), qui peut gagner des prefabs sans changer Kuro.
+pub fn official_dirs() -> Vec<String> {
+    let mut dirs: Vec<String> = std::fs::read_dir(prefabs_dir())
+        .expect("prefabs/ missing: git submodule update --init")
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().join("prefab.yaml").is_file())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    dirs.sort();
+    assert!(
+        !dirs.is_empty(),
+        "no prefab under prefabs/: git submodule update --init"
+    );
+    dirs
+}
 
 /// Copie d'un prefab officiel avec `prefab.yaml` modifié.
 pub struct Variant {

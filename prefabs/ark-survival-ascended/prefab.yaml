@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../schema/prefab.v1.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kuroctl/kuro/main/shared/prefab/schema/prefab.v1.schema.json
 # ARK : Survival Ascended. Le serveur dédié (app Steam 2430930) n'existe qu'en version Windows :
 # SteamCMD force la plateforme Windows (ADR-0032), Proton GE 10 l'exécute. Proton GE 11 bloque
 # ArkAscendedServer.exe au démarrage (signalé par la communauté). Lancement : templates/start.sh.

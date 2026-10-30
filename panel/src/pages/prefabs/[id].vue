@@ -155,7 +155,7 @@ async function remove() {
     <div v-else-if="prefab" class="grid gap-6 p-6">
       <PrefabCover :prefab="ref_">
         <div class="flex min-h-32 items-end gap-4 p-5">
-          <PrefabIcon :prefab="ref_" class="size-14 rounded-xl text-xl ring-2 ring-card" />
+          <PrefabIcon :prefab="ref_" class="size-14 rounded-xl text-xl" />
           <div class="grid min-w-0 gap-2">
             <p v-if="description" class="text-sm text-muted-foreground">{{ description }}</p>
             <div class="flex flex-wrap gap-2">

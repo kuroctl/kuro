@@ -1,0 +1,55 @@
+{
+  "prefab": {
+    "name": "OpenClaw",
+    "description": "Self-hosted AI assistant, reachable from its web interface and from chat apps (Telegram, Discord, Slack, WhatsApp)."
+  },
+  "groups": {
+    "access": {
+      "title": "Access"
+    },
+    "system": {
+      "title": "System"
+    },
+    "providers": {
+      "title": "AI providers"
+    }
+  },
+  "fields": {
+    "timezone": {
+      "help": "IANA name, for example Europe/Paris.",
+      "label": "Time zone"
+    },
+    "gateway_token": {
+      "help": "Paste it in the web interface (Settings) to connect. Full access to the assistant: keep it secret.",
+      "label": "Gateway token"
+    },
+    "openai_api_key": {
+      "help": "Optional.",
+      "label": "OpenAI API key"
+    },
+    "anthropic_api_key": {
+      "help": "Optional. Other providers can be set up from the web interface.",
+      "label": "Anthropic API key"
+    }
+  },
+  "files": {
+    "config": {
+      "description": "OpenClaw configuration (openclaw.json), also edited by the web interface. Listening, trusted proxy and site origin are rewritten on start."
+    }
+  },
+  "actions": {
+    "list-devices": {
+      "help": "Browsers and apps waiting for approval, with their request id.",
+      "label": "List devices"
+    },
+    "approve-device": {
+      "help": "A new browser must be approved once before using the web interface (\"pairing required\").",
+      "label": "Approve a device",
+      "params": {
+        "request_id": {
+          "label": "Request id"
+        }
+      }
+    }
+  }
+}

@@ -7,7 +7,7 @@ description: Écrire un nouveau prefab Kuro (modèle de serveur de jeu ou d'appl
 
 Un prefab est un dossier : `prefab.yaml` (manifest `kuro.prefab/v1`), `locales/en.json` (obligatoire,
 langue de repli) et `locales/fr.json`, `templates/` (gabarits), `assets/` (images). Le format fait
-foi dans `prefabs/schema/prefab.v1.schema.json` ; la décision dans
+foi dans `shared/prefab/schema/prefab.v1.schema.json` ; la décision dans
 `docs/private/decisions/ADR-0011-prefabs.md`. Ce skill dit **comment aller vite sans se tromper**,
 il ne recopie pas le schéma : en cas de doute, le schéma et la validation gagnent.
 
@@ -64,14 +64,17 @@ Pièges :
 
 ## Dans le dépôt (prefabs officiels)
 
-Écrire le dossier `prefabs/<dossier>/` (en-tête `# yaml-language-server:
-$schema=../schema/prefab.v1.schema.json`, puis un commentaire qui explique le choix d'image et
-d'installation). Ensuite :
+`prefabs/` est le sous-module `kuroctl/prefabs` (ADR-0041) : un prefab officiel s'écrit dans ce
+dépôt, pas dans Kuro. Écrire le dossier `prefabs/<dossier>/` (en-tête `# yaml-language-server:
+$schema=https://raw.githubusercontent.com/kuroctl/kuro/main/shared/prefab/schema/prefab.v1.schema.json`,
+puis un commentaire qui explique le choix d'image et d'installation). Ensuite :
 - ajouter sa ligne dans `prefabs/README.md` ;
-- mettre à jour le compte et la liste de `official_prefabs_are_imported_once`
-  (`api/tests/features/servers/prefabs.rs`) ;
-- lancer `cargo test -p kuro-prefab` (schéma ↔ validation sur les prefabs officiels) et
-  `cargo test -p kuro-api --test features servers::prefab`.
+- vérifier : `cargo run -p kuro-prefab --bin kuro-prefab-check -- prefabs` (chargement comme
+  l'import, images, `id@version` en double), puis `cargo test -p kuro-prefab` et
+  `cargo test -p kuro-api --test features servers::prefab` (les listes de prefabs officiels sont
+  lues sur disque, rien à mettre à jour) ;
+- commit et push dans `kuroctl/prefabs`, puis Kuro avance le pointeur du sous-module ; le
+  commit est fait par l'utilisateur.
 
 Un prefab officiel publié est **immuable** : changer son contenu demande une nouvelle version.
 

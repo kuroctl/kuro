@@ -16,15 +16,24 @@ async fn official_prefabs_are_imported_once() {
     let again = import_dir(&platform.api.pool, &dir).await.unwrap();
 
     assert!(again.imported.is_empty());
-    // minecraft-java, minecraft-bedrock, wordpress, ark-survival-ascended, terraria, valheim,
-    // project-zomboid, rust, enshrouded, arma-3, fivem, redm.
-    assert_eq!(again.unchanged.len(), 12);
+    // Un prefab par dossier de `prefabs/` (sous-module `kuroctl/prefabs`, ADR-0041) : compté
+    // plutôt que listé, pour qu'un ajout au dépôt des prefabs ne casse pas ce test.
+    let official = std::fs::read_dir(&dir)
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().join("prefab.yaml").is_file())
+        .count();
+    assert!(
+        official > 0,
+        "prefabs/ is empty: git submodule update --init"
+    );
+    assert_eq!(again.unchanged.len(), official);
     let events = platform.admin.audit().await;
     let imports = events
         .iter()
         .filter(|e| e.action == "prefab.imported")
         .count();
-    assert_eq!(imports, 12);
+    assert_eq!(imports, official);
 }
 
 #[tokio::test]

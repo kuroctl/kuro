@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../schema/prefab.v1.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kuroctl/kuro/main/shared/prefab/schema/prefab.v1.schema.json
 # Enshrouded : le serveur dédié (app Steam 2278520) n'existe qu'en version Windows ; il tourne sous
 # Linux avec Proton GE 11, fourni par l'image SteamCMD Proton des eggs Pterodactyl (utilisateur
 # 1000, Proton dans /usr/local/bin, tini en point d'entrée), utilisée seulement comme

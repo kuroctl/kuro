@@ -1,0 +1,47 @@
+{
+  "prefab": {
+    "name": "Hermes Agent",
+    "description": "Self-hosted AI agent by Nous Research, with its web dashboard and chat app gateway (Telegram, Discord, Slack, WhatsApp)."
+  },
+  "groups": {
+    "session": {
+      "title": "Sessions"
+    },
+    "dashboard": {
+      "title": "Dashboard"
+    },
+    "providers": {
+      "title": "AI providers"
+    }
+  },
+  "fields": {
+    "dashboard_user": {
+      "label": "Dashboard login"
+    },
+    "openai_api_key": {
+      "help": "Optional.",
+      "label": "OpenAI API key"
+    },
+    "dashboard_secret": {
+      "help": "Signs dashboard sessions; changing it logs everyone out.",
+      "label": "Session secret"
+    },
+    "anthropic_api_key": {
+      "help": "Optional.",
+      "label": "Anthropic API key"
+    },
+    "dashboard_password": {
+      "help": "Generated at deployment.",
+      "label": "Dashboard password"
+    },
+    "openrouter_api_key": {
+      "help": "Optional. Other providers can be set up from the dashboard.",
+      "label": "OpenRouter API key"
+    }
+  },
+  "files": {
+    "config": {
+      "description": "Hermes configuration (config.yaml), also edited by the dashboard and hermes setup. The public address and trusted proxy are rewritten on start (comments are not kept)."
+    }
+  }
+}
