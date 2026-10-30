@@ -34,8 +34,8 @@ const { handleError, message } = useApiError()
 const invalidate = useInvalidateSettings()
 const editable = computed(() => can('system.settings.update'))
 
-/** Le CPU est saisi en cœurs ; l'API le compte en pourcent (100 = un cœur). */
-const isCpu = (field: Field) => field.endsWith('cpu_percent')
+/** Allocation CPU saisie en cœurs ; l'API la compte en pourcent (100 = un cœur). Un seuil d'alerte reste en %. */
+const isCpu = (field: Field) => field === 'default_cpu_percent' || field === 'max_cpu_percent'
 
 /** Valeurs saisies (CPU en cœurs) : un plafond vide veut dire « aucun ». */
 const form = reactive<Record<Field, number | undefined>>(Object.fromEntries(FIELDS.map((f) => [f, undefined])) as Record<Field, number | undefined>)
