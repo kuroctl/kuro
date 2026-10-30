@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Tâches planifiées d'un serveur (ADR-0022) : déclencheur en clair, prochaine et dernière
 // exécution, activation, lancement immédiat, modification et suppression.
-import { Archive, CalendarClock, MoreHorizontal, Pencil, Play, Plus, Power, Terminal, Trash2, Zap } from '@lucide/vue'
+import { Archive, ArrowUpCircle, CalendarClock, MoreHorizontal, Pencil, Play, Plus, Power, Terminal, Trash2, Zap } from '@lucide/vue'
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
@@ -32,7 +32,7 @@ import { Switch } from '@/shared/ui/switch'
 
 definePage({ meta: { subnav: 'server' } })
 
-const STEP_ICONS = { command: Terminal, power: Power, backup: Archive, action: Zap } as const
+const STEP_ICONS = { command: Terminal, power: Power, backup: Archive, action: Zap, upgrade: ArrowUpCircle } as const
 
 const { t, locale } = useI18n()
 const route = useRoute('/servers/[id]/schedules/')

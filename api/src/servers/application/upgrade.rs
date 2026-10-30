@@ -277,6 +277,98 @@ pub async fn start(
     Ok(preview)
 }
 
+/// Mise à jour par une tâche planifiée (ADR-0024, amendement) : vers `to`, ou la dernière
+/// version publiée du prefab (les brouillons sont ignorés) ; rien de plus récent, ou déjà à
+/// cette version, est un succès sans effet. Sauvegarde d'abord si les sauvegardes du serveur
+/// sont activées ; l'étape attend la fin. Rend la cause d'un échec (code stable).
+pub async fn scheduled(
+    state: &ServersState,
+    context: &AuditContext,
+    id: Uuid,
+    to: Option<&str>,
+) -> Result<(), String> {
+    let server = get(state, id)
+        .await
+        .map_err(|error| scheduler::reason_code(&error))?
+        .server;
+    let current = parse(&server.prefab_version);
+    let target = match to {
+        Some(to) => {
+            let wanted = parse(to).ok_or_else(|| ErrorCode::UpgradeNotNewer.as_str().to_owned())?;
+            match current {
+                Some(current) if wanted == current => return Ok(()),
+                Some(current) if wanted < current => {
+                    return Err(ErrorCode::UpgradeNotNewer.as_str().to_owned());
+                }
+                _ => to.to_owned(),
+            }
+        }
+        None => match latest_published(state, &server).await {
+            Ok(Some(version)) => version,
+            Ok(None) => return Ok(()),
+            Err(error) => return Err(scheduler::reason_code(&error)),
+        },
+    };
+    ensure_ready(&server).map_err(|error| scheduler::reason_code(&error))?;
+    ensure_not_suspended(&server).map_err(|error| scheduler::reason_code(&error))?;
+    let preview = preview_of(state, &server, &target)
+        .await
+        .map_err(|error| scheduler::reason_code(&error))?;
+    if preview.blocked() {
+        return Err(ErrorCode::UpgradeBlocked.as_str().to_owned());
+    }
+    let backup = server.backup_limit > 0;
+    run(state, context, id, &target, backup).await?;
+    wait_for_redeploy(state, id).await
+}
+
+/// Le nœud redéploie le serveur après la mise à jour : l'étape suivante attend qu'il ait fini
+/// (un `restart` juste après serait refusé, serveur occupé).
+async fn wait_for_redeploy(state: &ServersState, id: Uuid) -> Result<(), String> {
+    const WAIT: std::time::Duration = std::time::Duration::from_secs(15 * 60);
+    const POLL: std::time::Duration = std::time::Duration::from_secs(1);
+    let deadline = tokio::time::Instant::now() + WAIT;
+    loop {
+        let state_now = {
+            let mut conn = state
+                .pool
+                .acquire()
+                .await
+                .map_err(|_| "internal".to_owned())?;
+            ServerRepository::get(&mut conn, id)
+                .await
+                .map_err(|_| "internal".to_owned())?
+                .map(|server| server.state)
+        };
+        match state_now.as_deref() {
+            None => return Err("not_found".to_owned()),
+            Some(state)
+                if state == ServerState::Deploying.as_str()
+                    || state == ServerState::Installing.as_str() => {}
+            Some(_) => return Ok(()),
+        }
+        if tokio::time::Instant::now() >= deadline {
+            return Err("timeout".to_owned());
+        }
+        tokio::time::sleep(POLL).await;
+    }
+}
+
+/// Version publiée la plus récente du prefab du serveur, plus récente que la sienne ; les
+/// brouillons (`x-status`) ne sont jamais choisis d'office.
+async fn latest_published(
+    state: &ServersState,
+    server: &ServerRecord,
+) -> Result<Option<String>, ServersError> {
+    for version in newer_versions(state, server).await?.into_iter().rev() {
+        let package = prefabs::package(&state.pool, &server.prefab_id, &version).await?;
+        if !prefabs::is_draft(&package.manifest) {
+            return Ok(Some(version));
+        }
+    }
+    Ok(None)
+}
+
 /// Sauvegarde attendue, puis mise à jour. Rend la cause d'un échec (code stable).
 async fn run(
     state: &ServersState,

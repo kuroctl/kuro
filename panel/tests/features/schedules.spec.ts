@@ -140,6 +140,31 @@ describe('scheduled tasks', () => {
     )
   })
 
+  it('creates an upgrade step that targets the latest published version by default', async () => {
+    setup([])
+    let body: Schemas['ScheduleRequest'] | undefined
+    server.use(
+      http.post(SCHEDULES, async ({ request }) => {
+        body = (await request.json()) as Schemas['ScheduleRequest']
+        return HttpResponse.json(schedule({ name: body.name }), { status: 201 })
+      }),
+      http.get(`${SCHEDULES}/${NIGHT}`, () => HttpResponse.json(schedule())),
+      http.get(`${SCHEDULES}/${NIGHT}/runs`, () => HttpResponse.json([])),
+    )
+    const { user } = await renderApp(`${PAGE}/new`)
+
+    await user.type(await screen.findByLabelText('Nom'), 'Mise à jour mensuelle')
+    await user.click(screen.getByRole('button', { name: 'Ajouter une étape' }))
+    await user.click(screen.getByRole('combobox', { name: 'Action' }))
+    await user.click(await screen.findByRole('option', { name: 'Mise à jour du prefab' }))
+    expect(screen.getByPlaceholderText('Dernière version publiée')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Créer la tâche' }))
+
+    await waitFor(() =>
+      expect(body?.steps).toEqual([{ action: 'upgrade', value: null, delay_secs: 0, continue_on_failure: false }]),
+    )
+  })
+
   it('only offers the actions the admin holds', async () => {
     setup([])
     server.use(

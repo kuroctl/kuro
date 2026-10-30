@@ -35,6 +35,7 @@ pub enum StepKind {
     Power,
     Backup,
     Action,
+    Upgrade,
 }
 
 /// Étape demandée, validée par [`create`] ou [`update`].
@@ -64,6 +65,7 @@ pub fn step_permission(action: &StepAction) -> Permission {
         StepAction::Power(_) => Permission::ServersPower,
         StepAction::Backup(_) => Permission::ServersBackupsCreate,
         StepAction::Action(_) => Permission::ServersActionsRun,
+        StepAction::Upgrade(_) => Permission::ServersUpgrade,
     }
 }
 
@@ -128,6 +130,13 @@ fn validate_steps(inputs: &[StepInput]) -> Result<Vec<Step>, ServersError> {
                 }
                 (StepKind::Action, Some(key)) if kuro_prefab::template::is_slug(key) => {
                     StepAction::Action(key.to_owned())
+                }
+                // Mise à jour : vers une version donnée (semver), ou la dernière publiée.
+                (StepKind::Upgrade, None) => StepAction::Upgrade(None),
+                (StepKind::Upgrade, Some(version))
+                    if version.parse::<semver::Version>().is_ok() =>
+                {
+                    StepAction::Upgrade(Some(version.to_owned()))
                 }
                 _ => return Err(invalid(field("value"), ErrorCode::InvalidScheduleStep)),
             };

@@ -3706,7 +3706,7 @@ export interface components {
             };
         };
         /** @enum {string} */
-        StepActionDto: "command" | "power" | "backup" | "action";
+        StepActionDto: "command" | "power" | "backup" | "action" | "upgrade";
         StepDto: {
             action: components["schemas"]["StepActionDto"];
             /** @description Poursuivre la tâche si cette étape échoue. */

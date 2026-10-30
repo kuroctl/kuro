@@ -554,3 +554,182 @@ async fn deleting_a_schedule_forgets_it() {
         .last_audit("server.schedule_deleted")
         .await;
 }
+
+/// Archive de `minecraft-java` en `version`, manifest retouché par `edit`.
+fn minecraft_version(version: &str, edit: impl Fn(String) -> String) -> Vec<u8> {
+    use std::io::Write;
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs/minecraft-java");
+    let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    let options = zip::write::SimpleFileOptions::default();
+    // Fins de ligne normalisées : un checkout Windows du sous-module peut être en CRLF.
+    let manifest = std::fs::read_to_string(dir.join("prefab.yaml"))
+        .unwrap()
+        .replace("\r\n", "\n")
+        .replace("version: 1.4.0", &format!("version: {version}"));
+    writer.start_file("prefab.yaml", options).unwrap();
+    writer.write_all(edit(manifest).as_bytes()).unwrap();
+    for lang in ["en", "fr"] {
+        let text = std::fs::read_to_string(dir.join(format!("locales/{lang}.json"))).unwrap();
+        writer
+            .start_file(format!("locales/{lang}.json"), options)
+            .unwrap();
+        writer.write_all(text.as_bytes()).unwrap();
+    }
+    writer.finish().unwrap().into_inner()
+}
+
+async fn import(setup: &Setup, bytes: Vec<u8>) {
+    let imported = setup
+        .platform
+        .admin
+        .call_bytes(
+            Method::POST,
+            "/prefabs/import",
+            &setup.platform.token,
+            bytes,
+            true,
+        )
+        .await;
+    assert_eq!(imported.status, StatusCode::CREATED, "{}", imported.json);
+}
+
+#[tokio::test]
+async fn an_upgrade_step_backs_up_then_moves_to_the_latest_published_version() {
+    let mut setup = server("running").await;
+    // 1.5.0 publiée, 1.6.0 en brouillon : seule la publiée est choisie d'office.
+    import(&setup, minecraft_version("1.5.0", |m| m)).await;
+    import(
+        &setup,
+        minecraft_version("1.6.0", |m| {
+            m.replace("tags: [", "x-status: \"draft: later\"\ntags: [")
+        }),
+    )
+    .await;
+    let schedule = create(
+        &setup,
+        definition(json!([{ "action": "upgrade" }, { "action": "power", "value": "restart" }])),
+    )
+    .await;
+    assert_eq!(schedule["steps"][0]["action"], "upgrade");
+    assert!(schedule["steps"][0]["value"].is_null());
+
+    let handles = scheduler::run_due(&setup.platform.admin.servers, next_run(&schedule))
+        .await
+        .unwrap();
+    // Sauvegardes activées : la sauvegarde part d'abord et est attendue.
+    let request = setup.daemon.accept_backup().await;
+    setup
+        .daemon
+        .event(
+            "backup.done",
+            json!({
+                "server_id": setup.id,
+                "backup_id": request["payload"]["backup_id"],
+                "status": "ok",
+                "size": 10,
+                "sha256": "324fb9b3d3a59324cb5d96154f4fbc41c8f2d926f9bb2da1702f0230bd1b88d6",
+            }),
+        )
+        .await;
+    let deploy = setup.daemon.accept().await;
+    assert_eq!(deploy["type"], "server.deploy");
+    // L'étape attend la fin du redéploiement avant le redémarrage qui suit.
+    setup.daemon.report(&setup.id, "running").await;
+    let restart = setup.daemon.accept().await;
+    assert_eq!(restart["type"], "server.power");
+    for handle in handles {
+        handle.await.unwrap();
+    }
+
+    let server = setup
+        .platform
+        .call(Method::GET, &format!("/servers/{}", setup.id), None)
+        .await;
+    assert_eq!(server.json["prefab"]["version"], "1.5.0");
+    let history = runs(&setup, &schedule).await;
+    assert_eq!(history[0]["outcome"], "succeeded", "{history:?}");
+    let upgraded = setup.platform.admin.last_audit("server.upgraded").await;
+    assert_eq!(upgraded.outcome, "success");
+    assert_eq!(upgraded.details["to"], "1.5.0");
+    assert_eq!(upgraded.details["backup"], true);
+
+    // Déjà à jour : la tâche réussit sans rien envoyer au nœud.
+    let again = scheduler::run_due(
+        &setup.platform.admin.servers,
+        next_run(&schedule) + time::Duration::days(1),
+    )
+    .await
+    .unwrap();
+    let restart = setup.daemon.accept().await;
+    assert_eq!(restart["type"], "server.power");
+    for handle in again {
+        handle.await.unwrap();
+    }
+    let history = runs(&setup, &schedule).await;
+    assert_eq!(history.len(), 2);
+    assert!(
+        history.iter().all(|run| run["outcome"] == "succeeded"),
+        "{history:?}"
+    );
+}
+
+#[tokio::test]
+async fn an_upgrade_step_names_its_blocker_and_needs_the_upgrade_permission() {
+    let setup = server("running").await;
+    // Seule version plus récente : un brouillon, hors nœud de test.
+    import(
+        &setup,
+        minecraft_version("1.6.0", |m| {
+            m.replace("tags: [", "x-status: \"draft: later\"\ntags: [")
+        }),
+    )
+    .await;
+    let invalid = setup
+        .platform
+        .call(
+            Method::POST,
+            &format!("/servers/{}/schedules", setup.id),
+            Some(definition(
+                json!([{ "action": "upgrade", "value": "not-a-version" }]),
+            )),
+        )
+        .await;
+    assert_eq!(invalid.status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(invalid.json["fields"][0]["field"], "steps.0.value");
+
+    let schedule = create(
+        &setup,
+        definition(json!([{ "action": "upgrade", "value": "1.6.0" }])),
+    )
+    .await;
+    run_due(&setup, next_run(&schedule)).await;
+    let history = runs(&setup, &schedule).await;
+    assert_eq!(history[0]["outcome"], "failed", "{history:?}");
+    assert_eq!(history[0]["failed_step"], 0);
+    assert_eq!(history[0]["reason"], "upgrade_blocked");
+
+    // Sans `servers.upgrade`, pas d'étape de mise à jour.
+    let admin = &setup.platform.admin;
+    let limited = admin
+        .account(
+            "ops@example.com",
+            &[
+                Permission::ServersRead,
+                Permission::ServersSchedulesRead,
+                Permission::ServersSchedulesManage,
+                Permission::ServersPower,
+            ],
+        )
+        .await;
+    let token = admin.login(&limited).await.access_token;
+    let refused = admin
+        .call(
+            Method::POST,
+            &format!("/servers/{}/schedules", setup.id),
+            Some(&token),
+            Some(definition(json!([{ "action": "upgrade" }]))),
+        )
+        .await;
+    assert_eq!(refused.status, StatusCode::FORBIDDEN, "{}", refused.json);
+    assert_eq!(refused.json["params"]["permission"], "servers.upgrade");
+}

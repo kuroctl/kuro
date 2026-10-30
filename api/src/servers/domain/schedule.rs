@@ -78,6 +78,9 @@ pub enum StepAction {
     Backup(Option<String>),
     /// Action du prefab, par sa clé (ADR-0039) ; planifiable, sans paramètre obligatoire.
     Action(String),
+    /// Mise à jour du prefab (ADR-0024) vers la version donnée, ou la dernière publiée (`None`) ;
+    /// sauvegarde d'abord si les sauvegardes du serveur sont activées, l'étape attend la fin.
+    Upgrade(Option<String>),
 }
 
 impl StepAction {
@@ -87,6 +90,7 @@ impl StepAction {
             Self::Power(_) => "power",
             Self::Backup(_) => "backup",
             Self::Action(_) => "action",
+            Self::Upgrade(_) => "upgrade",
         }
     }
 
@@ -97,6 +101,7 @@ impl StepAction {
             Self::Power(action) => Some(power_key(*action).to_owned()),
             Self::Backup(name) => name.clone(),
             Self::Action(key) => Some(key.clone()),
+            Self::Upgrade(version) => version.clone(),
         }
     }
 
@@ -107,6 +112,7 @@ impl StepAction {
             ("power", Some(action)) => power_from_key(action).map(Self::Power),
             ("backup", name) => Some(Self::Backup(name.map(str::to_owned))),
             ("action", Some(key)) => Some(Self::Action(key.to_owned())),
+            ("upgrade", version) => Some(Self::Upgrade(version.map(str::to_owned))),
             _ => None,
         }
     }

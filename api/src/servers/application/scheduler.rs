@@ -263,6 +263,11 @@ async fn run_step(
                 .map_err(|error| reason_code(&error))?;
             wait_for_backup(state, server_id, backup.id).await
         }
+        // Mise à jour planifiée (ADR-0024) : sauvegarde si activée, puis nouvelle version ;
+        // rien à faire est un succès.
+        StepAction::Upgrade(to) => {
+            super::upgrade::scheduled(state, context, server_id, to.as_deref()).await
+        }
         // Action du prefab, sans paramètre : un code de sortie non nul est un échec.
         StepAction::Action(key) => {
             let outcome =

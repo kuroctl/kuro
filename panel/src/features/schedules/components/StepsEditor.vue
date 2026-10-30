@@ -27,6 +27,7 @@ const { t, locale } = useI18n()
 
 function defaultValue(action: ScheduleStep['action']): string | null {
   if (action === 'action') return props.actions?.[0]?.key ?? ''
+  // Mise à jour : sans version, la dernière publiée.
   return action === 'power' ? 'restart' : action === 'command' ? '' : null
 }
 
@@ -119,6 +120,19 @@ function remove(index: number) {
                   <SelectItem v-for="action in actions ?? []" :key="action.key" :value="action.key">{{ action.label }}</SelectItem>
                 </SelectContent>
               </Select>
+            </template>
+            <template v-else-if="step.action === 'upgrade'">
+              <Label :for="`step-${index}-value`">{{ t('schedules.editor.upgradeVersion') }}</Label>
+              <Input
+                :id="`step-${index}-value`"
+                :model-value="step.value ?? ''"
+                class="font-mono"
+                :placeholder="t('schedules.editor.upgradeLatest')"
+                :disabled="disabled"
+                :aria-invalid="!!errors[`steps.${index}.value`]"
+                @update:model-value="(value) => update(index, { value: String(value).trim() || null })"
+              />
+              <p class="text-xs text-muted-foreground">{{ t('schedules.editor.upgradeHelp') }}</p>
             </template>
             <template v-else>
               <Label :for="`step-${index}-value`">{{ step.action === 'command' ? t('schedules.editor.command') : t('schedules.editor.backupName') }}</Label>

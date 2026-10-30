@@ -34,6 +34,7 @@ const STEP_PERMISSIONS = {
   power: 'servers.power',
   backup: 'servers.backups.create',
   action: 'servers.actions.run',
+  upgrade: 'servers.upgrade',
 } as const
 
 const { t, locale } = useI18n()

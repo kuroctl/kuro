@@ -32,6 +32,9 @@ pub enum StepActionDto {
     Backup,
     /// Action planifiable du prefab, par sa clé (`servers.actions.run`, ADR-0039).
     Action,
+    /// Mise à jour du prefab (`servers.upgrade`, ADR-0024) : `value` est la version cible, ou
+    /// vide pour la dernière version publiée ; sauvegarde d'abord si activée, l'étape attend.
+    Upgrade,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -133,6 +136,7 @@ fn step_dto(step: &crate::servers::domain::schedule::Step) -> StepDto {
         StepAction::Power(action) => (StepActionDto::Power, Some(power_key(*action).to_owned())),
         StepAction::Backup(name) => (StepActionDto::Backup, name.clone()),
         StepAction::Action(key) => (StepActionDto::Action, Some(key.clone())),
+        StepAction::Upgrade(version) => (StepActionDto::Upgrade, version.clone()),
     };
     StepDto {
         action,
@@ -195,6 +199,7 @@ impl From<ScheduleRequest> for ScheduleInput {
                         StepActionDto::Power => StepKind::Power,
                         StepActionDto::Backup => StepKind::Backup,
                         StepActionDto::Action => StepKind::Action,
+                        StepActionDto::Upgrade => StepKind::Upgrade,
                     },
                     value: step.value,
                     delay_secs: step.delay_secs,
