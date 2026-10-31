@@ -680,8 +680,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Icône (`icon`) ou bannière (`cover`) d'une version : PNG, JPEG ou WebP. Permission :
-         *     `prefabs.read`.
+         * Icône (`icon`) ou bannière (`cover`) d'une version : PNG, JPEG ou WebP. Toute session admin :
+         *     un serveur s'affiche avec les images de son prefab même sans droit sur les prefabs.
          */
         get: operations["asset"];
         put?: never;

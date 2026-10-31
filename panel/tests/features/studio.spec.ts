@@ -1,11 +1,13 @@
 // Prefab Studio : brouillons, édition validée pendant la saisie, problèmes situés dans le
 // manifest, aperçu du formulaire, images, enregistrement, publication, permission.
-import { currentCompletions, startCompletion } from '@codemirror/autocomplete'
+import { CompletionContext } from '@codemirror/autocomplete'
+import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { screen, waitFor, within } from '@testing-library/vue'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 
+import { schemaCompletion } from '@/features/studio/manifestEditor'
 import type { Schemas } from '@/shared/api/types'
 
 import { API, profile, server, signedIn } from '../support/api'
@@ -207,47 +209,28 @@ describe('prefab studio', () => {
     click.mockRestore()
   })
 
-  it('completes the manifest keys and values from the published schema', async () => {
-    setup()
-    server.use(
-      http.get(`${API}/studio/schema`, () =>
-        HttpResponse.json({
-          type: 'object',
-          properties: {
-            category: { enum: ['game', 'web'] },
-            install: { $ref: '#/definitions/install' },
-          },
-          definitions: {
-            install: { type: 'object', properties: { steps: { type: 'array', items: { $ref: '#/definitions/step' } } } },
-            step: { oneOf: [{ properties: { download: { type: 'object' } } }, { properties: { extract: { type: 'object' } } }] },
-          },
-        }),
-      ),
-    )
-    await renderApp(`/prefabs/studio/${DRAFT_ID}`)
-    await screen.findByText('Prefab valide, prêt à publier.')
-    // L'éditeur est recréé une fois le schéma chargé.
-    await waitFor(() => expect(document.querySelector('.cm-content')).toBeTruthy())
-
-    // L'éditeur est recréé quand le schéma arrive : la vue est retrouvée à chaque essai, et la
-    // complétion relancée dessus jusqu'à ce qu'elle réponde.
-    const complete = async (text: string) => {
-      await typeInEditor(text)
-      return waitFor(
-        () => {
-          const view = EditorView.findFromDOM(document.querySelector('.cm-content') as HTMLElement)!
-          const labels = currentCompletions(view.state).map((option) => option.label)
-          if (labels.length) return labels
-          view.dispatch({ selection: { anchor: view.state.doc.length } })
-          startCompletion(view)
-          throw new Error('no completion yet')
-        },
-        { timeout: 3000 },
-      )
+  it('completes the manifest keys and values from the published schema', () => {
+    // La source de complétion est exercée sur un état d'éditeur, sans vue : la bulle de
+    // complétion de CodeMirror a besoin d'une mise en page que jsdom n'a pas.
+    const schema = {
+      type: 'object',
+      properties: {
+        category: { enum: ['game', 'web'] },
+        install: { $ref: '#/definitions/install' },
+      },
+      definitions: {
+        install: { type: 'object', properties: { steps: { type: 'array', items: { $ref: '#/definitions/step' } } } },
+        step: { oneOf: [{ properties: { download: { type: 'object' } } }, { properties: { extract: { type: 'object' } } }] },
+      },
+    }
+    const complete = (text: string) => {
+      const state = EditorState.create({ doc: text })
+      const result = schemaCompletion(schema as never)(new CompletionContext(state, text.length, true))
+      return result?.options.map((option) => option.label) ?? []
     }
 
-    expect(await complete('install:\n  steps:\n    - ')).toEqual(['download', 'extract'])
-    expect(await complete('category: ')).toEqual(['game', 'web'])
+    expect(complete('install:\n  steps:\n    - ')).toEqual(['download', 'extract'])
+    expect(complete('category: ')).toEqual(['game', 'web'])
   })
 
   it('previews the settings form with the draft translations', async () => {

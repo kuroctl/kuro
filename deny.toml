@@ -19,6 +19,7 @@ yanked = "deny"
 [licenses]
 # Licences permissives uniquement : aucune obligation de redistribution du code de Kuro.
 allow = [
+    "0BSD",
     "Apache-2.0",
     "Apache-2.0 WITH LLVM-exception",
     "BSD-2-Clause",
