@@ -25,6 +25,11 @@ globalThis.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 }
+// CodeMirror mesure les positions du texte avec `Range.getClientRects`, absent de jsdom : sans
+// lui, une exception dans la mesure fait perdre la complétion en cours.
+Range.prototype.getClientRects ??= () => ({ length: 0, item: () => null, *[Symbol.iterator]() {} }) as unknown as DOMRectList
+Range.prototype.getBoundingClientRect ??= () =>
+  ({ x: 0, y: 0, width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, toJSON: () => ({}) }) as DOMRect
 // Graphiques (Unovis, d3) : jsdom n'a ni les transformations SVG ni la mesure des textes.
 Object.defineProperty(SVGElement.prototype, 'transform', {
   configurable: true,

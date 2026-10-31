@@ -28,7 +28,7 @@ Trois fichiers, pris sur la version que vous installez :
 ```bash
 mkdir kuro && cd kuro
 for f in docker-compose.yml Caddyfile .env.example; do
-  curl -fsSLO "https://raw.githubusercontent.com/kuroctl/kuro/v0.2.1/docker/$f"
+  curl -fsSLO "https://raw.githubusercontent.com/kuroctl/kuro/v0.3.0/docker/$f"
 done
 cp .env.example .env
 ```
@@ -94,7 +94,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Pour une version précise, mettez-la dans `.env` (`KURO_VERSION=0.2.1`). Mettez à jour l'API avant
+Pour une version précise, mettez-la dans `.env` (`KURO_VERSION=0.3.0`). Mettez à jour l'API avant
 les nœuds ([Mettre à jour](/fr/updating)).
 
 ## Vérifier l'image

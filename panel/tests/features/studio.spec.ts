@@ -229,16 +229,21 @@ describe('prefab studio', () => {
     // L'éditeur est recréé une fois le schéma chargé.
     await waitFor(() => expect(document.querySelector('.cm-content')).toBeTruthy())
 
+    // L'éditeur est recréé quand le schéma arrive : la vue est retrouvée à chaque essai, et la
+    // complétion relancée dessus jusqu'à ce qu'elle réponde.
     const complete = async (text: string) => {
       await typeInEditor(text)
-      const view = EditorView.findFromDOM(document.querySelector('.cm-content') as HTMLElement)!
-      view.dispatch({ selection: { anchor: text.length } })
-      startCompletion(view)
-      return waitFor(() => {
-        const labels = currentCompletions(view.state).map((option) => option.label)
-        if (!labels.length) throw new Error('no completion yet')
-        return labels
-      })
+      return waitFor(
+        () => {
+          const view = EditorView.findFromDOM(document.querySelector('.cm-content') as HTMLElement)!
+          const labels = currentCompletions(view.state).map((option) => option.label)
+          if (labels.length) return labels
+          view.dispatch({ selection: { anchor: view.state.doc.length } })
+          startCompletion(view)
+          throw new Error('no completion yet')
+        },
+        { timeout: 3000 },
+      )
     }
 
     expect(await complete('install:\n  steps:\n    - ')).toEqual(['download', 'extract'])
