@@ -168,6 +168,13 @@ const codes = {
   daemon_timeout: 'The node did not answer in time.',
   daemon_error: 'The node refused the command.',
   invalid_project_name: 'Invalid project name (1 to 80 characters).',
+  mail_not_configured: 'No SMTP server is configured: see Settings › E-mail.',
+  mail_send_failed: 'The SMTP server refused the message: {error}',
+  invalid_mail_host: 'Invalid SMTP server (DNS name or IP address).',
+  invalid_mail_address: 'Invalid e-mail address.',
+  invalid_mail_field: 'Invalid value.',
+  invalid_recipients: 'One to twenty valid e-mail addresses.',
+  user_disabled: 'This account is disabled.',
   setup_done: 'Setup is already done: an account exists.',
   setup_token_unavailable: 'The setup token is not available on the machine: use the kuro-api setup command.',
 } satisfies Record<ErrorCode, string>

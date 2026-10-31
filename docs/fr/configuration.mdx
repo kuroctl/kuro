@@ -81,7 +81,12 @@ iptables -I DOCKER-USER -i br-+ -d 192.168.1.10/32 -j ACCEPT
 - **Paramètres › Projet** : valeurs par défaut et plafonds des ressources des serveurs,
   conservation du journal d'audit, ouverture du serveur MCP.
 - **Paramètres › DNS** : zone et jeton du fournisseur DNS (voir [DNS](/fr/dns)).
-- **Accès** : comptes administrateurs et rôles.
+- **Paramètres › E-mail** : le serveur SMTP du projet (STARTTLS ou TLS, mot de passe chiffré),
+  avec un e-mail de test. Il sert aux invitations des admins et au canal e-mail des
+  [notifications](/fr/notifications).
+- **Accès** : comptes administrateurs et rôles. Un admin se crée avec un mot de passe
+  temporaire, ou par une invitation envoyée par e-mail (lien valable 48 h, une seule fois) quand
+  le serveur SMTP est réglé.
 
 ## Plusieurs instances de l'API
 

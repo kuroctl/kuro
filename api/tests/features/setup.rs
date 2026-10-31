@@ -81,6 +81,25 @@ async fn a_fresh_api_needs_setup_until_the_first_account_is_created_with_the_hos
     let access = session.json["access_token"].as_str().unwrap().to_owned();
     let me = admin.call(Method::GET, "/me", Some(&access), None).await;
     assert_eq!(me.json["all_permissions"], true, "{}", me.json);
+    // Les rôles livrés accompagnent le super admin, une seule fois.
+    let roles = admin.call(Method::GET, "/roles", Some(&access), None).await;
+    let names: Vec<&str> = roles
+        .json
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|r| r["name"].as_str())
+        .collect();
+    for name in ["super-admin", "operator", "support", "viewer"] {
+        assert!(names.contains(&name), "{names:?}");
+    }
+    let again = kuro_api::iam::application::roles::seed_defaults(
+        &admin.iam,
+        &kuro_api::audit::domain::AuditContext::cli("test"),
+    )
+    .await
+    .unwrap();
+    assert!(again.is_empty(), "{again:?}");
     // Audité : le compte, puis la mise en route, par un acteur anonyme, sans secret.
     let created = admin.last_audit("iam.user.created").await;
     assert_eq!(created.actor_kind, "anonymous");
@@ -100,6 +119,85 @@ async fn a_fresh_api_needs_setup_until_the_first_account_is_created_with_the_hos
     assert_eq!(again, StatusCode::CONFLICT, "{body}");
     assert_eq!(body["code"], "setup_done");
     assert!(admin.setup.ensure_token().await.unwrap().is_none());
+}
+
+#[tokio::test]
+async fn an_older_install_gets_the_default_roles_once_at_startup() {
+    let admin = TestAdmin::start().await;
+    // Compte créé sans la mise en route : comme une installation antérieure aux rôles livrés.
+    let root = admin.super_admin("root@example.com").await;
+    let token = admin.login(&root).await.access_token;
+    let context = kuro_api::audit::domain::AuditContext::system();
+    let created = kuro_api::iam::application::roles::seed_defaults_once(&admin.iam, &context)
+        .await
+        .unwrap();
+    assert_eq!(created, vec!["operator", "support", "viewer"]);
+    let roles = admin.call(Method::GET, "/roles", Some(&token), None).await;
+    let support = roles
+        .json
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["name"] == "support")
+        .unwrap()
+        .clone();
+    assert!(
+        support["permissions"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("servers.power"))
+    );
+    assert_eq!(support["color"], "#3b9ddd");
+    // Supprimé par un admin : jamais recréé.
+    let deleted = admin
+        .call(
+            Method::DELETE,
+            &format!("/roles/{}", support["id"].as_str().unwrap()),
+            Some(&token),
+            None,
+        )
+        .await;
+    assert_eq!(deleted.status, StatusCode::NO_CONTENT, "{}", deleted.json);
+    let again = kuro_api::iam::application::roles::seed_defaults_once(&admin.iam, &context)
+        .await
+        .unwrap();
+    assert!(again.is_empty(), "{again:?}");
+}
+
+#[tokio::test]
+async fn prefab_images_are_readable_by_any_signed_in_admin() {
+    // La plateforme importe les prefabs officiels ; un compte sans droit sur les prefabs lit
+    // quand même l'icône que la page d'un serveur affiche.
+    let platform = crate::support::platform::Platform::start().await;
+    let admin = &platform.admin;
+    let limited = admin
+        .account(
+            "viewer@example.com",
+            &[kuro_api::iam::domain::Permission::ServersRead],
+        )
+        .await;
+    let token = admin.login(&limited).await.access_token;
+    let catalog = admin
+        .call(Method::GET, "/prefabs", Some(&token), None)
+        .await;
+    assert_eq!(catalog.status, StatusCode::FORBIDDEN);
+    let icon = admin
+        .call(
+            Method::GET,
+            "/prefabs/minecraft-java/1.4.0/assets/icon",
+            Some(&token),
+            None,
+        )
+        .await;
+    assert_eq!(icon.status, StatusCode::OK, "{}", icon.json);
+    assert!(
+        icon.content_type
+            .as_deref()
+            .unwrap_or("")
+            .starts_with("image/"),
+        "{:?}",
+        icon.content_type
+    );
 }
 
 #[tokio::test]

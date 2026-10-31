@@ -34,6 +34,17 @@ pub struct Config {
     pub notifications: NotificationsConfig,
     #[serde(default)]
     pub setup: SetupConfig,
+    #[serde(default)]
+    pub mail: MailConfig,
+}
+
+/// Envoi d'e-mails (ADR-0046).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct MailConfig {
+    /// Accepte un serveur SMTP sans chiffrement (`security = "none"`) : pour une boîte de dev
+    /// comme Mailpit, jamais en production. Faux par défaut.
+    #[serde(default)]
+    pub allow_insecure: bool,
 }
 
 /// Première mise en route (ADR-0045).

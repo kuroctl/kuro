@@ -141,6 +141,40 @@ pub async fn change_required_password(
     Ok(login_response(&state, jar, outcome))
 }
 
+/// Invitation acceptée : le jeton du lien et le mot de passe choisi.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct InvitationRequest {
+    pub token: String,
+    /// 12 caractères minimum.
+    pub password: String,
+}
+
+/// Accepte une invitation (ADR-0046) : pose le mot de passe, puis répond comme `login`
+/// (session, ou TOTP à configurer). Jeton inconnu, expiré ou déjà utilisé : `403`.
+#[utoipa::path(post, path = "/api/admin/v1/auth/invitation", tag = "admin-auth",
+    request_body = InvitationRequest,
+    responses(
+        (status = 200, body = LoginResponse),
+        (status = 403, description = "Jeton invalide ou origine de la page non autorisée", body = Problem),
+        (status = 422, body = Problem),
+    ))]
+pub async fn accept_invitation(
+    State(state): State<IamState>,
+    _origin: BrowserOrigin,
+    RequestContext(context): RequestContext,
+    jar: CookieJar,
+    Json(request): Json<InvitationRequest>,
+) -> Result<Response, IamError> {
+    let outcome = crate::iam::application::invitations::accept(
+        &state,
+        &context,
+        &request.token,
+        &request.password,
+    )
+    .await?;
+    Ok(login_response(&state, jar, outcome))
+}
+
 fn login_response(state: &IamState, jar: CookieJar, outcome: LoginOutcome) -> Response {
     match outcome {
         LoginOutcome::Authenticated(tokens) => authenticated(state, jar, tokens, true),

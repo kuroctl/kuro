@@ -31,11 +31,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/shared/ui/skeleton'
 import { Switch } from '@/shared/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
+import { Textarea } from '@/shared/ui/textarea'
 
-const KINDS = ['webhook', 'discord', 'slack'] as const
+const KINDS = ['webhook', 'discord', 'slack', 'email'] as const
 const LANGUAGES = ['fr', 'en'] as const
 const SCOPES = ['all', 'node', 'server'] as const
-const CHANNEL_FIELDS = ['name', 'kind', 'url', 'secret', 'language'] as const
+const CHANNEL_FIELDS = ['name', 'kind', 'url', 'secret', 'recipients', 'language'] as const
 const RULE_FIELDS = ['name', 'scope', 'node_id', 'server_id', 'events', 'channels'] as const
 
 const { t, locale } = useI18n()
@@ -68,9 +69,17 @@ function target(delivery: { event: Record<string, unknown> }): string {
 // --- Canaux
 const channelDialog = ref(false)
 const editingChannel = ref<Channel | null>(null)
-const channelForm = reactive({ name: '', kind: 'webhook' as string, url: '', secret: '', language: 'fr' as string, enabled: true })
+const channelForm = reactive({ name: '', kind: 'webhook' as string, url: '', secret: '', recipients: '', language: 'fr' as string, enabled: true })
 const channelErrors = ref<FieldErrors>({})
 const pending = ref(false)
+
+/** Une adresse par ligne, virgule ou point-virgule acceptés. */
+function splitRecipients(text: string): string[] {
+  return text
+    .split(/[\n,;]+/)
+    .map((address) => address.trim())
+    .filter(Boolean)
+}
 
 function openChannel(channel: Channel | null) {
   editingChannel.value = channel
@@ -78,6 +87,7 @@ function openChannel(channel: Channel | null) {
   channelForm.kind = channel?.kind ?? 'webhook'
   channelForm.url = ''
   channelForm.secret = ''
+  channelForm.recipients = ''
   channelForm.language = channel?.language ?? locale.value
   channelForm.enabled = channel?.enabled ?? true
   channelErrors.value = {}
@@ -96,6 +106,8 @@ async function saveChannel() {
     // En modification, un secret vide est envoyé seulement pour le retirer ; à la création il
     // est simplement absent.
     secret: channelForm.secret || (editingChannel.value ? undefined : undefined),
+    // Canal e-mail : une adresse par ligne ; vide en modification, celles en place sont gardées.
+    recipients: channelForm.kind === 'email' && channelForm.recipients.trim() ? splitRecipients(channelForm.recipients) : undefined,
   }
   try {
     if (editingChannel.value) await api.updateChannel(editingChannel.value.id, body)
@@ -360,7 +372,13 @@ const statusVariant = (status: string) => (status === 'sent' ? 'info' : status =
               </SelectContent>
             </Select>
           </div>
-          <div class="grid gap-1.5">
+          <div v-if="channelForm.kind === 'email'" class="grid gap-1.5">
+            <Label for="channel-recipients">{{ t('settings.notifications.fields.recipients') }}</Label>
+            <Textarea id="channel-recipients" v-model="channelForm.recipients" rows="3" class="font-mono" :placeholder="editingChannel ? t('settings.notifications.fields.unchanged') : 'ops@example.com'" :aria-invalid="!!channelErrors.recipients" />
+            <p v-if="channelErrors.recipients" class="text-xs text-destructive">{{ channelErrors.recipients }}</p>
+            <p v-else class="text-xs text-muted-foreground">{{ t('settings.notifications.fields.recipientsHelp') }}</p>
+          </div>
+          <div v-else class="grid gap-1.5">
             <Label for="channel-url">{{ t('settings.notifications.fields.url') }}</Label>
             <Input id="channel-url" v-model="channelForm.url" type="url" class="font-mono" :placeholder="editingChannel ? t('settings.notifications.fields.unchanged') : 'https://'" :aria-invalid="!!channelErrors.url" />
             <p v-if="channelErrors.url" class="text-xs text-destructive">{{ channelErrors.url }}</p>

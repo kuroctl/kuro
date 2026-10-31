@@ -51,18 +51,26 @@ export function useCatalogEntry(prefab: MaybeRefOrGetter<PrefabRef | undefined>)
 }
 
 /**
- * URL locale (`blob:`) d'une image du prefab, si le catalogue la déclare. Téléchargée avec le
- * jeton : une balise `<img>` ne peut pas l'envoyer. Immuable, comme le prefab.
+ * URL locale (`blob:`) d'une image du prefab. Avec le droit de lire les prefabs, seulement si le
+ * catalogue la déclare ; sans, elle est tentée (l'API la sert à toute session, et répond 404
+ * quand elle manque). Téléchargée avec le jeton : une balise `<img>` ne peut pas l'envoyer.
+ * Immuable, comme le prefab.
  */
 export function usePrefabAsset(prefab: MaybeRefOrGetter<PrefabRef | undefined>, kind: PrefabAssetKind) {
+  const { can } = usePermissions()
   const entry = useCatalogEntry(prefab)
   const { data } = useQuery(
-    computed(() => ({
-      queryKey: ['prefabs', entry.value?.id, entry.value?.version, 'assets', kind],
-      queryFn: () => usePrefabsApi().asset(entry.value!.id, entry.value!.version, kind),
-      enabled: Boolean(entry.value?.assets.includes(kind)),
-      staleTime: Infinity,
-    })),
+    computed(() => {
+      const ref = toValue(prefab)
+      const declared = can('prefabs.read') ? Boolean(entry.value?.assets.includes(kind)) : true
+      return {
+        queryKey: ['prefabs', ref?.id, ref?.version, 'assets', kind],
+        queryFn: () => usePrefabsApi().asset(ref!.id, ref!.version, kind),
+        enabled: Boolean(ref) && declared,
+        staleTime: Infinity,
+        retry: false,
+      }
+    }),
   )
   return useObjectUrl(data)
 }

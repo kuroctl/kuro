@@ -77,6 +77,8 @@ tempfile = "3.27.0"
 flate2 = "1.1.10"
 tar = "0.4.46"
 webpki-roots = "1.0.11"
+# E-mail (ADR-0046) : SMTP par rustls (ring, racines webpki), sans native-tls ni OpenSSL.
+lettre = { version = "0.11.23", default-features = false, features = ["smtp-transport", "builder", "tokio1-rustls-tls"] }
 zip = { version = "9.1.2", default-features = false, features = ["deflate-flate2"] }
 zstd = { version = "0.14.3", default-features = false }
 lzma-rust2 = { version = "0.24.0", default-features = false, features = ["xz", "std"] }

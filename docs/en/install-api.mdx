@@ -104,7 +104,10 @@ sudo cat /var/lib/kuro/setup-token
 ```
 
 Open `https://panel.example.com` and follow the screens. The token is used once: without it,
-nobody can create the first account from the network.
+nobody can create the first account from the network. Three ready-made roles are created along
+with the super admin, to grant to the next accounts: **operator** (nodes, servers and prefabs),
+**support** (acts on servers without destroying anything) and **viewer** (read only). They can
+be edited or deleted like any role.
 
 Without a panel, or in a script, the same setup runs on the machine:
 
@@ -114,6 +117,9 @@ sudo kuro-api-admin setup --email you@example.com --name "Your name" --project-n
 
 The password is asked interactively, never passed as an argument (`--password-stdin` for a
 script).
+
+After signing in, the wizard offers an optional screen for the project's SMTP server (admin
+invitations, e-mail notifications), to skip or to set later in Settings › E-mail.
 
 ## Everything on one machine
 

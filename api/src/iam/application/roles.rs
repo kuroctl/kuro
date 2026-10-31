@@ -173,6 +173,162 @@ pub async fn update(
 }
 
 /// Les comptes qui portaient le rôle le perdent.
+/// Rôle livré à la mise en route (ADR-0045) : une hiérarchie prête à l'emploi, modifiable ou
+/// supprimable ensuite comme tout rôle.
+pub struct DefaultRole {
+    pub name: &'static str,
+    pub description: &'static str,
+    pub color: &'static str,
+    pub permissions: &'static [Permission],
+}
+
+/// Trois rôles sous le super admin : l'opérateur gère la flotte, le support agit sur les
+/// serveurs sans rien détruire, l'observateur lit tout.
+pub const DEFAULT_ROLES: [DefaultRole; 3] = [
+    DefaultRole {
+        name: "operator",
+        description: "Gère les nœuds, les serveurs et les prefabs ; ni les comptes, ni les paramètres.",
+        color: "#f0730e",
+        permissions: &[
+            Permission::NodesRead,
+            Permission::NodesCreate,
+            Permission::NodesUpdate,
+            Permission::NodesRegionsManage,
+            Permission::NodesEnrollment,
+            Permission::NodesRevoke,
+            Permission::NodesDelete,
+            Permission::NodesAllocationsRead,
+            Permission::NodesAllocationsManage,
+            Permission::ServersRead,
+            Permission::ServersCreate,
+            Permission::ServersUpdate,
+            Permission::ServersDelete,
+            Permission::ServersPower,
+            Permission::ServersReinstall,
+            Permission::ServersUpgrade,
+            Permission::ServersConsoleRead,
+            Permission::ServersConsoleWrite,
+            Permission::ServersActionsRun,
+            Permission::ServersFilesRead,
+            Permission::ServersFilesWrite,
+            Permission::ServersBackupsRead,
+            Permission::ServersBackupsCreate,
+            Permission::ServersBackupsRestore,
+            Permission::ServersBackupsDelete,
+            Permission::ServersBackupsDownload,
+            Permission::ServersSchedulesRead,
+            Permission::ServersSchedulesManage,
+            Permission::ServersNotificationsRead,
+            Permission::ServersNotificationsManage,
+            Permission::ServersContentRead,
+            Permission::ServersContentManage,
+            Permission::ServersSuspend,
+            Permission::PrefabsRead,
+            Permission::PrefabsManage,
+            Permission::AuditRead,
+            Permission::SystemNotificationsRead,
+        ],
+    },
+    DefaultRole {
+        name: "support",
+        description: "Agit sur les serveurs au quotidien (démarrage, console, sauvegardes, fichiers en lecture) sans rien détruire.",
+        color: "#3b9ddd",
+        permissions: &[
+            Permission::NodesRead,
+            Permission::NodesAllocationsRead,
+            Permission::ServersRead,
+            Permission::ServersPower,
+            Permission::ServersConsoleRead,
+            Permission::ServersConsoleWrite,
+            Permission::ServersFilesRead,
+            Permission::ServersBackupsRead,
+            Permission::ServersBackupsCreate,
+            Permission::ServersSchedulesRead,
+            Permission::ServersNotificationsRead,
+            Permission::ServersContentRead,
+            Permission::PrefabsRead,
+        ],
+    },
+    DefaultRole {
+        name: "viewer",
+        description: "Lit tout, ne change rien : serveurs, nœuds, prefabs, comptes, paramètres, journal d'audit.",
+        color: "#8a8f9f",
+        permissions: &[
+            Permission::NodesRead,
+            Permission::NodesAllocationsRead,
+            Permission::ServersRead,
+            Permission::ServersConsoleRead,
+            Permission::ServersBackupsRead,
+            Permission::ServersSchedulesRead,
+            Permission::ServersNotificationsRead,
+            Permission::ServersContentRead,
+            Permission::PrefabsRead,
+            Permission::IamUsersRead,
+            Permission::IamRolesRead,
+            Permission::AuditRead,
+            Permission::SystemSettingsRead,
+            Permission::SystemNotificationsRead,
+        ],
+    },
+];
+
+/// Crée les rôles livrés une seule fois par installation (marque `default_roles_seeded_at`) :
+/// à la mise en route, ou au premier démarrage d'une installation antérieure. Un rôle renommé
+/// ou supprimé ensuite n'est jamais recréé. Rend les noms créés.
+pub async fn seed_defaults_once(
+    state: &IamState,
+    context: &AuditContext,
+) -> Result<Vec<&'static str>, IamError> {
+    let seeded: Option<time::OffsetDateTime> =
+        sqlx::query_scalar!("SELECT default_roles_seeded_at FROM platform_settings")
+            .fetch_one(&state.pool)
+            .await?;
+    if seeded.is_some() {
+        return Ok(Vec::new());
+    }
+    let created = seed_defaults(state, context).await?;
+    sqlx::query!("UPDATE platform_settings SET default_roles_seeded_at = now()")
+        .execute(&state.pool)
+        .await?;
+    Ok(created)
+}
+
+/// Crée les rôles livrés qui n'existent pas encore (par nom) ; rend les noms créés.
+pub async fn seed_defaults(
+    state: &IamState,
+    context: &AuditContext,
+) -> Result<Vec<&'static str>, IamError> {
+    let existing: Vec<String> = list(state)
+        .await?
+        .into_iter()
+        .map(|role| role.name)
+        .collect();
+    let mut created = Vec::new();
+    for role in &DEFAULT_ROLES {
+        if existing.iter().any(|name| name == role.name) {
+            continue;
+        }
+        create(
+            state,
+            &Authority::Host,
+            context,
+            NewRole {
+                name: role.name.to_owned(),
+                description: role.description.to_owned(),
+                color: Some(role.color.to_owned()),
+                permissions: role
+                    .permissions
+                    .iter()
+                    .map(|permission| permission.key().to_owned())
+                    .collect(),
+            },
+        )
+        .await?;
+        created.push(role.name);
+    }
+    Ok(created)
+}
+
 pub async fn delete(
     state: &IamState,
     authority: &Authority,

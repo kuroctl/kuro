@@ -25,7 +25,8 @@ use crate::iam::domain::{
     is_valid_display_name,
 };
 use crate::iam::infra::{
-    AdminUserRecord, RoleRef, RoleRepository, SessionRepository, UserRepository,
+    AdminUserRecord, InvitationRepository, RoleRef, RoleRepository, SessionRepository,
+    UserRepository,
 };
 
 #[derive(Debug, Clone)]
@@ -37,6 +38,8 @@ pub struct AdminUser {
     pub disabled: bool,
     /// Mot de passe choisi par un autre admin, à remplacer à la prochaine connexion.
     pub password_change_required: bool,
+    /// Une invitation par e-mail attend d'être acceptée (ADR-0046).
+    pub invitation_pending: bool,
     pub last_login_at: Option<OffsetDateTime>,
     pub created_at: OffsetDateTime,
     pub roles: Vec<(Uuid, String)>,
@@ -288,6 +291,8 @@ pub async fn reset_password(
     ensure_manageable(&mut tx, authority, id).await?;
     UserRepository::set_password(&mut tx, id, &password_hash, chosen_by_admin(authority)).await?;
     SessionRepository::revoke_user(&mut tx, id, None).await?;
+    // Un mot de passe imposé remplace l'invitation en cours (ADR-0046).
+    InvitationRepository::revoke_open(&mut tx, id).await?;
     tx.commit(AuditEvent::success(AuditAction::UserPasswordReset).target("admin_user", id))
         .await?;
     Ok(())
@@ -385,7 +390,7 @@ fn chosen_by_admin(authority: &Authority) -> bool {
 }
 
 /// Anti-escalade : l'acteur détient toutes les permissions du compte visé.
-async fn ensure_manageable(
+pub(super) async fn ensure_manageable(
     conn: &mut PgConnection,
     authority: &Authority,
     target: Uuid,
@@ -450,10 +455,12 @@ async fn with_roles(
 ) -> Result<Vec<AdminUser>, IamError> {
     let ids: Vec<Uuid> = records.iter().map(|record| record.id).collect();
     let roles = RoleRepository::of_users(conn, &ids).await?;
+    let pending = InvitationRepository::pending_user_ids(conn).await?;
     Ok(records
         .into_iter()
         .map(|record| AdminUser {
             roles: roles_of(&roles, record.id),
+            invitation_pending: pending.contains(&record.id),
             id: record.id,
             email: record.email,
             display_name: record.display_name,

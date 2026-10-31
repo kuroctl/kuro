@@ -15,5 +15,17 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  # Boîte aux lettres de dev (ADR-0046) : reçoit tout, interface sur http://localhost:8025.
+  # Dans Paramètres › E-mail : serveur 127.0.0.1, port 1025, chiffrement « aucun » (permis par
+  # `mail.allow_insecure` de api/config.example.toml, jamais en production).
+  mailpit:
+    image: axllent/mailpit:v1.33.0
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
 volumes:
   pgdata:

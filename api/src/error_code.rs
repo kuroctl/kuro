@@ -67,6 +67,14 @@ error_codes! {
     // Première mise en route (ADR-0045)
     SetupDone => "setup_done", "Setup already done: an admin account exists";
     SetupTokenUnavailable => "setup_token_unavailable", "Setup token unavailable on the host: use `kuro-api setup`";
+    // E-mail (ADR-0046)
+    MailNotConfigured => "mail_not_configured", "No SMTP server is configured";
+    MailSendFailed => "mail_send_failed", "The SMTP server refused the message";
+    InvalidMailHost => "invalid_mail_host", "Invalid SMTP host";
+    InvalidMailAddress => "invalid_mail_address", "Invalid e-mail address";
+    InvalidMailField => "invalid_mail_field", "Invalid value";
+    InvalidRecipients => "invalid_recipients", "1 to 20 valid e-mail addresses are expected";
+    UserDisabled => "user_disabled", "The account is disabled";
     WeakPassword => "weak_password", "Password does not meet the policy";
     PasswordUnchanged => "password_unchanged", "The new password must differ from the current one";
     EmailTaken => "email_taken", "Email already in use";

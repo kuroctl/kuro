@@ -2,7 +2,7 @@
 // Fiche d'un admin (ADR-0007) : profil, rôles, identifiants (mot de passe, TOTP, sessions),
 // désactivation et suppression. Chaque action n'apparaît qu'avec sa permission ; l'API applique
 // l'anti-escalade (pas ses propres rôles, pas le dernier super-admin).
-import { KeyRound, LogOut, ShieldOff, Trash2, UserCheck, UserX } from '@lucide/vue'
+import { KeyRound, LogOut, Send, ShieldOff, Trash2, UserCheck, UserX } from '@lucide/vue'
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -139,7 +139,8 @@ function openReset() {
     <PageHeader :title="user?.display_name ?? ''">
       <Badge v-if="isSelf" variant="outline" class="font-normal">{{ t('users.you') }}</Badge>
       <Badge v-if="user?.disabled" variant="destructive" class="font-normal">{{ t('users.state.disabled') }}</Badge>
-      <Badge v-if="user?.password_change_required" variant="warning" class="font-normal">{{ t('users.passwordChangeRequired') }}</Badge>
+      <Badge v-if="user?.invitation_pending" variant="info" class="font-normal">{{ t('users.invitationPending') }}</Badge>
+      <Badge v-else-if="user?.password_change_required" variant="warning" class="font-normal">{{ t('users.passwordChangeRequired') }}</Badge>
     </PageHeader>
     <p v-if="error" role="alert" class="m-6 rounded-lg border border-destructive/35 bg-destructive/8 px-4 py-3.5 text-sm">{{ message(error) }}</p>
     <div v-else-if="!user" class="grid gap-4 p-6"><Skeleton class="h-40" /></div>
@@ -194,6 +195,7 @@ function openReset() {
         </CardHeader>
         <CardContent class="flex flex-wrap gap-2">
           <Button variant="outline" :disabled="pending" @click="openReset"><KeyRound />{{ t('users.detail.resetPassword') }}</Button>
+          <Button variant="outline" :disabled="pending" @click="run(() => api.invite(user!.id), 'users.detail.invited')"><Send />{{ user.invitation_pending ? t('users.detail.reinvite') : t('users.detail.invite') }}</Button>
           <Button variant="outline" :disabled="pending || !user.totp_enabled" @click="confirm = 'totp'"><ShieldOff />{{ t('users.detail.resetTotp') }}</Button>
           <Button variant="outline" :disabled="pending" @click="confirm = 'sessions'"><LogOut />{{ t('users.detail.revokeSessions') }}</Button>
         </CardContent>

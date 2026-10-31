@@ -105,7 +105,10 @@ sudo cat /var/lib/kuro/setup-token
 ```
 
 Ouvrez `https://panel.example.com` et suivez les écrans. Le jeton ne sert qu'une fois : sans lui,
-personne ne peut créer le premier compte depuis le réseau.
+personne ne peut créer le premier compte depuis le réseau. Trois rôles prêts à l'emploi sont créés
+avec le super admin, à attribuer aux comptes suivants : **operator** (nœuds, serveurs et
+prefabs), **support** (agit sur les serveurs sans rien détruire) et **viewer** (lecture seule).
+Ils se modifient ou se suppriment comme tout rôle.
 
 Sans panel, ou dans un script, la même mise en route se fait sur la machine :
 
@@ -115,6 +118,10 @@ sudo kuro-api-admin setup --email vous@example.com --name "Votre nom" --project-
 
 Le mot de passe est demandé de façon interactive, jamais passé en argument (`--password-stdin`
 pour un script).
+
+Après la connexion, l'assistant propose un écran facultatif pour le serveur SMTP du projet
+(invitations des admins, notifications par e-mail), à passer ou à régler plus tard dans
+Paramètres › E-mail.
 
 ## Tout sur une seule machine
 

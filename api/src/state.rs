@@ -38,6 +38,14 @@ pub struct AppState {
     pub readiness: crate::system::Readiness,
     /// Première mise en route (ADR-0045) : état « à configurer » et jeton sur l'hôte.
     pub setup: crate::setup::SetupState,
+    /// Envoi d'e-mails (ADR-0046) : réglages SMTP et client.
+    pub mail: crate::mail::MailState,
+}
+
+impl FromRef<AppState> for crate::mail::MailState {
+    fn from_ref(state: &AppState) -> Self {
+        state.mail.clone()
+    }
 }
 
 impl FromRef<AppState> for crate::setup::SetupState {

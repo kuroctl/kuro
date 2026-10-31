@@ -151,6 +151,9 @@ pub async fn run(args: DevArgs) -> anyhow::Result<()> {
         config.http.bind
     );
     println!("  admin   {}", prepared.admin_hint);
+    println!(
+        "  mail    Mailpit http://localhost:8025 (SMTP 127.0.0.1:1025, chiffrement « aucun »)"
+    );
     // Jeton de mise en route (ADR-0045), écrit par l'API au démarrage s'il n'y a aucun compte.
     if let Ok(token) = std::fs::read_to_string(root().join(&config.setup.token_file)) {
         println!(

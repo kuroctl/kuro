@@ -26,9 +26,13 @@ Kuro envoie une notification quand quelque chose demande votre attention. Vous c
   faire confiance au message. `X-Kuro-Event` donne le type, `X-Kuro-Delivery` l'identifiant.
 - **Discord** et **Slack** : collez l'URL du webhook entrant de votre salon ; le message est
   mis en forme (embed, blocks) dans la langue du canal.
+- **E-mail** : une à vingt adresses, un message par événement (sujet « [Projet] Titre », texte
+  et HTML, lien vers le panel), envoyé par le serveur SMTP de **Paramètres › E-mail**. Sans
+  serveur réglé, les envois attendent et partent dès qu'il l'est.
 
-L'URL et le secret sont chiffrés et ne sont jamais réaffichés. Le bouton **Tester** envoie un
-événement `test` et affiche la réponse du destinataire.
+L'URL, le secret et les destinataires sont chiffrés ; l'URL et les adresses ne sont jamais
+réaffichées en entier. Le bouton **Tester** envoie un événement `test` et affiche la réponse du
+destinataire.
 
 ## Par serveur
 

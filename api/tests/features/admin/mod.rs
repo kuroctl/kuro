@@ -1,6 +1,7 @@
 //! Espace admin : authentification, TOTP, RBAC, comptes et rôles.
 
 mod auth;
+mod mail;
 mod mcp;
 mod nodes;
 mod notifications;

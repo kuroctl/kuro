@@ -8,6 +8,11 @@ import { fetchSetupStatus } from '@/features/setup/setup.queries'
 /** Routes accessibles sans session, affichées hors de la coque du panel. */
 export const PUBLIC_PATHS = ['/login', '/setup']
 
+/** Route publique : celles ci-dessus, et le lien d'invitation (ADR-0046). */
+export function isPublicPath(path: string): boolean {
+  return PUBLIC_PATHS.includes(path) || path.startsWith('/invitation/')
+}
+
 /** Routes qui exigent une session mais s'affichent hors de la coque (consentement OAuth). */
 export const BARE_PATHS = ['/oauth/consent']
 
@@ -20,7 +25,7 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
     const setup = await fetchSetupStatus()
     if (setup.needed && to.path !== '/setup') return { path: '/setup' }
     if (!setup.needed && to.path === '/setup') return { path: '/login' }
-    if (PUBLIC_PATHS.includes(to.path)) return true
+    if (isPublicPath(to.path)) return true
 
     const session = useSessionStore()
     await session.restore()

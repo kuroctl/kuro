@@ -81,7 +81,11 @@ iptables -I DOCKER-USER -i br-+ -d 192.168.1.10/32 -j ACCEPT
 - **Settings › Project**: server resource defaults and caps, audit log retention, opening the
   MCP server.
 - **Settings › DNS**: DNS provider zone and token (see [DNS](/en/dns)).
-- **Access**: admin accounts and roles.
+- **Settings › E-mail**: the project's SMTP server (STARTTLS or TLS, encrypted password), with a
+  test e-mail. It serves admin invitations and the e-mail channel of
+  [notifications](/en/notifications).
+- **Access**: admin accounts and roles. An admin is created with a temporary password, or by an
+  invitation sent by e-mail (link valid 48 hours, once) when the SMTP server is configured.
 
 ## Multiple API instances
 

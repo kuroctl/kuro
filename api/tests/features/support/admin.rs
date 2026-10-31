@@ -38,6 +38,8 @@ pub struct TestAdmin {
     /// Webhooks simulés et l'état des notifications, pour lancer une passe d'envoi.
     pub webhooks: std::sync::Arc<super::notifications::FakeWebhooks>,
     pub notifications: kuro_api::notifications::application::NotificationsState,
+    /// Client SMTP simulé (ADR-0046) : les messages envoyés s'y lisent.
+    pub mailer: std::sync::Arc<super::mail::FakeMailer>,
     pub dns: kuro_api::dns::application::DnsState,
     /// Première mise en route : son fichier de jeton est propre à chaque instance.
     pub setup: kuro_api::setup::SetupState,
@@ -99,12 +101,21 @@ impl TestAdmin {
         let dns_provider = std::sync::Arc::new(super::dns::FakeDns::default());
         let store = std::sync::Arc::new(super::store::FakeStore::default());
         let webhooks = std::sync::Arc::new(super::notifications::FakeWebhooks::default());
+        let mailer = std::sync::Arc::new(super::mail::FakeMailer::default());
+        let mail = kuro_api::mail::MailState {
+            pool: pool.clone(),
+            key: *iam.keys.server_secrets(),
+            mailer: mailer.clone(),
+            panel_url: Some("https://panel.example.com".to_owned()),
+            allow_insecure: false,
+        };
         let notifications = kuro_api::notifications::application::NotificationsState {
             pool: pool.clone(),
             key: *iam.keys.server_secrets(),
             sender: webhooks.clone(),
             panel_url: Some("https://panel.example.com".to_owned()),
             allow_private_targets: false,
+            mail: mail.clone(),
         };
         let dns = kuro_api::dns::application::DnsState::new(
             pool.clone(),
@@ -156,6 +167,7 @@ impl TestAdmin {
             http: super::http::http_policy(),
             readiness: readiness.clone(),
             setup: setup.clone(),
+            mail: mail.clone(),
         });
         Self {
             pool,
@@ -172,6 +184,7 @@ impl TestAdmin {
             store,
             webhooks,
             notifications,
+            mailer,
             dns,
             setup,
             readiness,

@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 
 import { useSessionStore } from '@/features/auth/session.store'
 import AppShell from '@/shared/layout/AppShell.vue'
-import { BARE_PATHS, PUBLIC_PATHS } from '@/shared/router'
+import { BARE_PATHS, isPublicPath } from '@/shared/router'
 import { useTheme } from '@/shared/theme/useTheme'
 import { Toaster } from '@/shared/ui/sonner'
 import { TooltipProvider } from '@/shared/ui/tooltip'
@@ -15,7 +15,7 @@ const session = useSessionStore()
 // Coque seulement une fois la session ouverte : pendant la navigation initiale, la route vaut
 // encore `/` et la coque lancerait des requêtes sans jeton.
 const inShell = computed(
-  () => session.authenticated && !PUBLIC_PATHS.includes(route.path) && !BARE_PATHS.includes(route.path),
+  () => session.authenticated && !isPublicPath(route.path) && !BARE_PATHS.includes(route.path),
 )
 </script>
 

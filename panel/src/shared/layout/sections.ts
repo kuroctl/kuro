@@ -1,25 +1,5 @@
 // Sections du rail et leur sous-menu. Les libellés sont des clés i18n.
-import {
-  Bell,
-  Bot,
-  Boxes,
-  Globe,
-  Earth,
-  Gamepad2,
-  LayoutDashboard,
-  Map as MapIcon,
-  Network,
-  PackageSearch,
-  ScrollText,
-  Server,
-  Settings,
-  ShieldCheck,
-  Sparkles,
-  UserCog,
-  UserRound,
-  Users,
-  type LucideIcon,
-} from '@lucide/vue'
+import { Bell, Bot, Boxes, Earth, Gamepad2, Globe, LayoutDashboard, Mail, Map as MapIcon, Network, PackageSearch, ScrollText, Server, Settings, ShieldCheck, Sparkles, type LucideIcon, UserCog, UserRound, Users } from '@lucide/vue'
 
 export interface SubnavItem {
   label: string
@@ -89,6 +69,7 @@ export const sections: Section[] = [
       { label: 'subnav.settings.dns', icon: Earth, to: '/settings/dns', permission: 'system.dns.manage' },
       { label: 'subnav.settings.sources', icon: PackageSearch, to: '/settings/content-sources', permission: 'system.content_sources.manage' },
       { label: 'subnav.settings.steam', icon: Gamepad2, to: '/settings/steam-account', permission: 'system.steam_accounts.manage' },
+      { label: 'subnav.settings.mail', icon: Mail, to: '/settings/mail', permission: 'system.settings.read' },
       { label: 'subnav.settings.notifications', icon: Bell, to: '/settings/notifications', permission: 'system.notifications.read' },
       { label: 'subnav.settings.audit', icon: ScrollText, to: '/settings/audit' },
     ],

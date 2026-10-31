@@ -26,9 +26,12 @@ and the channels in **Settings › Notifications**.
   the message. `X-Kuro-Event` gives the type, `X-Kuro-Delivery` the identifier.
 - **Discord** and **Slack**: paste the incoming webhook URL of your channel; the message is
   formatted (embed, blocks) in the channel's language.
+- **E-mail**: one to twenty addresses, one message per event (subject "[Project] Title", text
+  and HTML, link to the panel), sent through the SMTP server of **Settings › E-mail**. Without
+  a configured server, sends wait and go out as soon as it is set.
 
-The URL and the secret are encrypted and never shown again. The **Test** button sends a `test`
-event and shows the receiver's answer.
+The URL, the secret and the recipients are encrypted; the URL and the addresses are never shown
+again in full. The **Test** button sends a `test` event and shows the receiver's answer.
 
 ## Per server
 

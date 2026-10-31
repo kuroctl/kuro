@@ -65,6 +65,8 @@ audit_actions! {
     UserPasswordReset => "iam.user.password_reset",
     UserTotpReset => "iam.user.totp_reset",
     UserSessionsRevoked => "iam.user.sessions_revoked",
+    UserInvited => "iam.user.invited",
+    InvitationAccepted => "iam.invitation.accepted",
     OwnPasswordChanged => "iam.self.password_changed",
 
     // Rôles
@@ -140,6 +142,10 @@ audit_actions! {
     SettingsUpdated => "system.settings_updated",
     // Première mise en route (ADR-0045)
     SetupCompleted => "system.setup_completed",
+    // E-mail (ADR-0046)
+    MailUpdated => "system.mail_updated",
+    MailRemoved => "system.mail_removed",
+    MailTested => "system.mail_tested",
 
     // Notifications (ADR-0044)
     NotificationChannelCreated => "notification.channel_created",

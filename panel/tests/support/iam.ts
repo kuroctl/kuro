@@ -40,6 +40,7 @@ export function admin(overrides: Partial<Schemas['AdminUserDto']> = {}): Schemas
     totp_enabled: true,
     disabled: false,
     password_change_required: false,
+    invitation_pending: false,
     last_login_at: '2026-10-27T09:00:00Z',
     created_at: '2026-10-01T00:00:00Z',
     roles: [{ id: SUPPORT_ID, name: 'support' }],

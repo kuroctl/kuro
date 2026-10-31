@@ -8,6 +8,8 @@ import { useRouter } from 'vue-router'
 
 import { meQuery } from '@/features/account/account.queries'
 import LoginFlow from '@/features/auth/components/LoginFlow.vue'
+import MailSettingsForm from '@/features/mail/components/MailSettingsForm.vue'
+import { useMailSettings } from '@/features/mail/mail.queries'
 import { useSetupApi } from '@/features/setup/setup.api'
 import { invalidateSetupStatus } from '@/features/setup/setup.queries'
 import { type FieldErrors, useApiError } from '@/shared/api/useApiError'
@@ -18,8 +20,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/sha
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 
-type Step = 'token' | 'account' | 'project' | 'login'
-const STEPS: Step[] = ['token', 'account', 'project', 'login']
+type Step = 'token' | 'account' | 'project' | 'login' | 'mail'
+const STEPS: Step[] = ['token', 'account', 'project', 'login', 'mail']
 /** Règle de l'API (`auth::password::check_policy`), vérifiée à l'écran du compte. */
 const PASSWORD_LENGTH = { min: 12, max: 1024 }
 
@@ -40,6 +42,8 @@ const confirmation = ref('')
 const projectName = ref('')
 
 const position = computed(() => STEPS.indexOf(step.value))
+// Écran optionnel : les réglages SMTP se lisent une fois connecté.
+const { data: mail } = useMailSettings(() => step.value === 'mail')
 
 function goAccount() {
   errors.value = {}
@@ -91,6 +95,10 @@ async function create() {
 
 async function onAuthenticated() {
   await queryClient.prefetchQuery(meQuery)
+  step.value = 'mail'
+}
+
+async function finish() {
   await router.replace('/')
 }
 </script>
@@ -118,6 +126,17 @@ async function onAuthenticated() {
       </ol>
 
       <LoginFlow v-if="step === 'login'" class="mx-auto" @authenticated="onAuthenticated" />
+
+      <Card v-else-if="step === 'mail'" class="w-full border-border/60 shadow-2xl shadow-black/40">
+        <CardHeader>
+          <CardTitle class="text-xl">{{ t('setup.mail.title') }}</CardTitle>
+          <CardDescription>{{ t('setup.mail.subtitle') }}</CardDescription>
+        </CardHeader>
+        <CardContent class="grid gap-4">
+          <MailSettingsForm v-if="mail" :settings="mail" :editable="true" @saved="finish" />
+          <Button type="button" variant="ghost" @click="finish">{{ mail?.configured ? t('setup.mail.done') : t('setup.mail.skip') }}</Button>
+        </CardContent>
+      </Card>
 
       <Card v-else class="w-full border-border/60 shadow-2xl shadow-black/40">
         <template v-if="step === 'token'">

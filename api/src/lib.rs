@@ -16,6 +16,7 @@ pub mod enrollment;
 pub mod error_code;
 pub mod http;
 pub mod iam;
+pub mod mail;
 pub mod mcp;
 pub mod nodes;
 pub mod notifications;

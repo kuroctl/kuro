@@ -102,9 +102,10 @@ impl From<NotificationsError> for ApiError {
 pub struct ChannelDto {
     pub id: Uuid,
     pub name: String,
-    /// `webhook`, `discord` ou `slack`.
+    /// `webhook`, `discord`, `slack` ou `email`.
     pub kind: String,
-    /// URL tronquée (hôte et début du chemin) : l'URL complète n'est jamais rendue.
+    /// URL tronquée (hôte et début du chemin) : l'URL complète n'est jamais rendue. Canal
+    /// `email` : première adresse masquée et le nombre de destinataires.
     pub url_hint: String,
     /// Un secret HMAC est enregistré (webhook générique).
     pub has_secret: bool,
@@ -145,6 +146,9 @@ pub struct ChannelRequest {
     /// Secret HMAC (webhook générique). Absent en modification : gardé ; vide : retiré.
     #[serde(default)]
     pub secret: Option<String>,
+    /// Canal `email` : destinataires (1 à 20). Absents en modification : gardés.
+    #[serde(default)]
+    pub recipients: Option<Vec<String>>,
     #[serde(default = "default_language")]
     pub language: String,
     #[serde(default = "default_true")]
@@ -166,6 +170,7 @@ impl From<ChannelRequest> for ChannelInput {
             kind: request.kind,
             url: request.url,
             secret: request.secret,
+            recipients: request.recipients,
             language: request.language,
             enabled: request.enabled,
         }
@@ -531,6 +536,9 @@ pub struct SubscriptionRequest {
     pub url: Option<String>,
     #[serde(default)]
     pub secret: Option<String>,
+    /// Destination `email` : destinataires.
+    #[serde(default)]
+    pub recipients: Option<Vec<String>>,
     #[serde(default)]
     pub language: Option<String>,
 }
@@ -545,6 +553,7 @@ impl From<SubscriptionRequest> for SubscriptionInput {
             kind: request.kind,
             url: request.url,
             secret: request.secret,
+            recipients: request.recipients,
             language: request.language,
         }
     }

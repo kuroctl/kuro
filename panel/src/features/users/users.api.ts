@@ -23,6 +23,9 @@ export function useUsersApi() {
     setRoles: (id: string, role_ids: string[]) =>
       http.put<AdminUser>(`${BASE}/${id}/roles`, { role_ids }).then((response) => response.data),
 
+    /** Envoie ou renvoie l'invitation par e-mail (ADR-0046). */
+    invite: (id: string) => http.post<void>(`${BASE}/${id}/invite`).then(() => undefined),
+
     resetPassword: (id: string, password: string) =>
       http.put<void>(`${BASE}/${id}/password`, { password }).then(() => undefined),
 

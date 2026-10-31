@@ -27,6 +27,7 @@ hmac.workspace = true
 hyper.workspace = true
 http-body-util.workspace = true
 hyper-util.workspace = true
+lettre.workspace = true
 futures-util.workspace = true
 rcgen.workspace = true
 rmcp.workspace = true

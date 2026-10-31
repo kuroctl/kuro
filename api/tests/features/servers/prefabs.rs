@@ -315,8 +315,10 @@ async fn an_image_that_is_not_png_jpeg_or_webp_is_refused() {
     assert_eq!(prefab.status, StatusCode::NOT_FOUND);
 }
 
+/// Les images d'un prefab se lisent avec toute session (ADR-0045, amendement) : la page d'un
+/// serveur les affiche même sans droit sur les prefabs ; le catalogue, lui, reste fermé.
 #[tokio::test]
-async fn reading_prefab_images_requires_its_permission() {
+async fn reading_prefab_images_needs_only_a_session() {
     let platform = Platform::start().await;
     let dir = art_prefab(Some(ICON), None);
     import_dir(&platform.api.pool, dir.path()).await.unwrap();
@@ -335,9 +337,14 @@ async fn reading_prefab_images_requires_its_permission() {
             None,
         )
         .await;
+    assert_eq!(response.status, StatusCode::OK, "{}", response.json);
 
-    assert_eq!(response.status, StatusCode::FORBIDDEN);
-    assert_eq!(response.json["params"]["permission"], "prefabs.read");
+    let catalog = platform
+        .admin
+        .call(Method::GET, "/prefabs", Some(&session.access_token), None)
+        .await;
+    assert_eq!(catalog.status, StatusCode::FORBIDDEN);
+    assert_eq!(catalog.json["params"]["permission"], "prefabs.read");
 }
 
 #[tokio::test]

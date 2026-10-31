@@ -613,8 +613,8 @@ pub async fn locale(
     Ok(Json(messages))
 }
 
-/// Icône (`icon`) ou bannière (`cover`) d'une version : PNG, JPEG ou WebP. Permission :
-/// `prefabs.read`.
+/// Icône (`icon`) ou bannière (`cover`) d'une version : PNG, JPEG ou WebP. Toute session admin :
+/// un serveur s'affiche avec les images de son prefab même sans droit sur les prefabs.
 #[utoipa::path(get, path = "/api/admin/v1/prefabs/{id}/{version}/assets/{kind}", tag = "admin-prefabs",
     security(("bearer" = [])),
     params(("id" = String, Path), ("version" = String, Path), ("kind" = String, Path, description = "`icon` ou `cover`")),
@@ -622,13 +622,11 @@ pub async fn locale(
         (status = 200, description = "Image PNG, JPEG ou WebP", content_type = "image/*"),
         (status = 403, body = Problem), (status = 404, body = Problem)))]
 pub async fn asset(
-    State(iam): State<IamState>,
     State(pool): State<PgPool>,
-    session: AdminSession,
+    _session: AdminSession,
     Path((id, version, kind)): Path<(String, String, String)>,
     request: HeaderMap,
 ) -> Result<Response, ApiError> {
-    session.require(&iam, Permission::PrefabsRead).await?;
     let kind = AssetKind::parse(&kind).ok_or(PrefabsError::NotFound)?;
     let (content_type, data) = prefabs::asset(&pool, &id, &version, kind).await?;
     // Une image peut être optimisée après coup : revalidée à chaque affichage (`ETag`, 304 si

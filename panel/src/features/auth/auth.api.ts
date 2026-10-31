@@ -9,6 +9,10 @@ export function useAuthApi() {
     login: (body: Schemas['LoginRequest']) =>
       http.post<Schemas['LoginResponse']>(`${BASE}/login`, body).then((response) => response.data),
 
+    /** Invitation acceptée (ADR-0046) : mot de passe choisi, puis même réponse que `login`. */
+    acceptInvitation: (body: Schemas['InvitationRequest']) =>
+      http.post<Schemas['LoginResponse']>(`${BASE}/invitation`, body).then((response) => response.data),
+
     /** Mot de passe choisi par un autre admin, remplacé avant le TOTP : même réponse que `login`. */
     changeRequiredPassword: (body: Schemas['RequiredPasswordRequest']) =>
       http.post<Schemas['LoginResponse']>(`${BASE}/password`, body).then((response) => response.data),

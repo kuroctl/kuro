@@ -20,6 +20,7 @@ export const profile: Schemas['ProfileDto'] = {
     totp_enabled: false,
     disabled: false,
     password_change_required: false,
+    invitation_pending: false,
     created_at: '2026-10-01T00:00:00Z',
     roles: [{ id: '01a1786d-d121-71d1-a067-40612b7a2c51', name: 'super-admin' }],
   },
@@ -53,7 +54,23 @@ export const signedIn = () => [
   serverSearch(),
   // Zone DNS publique (ADR-0026) : non configurée par défaut, les adresses restent `IP:port`.
   http.get(`${API}/dns`, () => HttpResponse.json({ base_domain: null, nodes_label: null })),
+  // SMTP (ADR-0046) : non réglé par défaut, les comptes se créent avec un mot de passe temporaire.
+  http.get(`${API}/settings/mail`, () => HttpResponse.json(mailNotConfigured)),
 ]
+
+/** Réglages SMTP absents (ADR-0046). */
+export const mailNotConfigured: Schemas['MailSettingsDto'] = {
+  configured: false,
+  insecure_allowed: false,
+  host: null,
+  port: null,
+  security: null,
+  username: null,
+  has_password: false,
+  from_address: null,
+  from_name: null,
+  updated_at: null,
+}
 
 type ServerDto = Schemas['ServerDto']
 

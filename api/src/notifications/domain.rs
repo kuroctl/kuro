@@ -151,6 +151,8 @@ pub enum ChannelKind {
     Discord,
     /// Webhook entrant Slack (blocks).
     Slack,
+    /// E-mail aux destinataires du canal, par le SMTP du projet (ADR-0046).
+    Email,
 }
 
 impl ChannelKind {
@@ -159,23 +161,49 @@ impl ChannelKind {
             Self::Webhook => "webhook",
             Self::Discord => "discord",
             Self::Slack => "slack",
+            Self::Email => "email",
         }
     }
 
     pub fn parse(text: &str) -> Option<Self> {
-        [Self::Webhook, Self::Discord, Self::Slack]
+        [Self::Webhook, Self::Discord, Self::Slack, Self::Email]
             .into_iter()
             .find(|kind| kind.as_str() == text)
+    }
+}
+
+/// Destinataires d'un canal e-mail : de un à vingt.
+pub const MAX_RECIPIENTS: usize = 20;
+
+/// Première adresse masquée et le nombre : `o…@example.com (+2)`.
+pub fn email_hint(recipients: &[String]) -> String {
+    let Some(first) = recipients.first() else {
+        return String::new();
+    };
+    let masked = match first.split_once('@') {
+        Some((local, domain)) => {
+            format!("{}…@{domain}", local.chars().next().unwrap_or('?'))
+        }
+        None => "…".to_owned(),
+    };
+    match recipients.len() {
+        1 => masked,
+        n => format!("{masked} (+{})", n - 1),
     }
 }
 
 /// Configuration d'un canal, chiffrée en base : l'URL porte souvent un jeton (Discord, Slack).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChannelConfig {
+    /// URL du webhook ; vide pour un canal e-mail.
+    #[serde(default)]
     pub url: String,
     /// Secret HMAC du webhook générique ; sans secret, pas d'en-tête de signature.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub secret: Option<String>,
+    /// Destinataires d'un canal e-mail.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub recipients: Vec<String>,
 }
 
 /// Portée d'une règle.

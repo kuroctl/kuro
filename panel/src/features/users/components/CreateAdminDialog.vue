@@ -1,17 +1,20 @@
 <script setup lang="ts">
-// Création d'un admin : nom, e-mail, mot de passe initial (à lui transmettre), rôles.
+// Création d'un admin : nom, e-mail, rôles, et soit une invitation par e-mail (SMTP réglé,
+// ADR-0046), soit un mot de passe initial à lui transmettre.
 import { Plus } from '@lucide/vue'
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 
 import { usePermissions } from '@/features/account/account.queries'
+import { useMailSettings } from '@/features/mail/mail.queries'
 import { type FieldErrors, useApiError } from '@/shared/api/useApiError'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/shared/ui/dialog'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
+import { Switch } from '@/shared/ui/switch'
 
 import { useUsersApi } from '../users.api'
 import { useInvalidateUsers } from '../users.queries'
@@ -28,13 +31,17 @@ const invalidate = useInvalidateUsers()
 const open = ref(false)
 const pending = ref(false)
 const errors = ref<FieldErrors>({})
-const form = reactive({ display_name: '', email: '', password: '', roles: [] as string[] })
+const form = reactive({ display_name: '', email: '', password: '', roles: [] as string[], invite: false })
 const canAssign = computed(() => can('iam.roles.assign'))
+const { data: mail } = useMailSettings(() => can('system.settings.read'))
+const mailConfigured = computed(() => mail.value?.configured === true)
+// Invitation par défaut dès qu'un SMTP est réglé ; sinon, le mot de passe temporaire.
+watch(mailConfigured, (configured) => (form.invite = configured), { immediate: true })
 
 function reset(isOpen: boolean) {
   open.value = isOpen
   if (!isOpen) {
-    Object.assign(form, { display_name: '', email: '', password: '', roles: [] })
+    Object.assign(form, { display_name: '', email: '', password: '', roles: [], invite: mailConfigured.value })
     errors.value = {}
   }
 }
@@ -43,7 +50,11 @@ async function submit() {
   pending.value = true
   errors.value = {}
   try {
-    const user = await api.create({ display_name: form.display_name.trim(), email: form.email.trim(), password: form.password })
+    const user = await api.create({
+      display_name: form.display_name.trim(),
+      email: form.email.trim(),
+      ...(form.invite ? { invite: true } : { password: form.password }),
+    })
     if (form.roles.length > 0) {
       try {
         await api.setRoles(user.id, form.roles)
@@ -52,7 +63,7 @@ async function submit() {
         handleError(error)
       }
     }
-    toast.success(t('users.create.done', { name: user.display_name }))
+    toast.success(t(form.invite ? 'users.create.invited' : 'users.create.done', { name: user.display_name }))
     await invalidate()
     reset(false)
     await router.push(`/users/${user.id}`)
@@ -85,7 +96,15 @@ async function submit() {
           <Input id="admin-email" v-model="form.email" type="email" autocomplete="off" :aria-invalid="!!errors.email" />
           <p v-if="errors.email" class="text-sm text-destructive">{{ errors.email }}</p>
         </div>
-        <div class="grid gap-1.5">
+        <div v-if="mailConfigured" class="flex items-center justify-between gap-4 rounded-lg border px-3 py-2">
+          <div class="grid gap-0.5">
+            <Label for="admin-invite">{{ t('users.create.invite') }}</Label>
+            <p class="text-xs text-muted-foreground">{{ t('users.create.inviteHelp') }}</p>
+          </div>
+          <Switch id="admin-invite" v-model="form.invite" />
+        </div>
+        <p v-else class="text-xs text-muted-foreground">{{ t('users.create.noMail') }}</p>
+        <div v-if="!form.invite" class="grid gap-1.5">
           <Label for="admin-password">{{ t('users.fields.password') }}</Label>
           <PasswordField id="admin-password" v-model="form.password" :invalid="!!errors.password" />
           <p v-if="errors.password" class="text-sm text-destructive">{{ errors.password }}</p>
@@ -97,7 +116,7 @@ async function submit() {
         </div>
         <DialogFooter>
           <Button type="button" variant="ghost" @click="reset(false)">{{ t('common.cancel') }}</Button>
-          <Button type="submit" :disabled="pending">{{ t('users.create.submit') }}</Button>
+          <Button type="submit" :disabled="pending">{{ form.invite ? t('users.create.submitInvite') : t('users.create.submit') }}</Button>
         </DialogFooter>
       </form>
     </DialogContent>

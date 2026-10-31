@@ -56,6 +56,38 @@ fn protected_routes() -> Vec<(Method, String, Option<Value>, Vec<Permission>)> {
             vec![Permission::IamUsersCredentials],
         ),
         (
+            Method::POST,
+            format!("/users/{id}/invite"),
+            None,
+            vec![Permission::IamUsersCredentials],
+        ),
+        (
+            Method::GET,
+            "/settings/mail".into(),
+            None,
+            vec![Permission::SystemSettingsRead],
+        ),
+        (
+            Method::PUT,
+            "/settings/mail".into(),
+            Some(
+                json!({ "host": "smtp.example.com", "port": 587, "security": "starttls", "from_address": "kuro@example.com" }),
+            ),
+            vec![Permission::SystemSettingsUpdate],
+        ),
+        (
+            Method::DELETE,
+            "/settings/mail".into(),
+            None,
+            vec![Permission::SystemSettingsUpdate],
+        ),
+        (
+            Method::POST,
+            "/settings/mail/test".into(),
+            None,
+            vec![Permission::SystemSettingsUpdate],
+        ),
+        (
             Method::DELETE,
             format!("/users/{id}/totp"),
             None,
@@ -298,12 +330,6 @@ fn protected_routes() -> Vec<(Method, String, Option<Value>, Vec<Permission>)> {
         (
             Method::GET,
             format!("/prefabs/{id}/1.0.0"),
-            None,
-            vec![Permission::PrefabsRead],
-        ),
-        (
-            Method::GET,
-            format!("/prefabs/{id}/1.0.0/assets/icon"),
             None,
             vec![Permission::PrefabsRead],
         ),
@@ -1088,6 +1114,8 @@ async fn disabling_an_account_cuts_its_sessions_immediately() {
 /// elles n'agissent que sur le compte ou les consentements de l'appelant, ou sur un ticket.
 const SESSION_ONLY_ROUTES: &[(&str, &str)] = &[
     ("GET", "/me"),
+    // Images d'un prefab : un serveur s'affiche avec elles, même sans droit sur les prefabs.
+    ("GET", "/prefabs/{id}/{version}/assets/{kind}"),
     ("PUT", "/me/password"),
     ("POST", "/auth/logout"),
     ("GET", "/oauth/grants"),

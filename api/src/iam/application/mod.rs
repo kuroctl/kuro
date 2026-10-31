@@ -2,6 +2,7 @@
 //! [`crate::audit::infra::AuditedTx`] : pas de modification sans événement d'audit.
 
 mod error;
+pub mod invitations;
 mod login;
 pub mod roles;
 mod session;

@@ -39,6 +39,7 @@ pub struct SubscriptionInput {
     pub kind: Option<String>,
     pub url: Option<String>,
     pub secret: Option<String>,
+    pub recipients: Option<Vec<String>>,
     pub language: Option<String>,
 }
 
@@ -162,6 +163,7 @@ fn channel_input(input: &SubscriptionInput, fallback_language: &str) -> ChannelI
             .unwrap_or_else(|| ChannelKind::Webhook.as_str().to_owned()),
         url: input.url.clone(),
         secret: input.secret.clone(),
+        recipients: input.recipients.clone(),
         language: input
             .language
             .clone()

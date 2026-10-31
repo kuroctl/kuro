@@ -222,6 +222,8 @@ pub fn build(
             }),
             Vec::new(),
         ),
+        // Un canal e-mail passe par `email()` : rien à poster.
+        ChannelKind::Email => (json!({}), Vec::new()),
         ChannelKind::Slack => {
             let open = if lang == "en" { "Open" } else { "Ouvrir" };
             let mut text = format!("*{}*\n{}", texts.title, texts.body);
@@ -280,6 +282,33 @@ fn color(kind: EventKind) -> u32 {
     }
 }
 
+/// Message e-mail d'un événement (ADR-0046) : sujet « [Projet] Titre », corps texte et HTML
+/// sobre avec le lien vers le panel.
+pub fn email(
+    config: &ChannelConfig,
+    event: &Event,
+    lang: &str,
+    brand: &str,
+    panel_url: Option<&str>,
+) -> crate::mail::Message {
+    let texts = texts(event, lang);
+    let url = link(event, panel_url);
+    let open = if lang == "en" {
+        "Open in the panel"
+    } else {
+        "Ouvrir dans le panel"
+    };
+    let at = event.at.format(&Rfc3339).unwrap_or_default();
+    let email = crate::mail::Email {
+        brand: brand.to_owned(),
+        title: texts.title,
+        paragraphs: vec![texts.body],
+        action: url.map(|url| (open.to_owned(), url)),
+        note: Some(at),
+    };
+    crate::mail::Message::from_template(config.recipients.clone(), &email)
+}
+
 /// Événement tel que stocké (`jsonb`), relu pour l'envoi.
 pub fn event_from(value: &Value) -> Option<Event> {
     serde_json::from_value(value.clone()).ok()
@@ -306,6 +335,7 @@ mod tests {
         let config = ChannelConfig {
             url: "https://hooks.test/kuro".into(),
             secret: Some("s3cret".into()),
+            recipients: Vec::new(),
         };
         let outgoing = build(
             ChannelKind::Webhook,
@@ -342,6 +372,7 @@ mod tests {
         let config = ChannelConfig {
             url: "https://discord.com/api/webhooks/1/x".into(),
             secret: None,
+            recipients: Vec::new(),
         };
         let discord = build(
             ChannelKind::Discord,

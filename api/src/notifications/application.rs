@@ -13,8 +13,8 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use super::domain::{
-    ChannelConfig, ChannelKind, Event, EventKind, MAX_ATTEMPTS, RATE_LIMIT_PER_MINUTE, Scope,
-    backoff, clean, url_hint, valid_webhook_url,
+    ChannelConfig, ChannelKind, Event, EventKind, MAX_ATTEMPTS, MAX_RECIPIENTS,
+    RATE_LIMIT_PER_MINUTE, Scope, backoff, clean, email_hint, url_hint, valid_webhook_url,
 };
 use super::infra::{
     ChannelFields, ChannelRecord, DeliveryRecord, NotificationRepository, RuleFields, RuleRecord,
@@ -66,6 +66,8 @@ pub struct NotificationsState {
     pub panel_url: Option<String>,
     /// Webhooks vers des adresses privées acceptés (Slack d'entreprise derrière un VPN…).
     pub allow_private_targets: bool,
+    /// Envoi d'e-mails (ADR-0046), pour les canaux `email`.
+    pub mail: crate::mail::MailState,
 }
 
 /// Canal tel que rendu : jamais l'URL complète ni le secret.
@@ -83,6 +85,8 @@ pub struct ChannelInput {
     pub kind: String,
     pub url: Option<String>,
     pub secret: Option<String>,
+    /// Canal `email` : destinataires. Absents en modification, ceux en place sont gardés.
+    pub recipients: Option<Vec<String>>,
     pub language: String,
     pub enabled: bool,
 }
@@ -116,6 +120,36 @@ impl NotificationsState {
         let bytes =
             serde_json::to_vec(config).map_err(|e| NotificationsError::Internal(e.to_string()))?;
         Ok(secret_box::seal(&self.key, &bytes)?)
+    }
+
+    /// Envoie l'événement par le canal : HTTP pour les webhooks, SMTP pour l'e-mail (`250`
+    /// en guise de statut).
+    async fn dispatch(
+        &self,
+        kind: ChannelKind,
+        config: &ChannelConfig,
+        event: &Event,
+        lang: &str,
+        delivery_id: Uuid,
+    ) -> Result<u16, String> {
+        if kind == ChannelKind::Email {
+            let brand = self.mail.brand().await.map_err(|e| e.to_string())?;
+            let message = payload::email(config, event, lang, &brand, self.panel_url.as_deref());
+            return match self.mail.send(message).await {
+                Ok(()) => Ok(250),
+                Err(crate::mail::MailError::NotConfigured) => Err("mail_not_configured".to_owned()),
+                Err(error) => Err(error.to_string()),
+            };
+        }
+        let outgoing = payload::build(
+            kind,
+            config,
+            event,
+            lang,
+            delivery_id,
+            self.panel_url.as_deref(),
+        );
+        self.sender.send(outgoing, self.allow_private_targets).await
     }
 
     pub(crate) fn view(&self, record: ChannelRecord) -> ChannelView {
@@ -161,6 +195,31 @@ fn validate_name(name: &str) -> Result<String, NotificationsError> {
     Ok(name.to_owned())
 }
 
+/// Destinataires d'un canal e-mail : adresses valides, dédoublonnées, de un à vingt.
+fn validate_recipients(recipients: &[String]) -> Result<Vec<String>, NotificationsError> {
+    let mut out: Vec<String> = Vec::new();
+    for recipient in recipients {
+        let email = crate::iam::domain::Email::parse(recipient.trim())
+            .map_err(|_| invalid("recipients", ErrorCode::InvalidRecipients))?;
+        if !out.iter().any(|r| r == email.as_str()) {
+            out.push(email.as_str().to_owned());
+        }
+    }
+    if out.is_empty() || out.len() > MAX_RECIPIENTS {
+        return Err(invalid("recipients", ErrorCode::InvalidRecipients));
+    }
+    Ok(out)
+}
+
+/// Ce que l'API rend du canal : l'URL tronquée, ou les destinataires masqués.
+fn channel_hint(kind: ChannelKind, config: &ChannelConfig) -> String {
+    if kind == ChannelKind::Email {
+        email_hint(&config.recipients)
+    } else {
+        url_hint(&config.url)
+    }
+}
+
 fn validate_language(language: &str) -> Result<String, NotificationsError> {
     LANGUAGES
         .iter()
@@ -197,28 +256,37 @@ pub async fn create_channel_for(
     let kind = ChannelKind::parse(&input.kind)
         .ok_or_else(|| invalid("kind", ErrorCode::InvalidNotificationChannelKind))?;
     let language = validate_language(&input.language)?;
-    let url = input
-        .url
-        .as_deref()
-        .map(str::trim)
-        .filter(|u| !u.is_empty())
-        .ok_or_else(|| invalid("url", ErrorCode::InvalidWebhookUrl))?;
-    if !valid_webhook_url(url) {
-        return Err(invalid("url", ErrorCode::InvalidWebhookUrl));
-    }
-    let secret = input
-        .secret
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(|s| clean(s, 256));
-    let config = ChannelConfig {
-        url: url.to_owned(),
-        secret,
+    let config = if kind == ChannelKind::Email {
+        ChannelConfig {
+            url: String::new(),
+            secret: None,
+            recipients: validate_recipients(input.recipients.as_deref().unwrap_or_default())?,
+        }
+    } else {
+        let url = input
+            .url
+            .as_deref()
+            .map(str::trim)
+            .filter(|u| !u.is_empty())
+            .ok_or_else(|| invalid("url", ErrorCode::InvalidWebhookUrl))?;
+        if !valid_webhook_url(url) {
+            return Err(invalid("url", ErrorCode::InvalidWebhookUrl));
+        }
+        let secret = input
+            .secret
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(|s| clean(s, 256));
+        ChannelConfig {
+            url: url.to_owned(),
+            secret,
+            recipients: Vec::new(),
+        }
     };
     let sealed = state.seal(&config)?;
     let id = Uuid::now_v7();
-    let hint = url_hint(url);
+    let hint = channel_hint(kind, &config);
     let mut tx = AuditedTx::begin(&state.pool, context).await?;
     NotificationRepository::insert_channel(
         &mut tx,
@@ -265,22 +333,36 @@ pub async fn update_channel(
                 ErrorCode::NotificationChannelNotFound,
             ))?;
     let mut config = state.open(&current)?;
-    if let Some(url) = input
-        .url
-        .as_deref()
-        .map(str::trim)
-        .filter(|u| !u.is_empty())
-    {
-        if !valid_webhook_url(url) {
+    if kind == ChannelKind::Email {
+        if let Some(recipients) = input.recipients.as_deref() {
+            config.recipients = validate_recipients(recipients)?;
+        } else if config.recipients.is_empty() {
+            return Err(invalid("recipients", ErrorCode::InvalidRecipients));
+        }
+        config.url = String::new();
+        config.secret = None;
+    } else {
+        if let Some(url) = input
+            .url
+            .as_deref()
+            .map(str::trim)
+            .filter(|u| !u.is_empty())
+        {
+            if !valid_webhook_url(url) {
+                return Err(invalid("url", ErrorCode::InvalidWebhookUrl));
+            }
+            config.url = url.to_owned();
+        }
+        if config.url.is_empty() {
             return Err(invalid("url", ErrorCode::InvalidWebhookUrl));
         }
-        config.url = url.to_owned();
-    }
-    if let Some(secret) = input.secret.as_deref().map(str::trim) {
-        config.secret = (!secret.is_empty()).then(|| clean(secret, 256));
+        if let Some(secret) = input.secret.as_deref().map(str::trim) {
+            config.secret = (!secret.is_empty()).then(|| clean(secret, 256));
+        }
+        config.recipients = Vec::new();
     }
     let sealed = state.seal(&config)?;
-    let hint = url_hint(&config.url);
+    let hint = channel_hint(kind, &config);
     NotificationRepository::update_channel(
         &mut tx,
         id,
@@ -348,17 +430,8 @@ pub async fn test_channel(
     let kind = ChannelKind::parse(&record.kind)
         .ok_or_else(|| NotificationsError::Internal("unknown channel kind".to_owned()))?;
     let event = Event::now(EventKind::Test);
-    let outgoing = payload::build(
-        kind,
-        &config,
-        &event,
-        &record.language,
-        Uuid::now_v7(),
-        state.panel_url.as_deref(),
-    );
     let result = state
-        .sender
-        .send(outgoing, state.allow_private_targets)
+        .dispatch(kind, &config, &event, &record.language, Uuid::now_v7())
         .await;
     let outcome = match result {
         Ok(status) => TestOutcome {
@@ -674,18 +747,9 @@ async fn deliver_one(
             return Ok(());
         }
     };
-    let outgoing = payload::build(
-        kind,
-        &config,
-        &event,
-        &channel.language,
-        delivery.id,
-        state.panel_url.as_deref(),
-    );
     drop(conn);
     let result = state
-        .sender
-        .send(outgoing, state.allow_private_targets)
+        .dispatch(kind, &config, &event, &channel.language, delivery.id)
         .await;
     let attempts = delivery.attempts + 1;
     let mut conn = state.pool.acquire().await?;

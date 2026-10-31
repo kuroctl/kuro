@@ -30,12 +30,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/shared/ui/skeleton'
 import { Switch } from '@/shared/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
+import { Textarea } from '@/shared/ui/textarea'
 
 definePage({ meta: { subnav: 'server' } })
 
-const KINDS = ['webhook', 'discord', 'slack'] as const
+const KINDS = ['webhook', 'discord', 'slack', 'email'] as const
 const LANGUAGES = ['fr', 'en'] as const
-const FIELDS = ['name', 'events', 'channel_id', 'kind', 'url', 'secret', 'language'] as const
+const FIELDS = ['name', 'events', 'channel_id', 'kind', 'url', 'secret', 'recipients', 'language'] as const
 
 const { t, locale } = useI18n()
 const route = useRoute('/servers/[id]/notifications')
@@ -72,6 +73,7 @@ const form = reactive({
   kind: 'webhook' as string,
   url: '',
   secret: '',
+  recipients: '',
   language: 'fr' as string,
 })
 const errors = ref<FieldErrors>({})
@@ -87,6 +89,7 @@ function open(subscription: Subscription | null) {
   form.kind = subscription?.owned ? subscription.channel.kind : 'webhook'
   form.url = ''
   form.secret = ''
+  form.recipients = ''
   form.language = subscription?.owned ? subscription.channel.language : locale.value
   errors.value = {}
   dialog.value = true
@@ -111,6 +114,13 @@ async function save() {
           kind: form.kind,
           url: form.url || undefined,
           secret: form.secret || undefined,
+          recipients:
+            form.kind === 'email' && form.recipients.trim()
+              ? form.recipients
+                  .split(/[\n,;]+/)
+                  .map((address) => address.trim())
+                  .filter(Boolean)
+              : undefined,
           language: form.language,
         }
   try {
@@ -280,7 +290,13 @@ async function remove(subscription: Subscription) {
                 </SelectContent>
               </Select>
             </div>
-            <div class="grid gap-1.5">
+            <div v-if="form.kind === 'email'" class="grid gap-1.5">
+              <Label for="sub-recipients">{{ t('settings.notifications.fields.recipients') }}</Label>
+              <Textarea id="sub-recipients" v-model="form.recipients" rows="3" class="font-mono" :placeholder="editing?.owned ? t('settings.notifications.fields.unchanged') : 'ops@example.com'" :aria-invalid="!!errors.recipients" />
+              <p v-if="errors.recipients" class="text-xs text-destructive">{{ errors.recipients }}</p>
+              <p v-else class="text-xs text-muted-foreground">{{ t('settings.notifications.fields.recipientsHelp') }}</p>
+            </div>
+            <div v-else class="grid gap-1.5">
               <Label for="sub-url">{{ t('settings.notifications.fields.url') }}</Label>
               <Input id="sub-url" v-model="form.url" type="url" class="font-mono" :placeholder="editing?.owned ? t('settings.notifications.fields.unchanged') : 'https://'" :aria-invalid="!!errors.url" />
               <p v-if="errors.url" class="text-xs text-destructive">{{ errors.url }}</p>

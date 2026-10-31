@@ -94,6 +94,17 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     .await
     .context("starting daemon listener")?;
     let iam = IamState::new(pool.clone(), &config.auth)?;
+    // Rôles livrés (ADR-0045) : une installation antérieure à leur arrivée les reçoit ici, une
+    // seule fois ; une mise en route les crée elle-même.
+    let seeded = kuro_api::iam::application::roles::seed_defaults_once(
+        &iam,
+        &kuro_api::audit::domain::AuditContext::system(),
+    )
+    .await
+    .context("seeding default roles")?;
+    if !seeded.is_empty() {
+        tracing::info!(roles = ?seeded, "default roles created");
+    }
     let servers = ServersState {
         pool: pool.clone(),
         commands: relay.clone(),
@@ -164,17 +175,27 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     // Une suppression confirmée par un nœud réveille la réconciliation DNS.
     server_events.attach_dns(dns.clone());
     let secrets_key = *iam.keys.server_secrets();
+    let panel_url = config
+        .notifications
+        .panel_url
+        .clone()
+        .or_else(|| config.mcp.panel_url.clone())
+        .or_else(|| config.mcp.public_url.clone());
+    // Envoi d'e-mails (ADR-0046) : SMTP du projet, réglé dans le panel.
+    let mail = kuro_api::mail::MailState {
+        pool: pool.clone(),
+        key: secrets_key,
+        mailer: Arc::new(kuro_api::mail::LettreMailer),
+        panel_url: panel_url.clone(),
+        allow_insecure: config.mail.allow_insecure,
+    };
     let notifications = kuro_api::notifications::application::NotificationsState {
         pool: pool.clone(),
         key: secrets_key,
         sender: Arc::new(kuro_api::notifications::sender::HttpSender::new().context("tls client")?),
-        panel_url: config
-            .notifications
-            .panel_url
-            .clone()
-            .or_else(|| config.mcp.panel_url.clone())
-            .or_else(|| config.mcp.public_url.clone()),
+        panel_url,
         allow_private_targets: config.notifications.allow_private_targets,
+        mail: mail.clone(),
     };
     // Première mise en route (ADR-0045) : le jeton est écrit sur l'hôte tant qu'aucun admin
     // n'existe ; sans lui, la CLI `kuro-api setup` reste possible.
@@ -214,6 +235,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         http: kuro_api::http::policy::HttpPolicy::from_config(&config.http),
         readiness: daemon_listener.readiness(),
         setup: setup.clone(),
+        mail,
         notifications,
     };
 

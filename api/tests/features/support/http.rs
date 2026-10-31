@@ -100,12 +100,20 @@ pub async fn get_with_panel(panel: Option<&std::path::Path>, path: &str) -> Test
         std::sync::Arc::new(super::dns::FakeDns::default()),
     );
     let secrets_key = *iam.keys.server_secrets();
+    let mail = kuro_api::mail::MailState {
+        pool: pool.clone(),
+        key: secrets_key,
+        mailer: std::sync::Arc::new(super::mail::FakeMailer::default()),
+        panel_url: None,
+        allow_insecure: false,
+    };
     let notifications = kuro_api::notifications::application::NotificationsState {
         pool: pool.clone(),
         key: secrets_key,
         sender: std::sync::Arc::new(super::notifications::FakeWebhooks::default()),
         panel_url: None,
         allow_private_targets: false,
+        mail: mail.clone(),
     };
     let setup = kuro_api::setup::SetupState {
         pool: pool.clone(),
@@ -114,6 +122,7 @@ pub async fn get_with_panel(panel: Option<&std::path::Path>, path: &str) -> Test
     };
     let state = AppState {
         setup,
+        mail,
         iam,
         enrollment: enrollment_settings(),
         links,

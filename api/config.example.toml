@@ -66,6 +66,11 @@ token_file = ".kuro-dev/setup-token"
 # Webhooks vers des adresses privées (Slack d'entreprise derrière un VPN) : refusés par défaut.
 # allow_private_targets = false
 
+[mail]
+# SMTP sans chiffrement accepté : le Mailpit de docker-compose.dev.yml (127.0.0.1:1025, interface
+# http://localhost:8025). DEV UNIQUEMENT : en production, laisser faux.
+allow_insecure = true
+
 [log]
 format = "pretty"   # "pretty" ou "json"
 filter = "info"

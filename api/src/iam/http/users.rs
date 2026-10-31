@@ -11,8 +11,9 @@ use uuid::Uuid;
 
 use super::AdminSession;
 use crate::http::error::{ApiError, Problem};
-use crate::iam::application::{AdminUser, IamState, NewAdminUser, UserPatch, users};
+use crate::iam::application::{AdminUser, IamState, NewAdminUser, UserPatch, invitations, users};
 use crate::iam::domain::Permission;
+use crate::mail::MailState;
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct RoleRefDto {
@@ -29,6 +30,8 @@ pub struct AdminUserDto {
     pub disabled: bool,
     /// Mot de passe choisi par un autre admin : remplacé à la prochaine connexion.
     pub password_change_required: bool,
+    /// Une invitation par e-mail attend d'être acceptée (ADR-0046).
+    pub invitation_pending: bool,
     #[serde(with = "time::serde::rfc3339::option")]
     #[schema(value_type = Option<String>, format = DateTime)]
     pub last_login_at: Option<OffsetDateTime>,
@@ -47,6 +50,7 @@ impl From<AdminUser> for AdminUserDto {
             totp_enabled: user.totp_enabled,
             disabled: user.disabled,
             password_change_required: user.password_change_required,
+            invitation_pending: user.invitation_pending,
             last_login_at: user.last_login_at,
             created_at: user.created_at,
             roles: user
@@ -62,8 +66,13 @@ impl From<AdminUser> for AdminUserDto {
 pub struct CreateUserRequest {
     pub email: String,
     pub display_name: String,
-    /// 12 caractères minimum.
-    pub password: String,
+    /// Mot de passe temporaire, 12 caractères minimum ; absent avec `invite`.
+    #[serde(default)]
+    pub password: Option<String>,
+    /// Envoie une invitation par e-mail (ADR-0046) au lieu d'un mot de passe temporaire ; exige
+    /// un SMTP réglé.
+    #[serde(default)]
+    pub invite: bool,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -122,10 +131,37 @@ pub async fn get(
               (status = 422, body = Problem)))]
 pub async fn create(
     State(state): State<IamState>,
+    State(mail): State<MailState>,
     session: AdminSession,
     Json(request): Json<CreateUserRequest>,
 ) -> Result<(StatusCode, Json<AdminUserDto>), ApiError> {
     let authority = session.require(&state, Permission::IamUsersCreate).await?;
+    // Invité : un mot de passe aléatoire jeté, que seul le lien remplace.
+    let password = match (request.invite, request.password) {
+        (true, _) => crate::auth::opaque::generate("")
+            .map_err(|e| crate::iam::application::IamError::Internal(e.to_string()))?,
+        (false, Some(password)) => password,
+        (false, None) => {
+            return Err(crate::iam::application::IamError::Invalid(
+                crate::error_code::FieldError::new(
+                    "password",
+                    crate::error_code::ErrorCode::WeakPassword,
+                ),
+            )
+            .into());
+        }
+    };
+    if request.invite
+        && !mail
+            .configured()
+            .await
+            .map_err(|e| crate::iam::application::IamError::Internal(e.to_string()))?
+    {
+        return Err(crate::iam::application::IamError::Unprocessable(
+            crate::error_code::ErrorCode::MailNotConfigured,
+        )
+        .into());
+    }
     let user = users::create(
         &state,
         &authority,
@@ -133,11 +169,36 @@ pub async fn create(
         NewAdminUser {
             email: request.email,
             display_name: request.display_name,
-            password: request.password,
+            password,
         },
     )
     .await?;
-    Ok((StatusCode::CREATED, Json(user.into())))
+    if request.invite {
+        invitations::invite(&state, &mail, &authority, &session.context, user.id).await?;
+    }
+    Ok((
+        StatusCode::CREATED,
+        Json(users::get(&state, user.id).await?.into()),
+    ))
+}
+
+/// Envoie (ou renvoie) une invitation par e-mail : nouveau lien, l'ancien révoqué. Exige un
+/// SMTP réglé. Permission : `iam.users.credentials`.
+#[utoipa::path(post, path = "/api/admin/v1/users/{id}/invite", tag = "admin-iam", security(("bearer" = [])),
+    params(("id" = Uuid, Path)),
+    responses((status = 204), (status = 403, body = Problem), (status = 404, body = Problem),
+              (status = 422, description = "SMTP non réglé ou envoi refusé", body = Problem)))]
+pub async fn invite(
+    State(state): State<IamState>,
+    State(mail): State<MailState>,
+    session: AdminSession,
+    Path(id): Path<Uuid>,
+) -> Result<StatusCode, ApiError> {
+    let authority = session
+        .require(&state, Permission::IamUsersCredentials)
+        .await?;
+    invitations::invite(&state, &mail, &authority, &session.context, id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// Modifie e-mail, nom, état. Permission : `iam.users.update`.

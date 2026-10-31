@@ -2,7 +2,7 @@
 // Connexion en étapes : identifiants, nouveau mot de passe si le sien a été choisi par un autre
 // admin, puis code TOTP ou configuration du TOTP.
 import QRCode from 'qrcode'
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { Schemas } from '@/shared/api/types'
@@ -15,6 +15,10 @@ import { Label } from '@/shared/ui/label'
 import { useAuthApi } from '../auth.api'
 import { useSessionStore } from '../session.store'
 
+const props = defineProps<{
+  /** Réponse déjà obtenue (invitation acceptée) : le flux reprend à l'étape qu'elle indique. */
+  resume?: Schemas['LoginResponse']
+}>()
 const emit = defineEmits<{ authenticated: [] }>()
 
 const { t } = useI18n()
@@ -55,6 +59,10 @@ async function next(result: Schemas['LoginResponse']) {
     step.value = 'setup'
   }
 }
+
+onMounted(() => {
+  if (props.resume) void next(props.resume)
+})
 
 async function submitCredentials() {
   pending.value = true

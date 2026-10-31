@@ -94,7 +94,7 @@ Open the panel at `http://localhost:5173`. Use `--no-panel` for the API and daem
 <summary>Run each process by hand</summary>
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.dev.yml up -d   # PostgreSQL and Mailpit (http://localhost:8025)
 cp .env.example .env
 
 # API PKI, then the API (HTTP on 127.0.0.1:8080, daemon listener on 127.0.0.1:8443)

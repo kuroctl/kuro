@@ -24,12 +24,13 @@ pub use session::AdminSession;
 #[openapi(
     paths(
         auth::login, auth::change_required_password, auth::verify_totp, auth::start_totp_setup, auth::confirm_totp,
-        auth::refresh, auth::logout,
+        auth::refresh, auth::logout, auth::accept_invitation,
         me::get, me::change_password,
         permissions::catalog,
         roles::list, roles::get, roles::create, roles::update, roles::delete,
         users::list, users::get, users::create, users::update, users::delete,
         users::set_roles, users::reset_password, users::reset_totp, users::revoke_sessions,
+        users::invite,
     ),
     tags(
         (name = "admin-auth", description = "Connexion à l'espace admin (mot de passe, TOTP, sessions)"),
@@ -59,12 +60,15 @@ where
     // Vérification d'`Origin` sur les routes d'authentification (ADR-0038).
     crate::http::policy::HttpPolicy: FromRef<S>,
     sqlx::PgPool: FromRef<S>,
+    // Invitations par e-mail (ADR-0046).
+    crate::mail::MailState: FromRef<S>,
 {
     // Ouvertes sans session (mot de passe, défi ou jeton de rafraîchissement) : débit limité
     // par adresse cliente.
     let unauthenticated = Router::new()
         .route("/auth/login", post(auth::login))
         .route("/auth/password", post(auth::change_required_password))
+        .route("/auth/invitation", post(auth::accept_invitation))
         .route("/auth/totp/verify", post(auth::verify_totp))
         .route("/auth/totp/setup", post(auth::start_totp_setup))
         .route("/auth/totp/confirm", post(auth::confirm_totp))
@@ -88,6 +92,7 @@ where
         )
         .route("/users/{id}/roles", put(users::set_roles))
         .route("/users/{id}/password", put(users::reset_password))
+        .route("/users/{id}/invite", post(users::invite))
         .route("/users/{id}/totp", delete(users::reset_totp))
         .route("/users/{id}/sessions", delete(users::revoke_sessions))
 }

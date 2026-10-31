@@ -169,6 +169,13 @@ const codes = {
   daemon_timeout: 'Le nœud n’a pas répondu à temps.',
   daemon_error: 'Le nœud a refusé la commande.',
   invalid_project_name: 'Nom du projet invalide (1 à 80 caractères).',
+  mail_not_configured: 'Aucun serveur SMTP n’est réglé : voir Paramètres › E-mail.',
+  mail_send_failed: 'Le serveur SMTP a refusé l’envoi : {error}',
+  invalid_mail_host: 'Serveur SMTP invalide (nom DNS ou adresse IP).',
+  invalid_mail_address: 'Adresse e-mail invalide.',
+  invalid_mail_field: 'Valeur invalide.',
+  invalid_recipients: 'De une à vingt adresses e-mail valides.',
+  user_disabled: 'Ce compte est désactivé.',
   setup_done: 'La mise en route est déjà faite : un compte existe.',
   setup_token_unavailable: 'Le jeton de mise en route n’est pas disponible sur la machine : utilisez la commande kuro-api setup.',
 } satisfies Record<ErrorCode, string>

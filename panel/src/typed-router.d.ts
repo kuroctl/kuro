@@ -59,6 +59,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/invitation/[token]': RouteRecordInfo<
+      '/invitation/[token]',
+      '/invitation/:token',
+      { token: ParamValue<true> },
+      { token: ParamValue<false> },
+      | never
+    >,
     '/login': RouteRecordInfo<
       '/login',
       '/login',
@@ -262,6 +269,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/settings/mail': RouteRecordInfo<
+      '/settings/mail',
+      '/settings/mail',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/settings/notifications': RouteRecordInfo<
       '/settings/notifications',
       '/settings/notifications',
@@ -362,6 +376,14 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | never
+    }
+    'src/pages/invitation/[token].vue': {
+      routes:
+        | '/invitation/[token]'
+      views:
+        | never
+      pathParamNames:
+        | 'token'
     }
     'src/pages/login.vue': {
       routes:
@@ -590,6 +612,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/settings/dns.vue': {
       routes:
         | '/settings/dns'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/settings/mail.vue': {
+      routes:
+        | '/settings/mail'
       views:
         | never
       pathParamNames:

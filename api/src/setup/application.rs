@@ -176,6 +176,11 @@ impl SetupState {
             ))
         })?;
 
+        // Rôles livrés (opérateur, support, observateur) : une hiérarchie prête à l'emploi.
+        crate::iam::application::roles::seed_defaults_once(&self.iam, context)
+            .await
+            .map_err(|error| SetupError::Internal(format!("default roles not created: {error}")))?;
+
         let mut tx = AuditedTx::begin(&self.pool, context).await?;
         let mut settings = SettingsRepository::lock(&mut tx).await?;
         settings.project_name = project_name.clone();
