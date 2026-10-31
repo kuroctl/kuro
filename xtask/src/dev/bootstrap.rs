@@ -68,7 +68,7 @@ impl fmt::Debug for PendingEnrollment {
     }
 }
 
-pub async fn prepare(config: &Config) -> anyhow::Result<Prepared> {
+pub async fn prepare(config: &Config, setup: bool) -> anyhow::Result<Prepared> {
     step("checking the dev PKI");
     let mut pki = Command::new(binary("kuro-api"));
     pki.args(["--config", API_CONFIG, "pki", "init"])
@@ -81,7 +81,11 @@ pub async fn prepare(config: &Config) -> anyhow::Result<Prepared> {
         .context("connecting to the dev database")?;
     db::migrate(&pool).await.context("running migrations")?;
 
-    let admin_hint = ensure_admin().await?;
+    let admin_hint = if setup {
+        "none yet (--setup): run the setup in the panel or `kuro-api setup`".to_owned()
+    } else {
+        ensure_admin(&pool).await?
+    };
     let enrollment = if node_is_enrolled(&pool).await? {
         None
     } else {
@@ -168,11 +172,16 @@ pub async fn enroll(pending: PendingEnrollment) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Crée le super-admin de dev au premier lancement ; un compte existant n'est jamais modifié.
-async fn ensure_admin() -> anyhow::Result<String> {
+/// Crée le super-admin de dev tant que la base n'a aucun compte (base neuve ou remise à zéro,
+/// même si `admin.txt` existe encore) ; un compte existant n'est jamais modifié.
+async fn ensure_admin(pool: &PgPool) -> anyhow::Result<String> {
     let file = root().join(ADMIN_FILE);
     let hint = format!("{ADMIN_EMAIL}, credentials in {ADMIN_FILE}");
-    if file.exists() {
+    let accounts: i64 = sqlx::query_scalar("SELECT count(*) FROM admin_users")
+        .fetch_one(pool)
+        .await
+        .context("counting admin accounts")?;
+    if accounts > 0 {
         return Ok(hint);
     }
 

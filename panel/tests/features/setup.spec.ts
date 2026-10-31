@@ -102,4 +102,16 @@ describe('first-run setup', () => {
     expect(router.currentRoute.value.path).toBe('/login')
     expect(await screen.findByText('Studio Nuage')).toBeTruthy()
   })
+
+  it('lets a visitor switch the language before signing in or setting up', async () => {
+    server.use(...anonymous(), needed())
+    const { user } = await renderApp('/setup')
+
+    expect(await screen.findByText('Bienvenue sur Kuro')).toBeTruthy()
+    await user.click(screen.getByRole('combobox', { name: 'Langue' }))
+    await user.click(await screen.findByRole('option', { name: 'English' }))
+    expect(await screen.findByText('Welcome to Kuro')).toBeTruthy()
+    // Le sélecteur garde chaque langue dans sa propre langue.
+    expect(screen.getByRole('combobox', { name: 'Language' }).textContent).toContain('English')
+  })
 })

@@ -11,6 +11,7 @@ import LoginFlow from '@/features/auth/components/LoginFlow.vue'
 import { useSetupApi } from '@/features/setup/setup.api'
 import { invalidateSetupStatus } from '@/features/setup/setup.queries'
 import { type FieldErrors, useApiError } from '@/shared/api/useApiError'
+import LocaleSwitch from '@/shared/layout/LocaleSwitch.vue'
 import { queryClient } from '@/shared/query/client'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -93,6 +94,7 @@ async function onAuthenticated() {
       class="pointer-events-none absolute -top-40 left-1/2 size-[640px] -translate-x-1/2 rounded-full bg-primary/20 blur-3xl"
       aria-hidden="true"
     />
+    <LocaleSwitch class="absolute top-4 right-4" />
     <div class="relative flex w-full max-w-md flex-col gap-5">
       <ol class="flex items-center justify-center gap-2 text-xs text-muted-foreground" :aria-label="t('setup.steps')">
         <li v-for="(name, index) in STEPS" :key="name" class="flex items-center gap-2">

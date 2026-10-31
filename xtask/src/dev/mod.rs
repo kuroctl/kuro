@@ -36,6 +36,10 @@ pub struct DevArgs {
     /// Pas de rechargement à chaud : une modification des sources Rust exige un redémarrage.
     #[arg(long)]
     no_reload: bool,
+    /// Ne crée pas le compte admin de dev : l'API démarre « à configurer » et l'assistant de
+    /// mise en route s'affiche (ADR-0045) ; le jeton est repris dans le récapitulatif.
+    #[arg(long)]
+    setup: bool,
 }
 
 fn api_command(config_path: &std::path::Path) -> Command {
@@ -104,7 +108,7 @@ pub async fn run(args: DevArgs) -> anyhow::Result<()> {
     ]);
     workspace::run(build, "cargo build").await?;
 
-    let prepared = bootstrap::prepare(&config).await?;
+    let prepared = bootstrap::prepare(&config, args.setup).await?;
     if !args.no_panel && !root().join("panel/node_modules").exists() {
         step("installing panel dependencies");
         let mut install = node_tool("corepack");
@@ -147,6 +151,13 @@ pub async fn run(args: DevArgs) -> anyhow::Result<()> {
         config.http.bind
     );
     println!("  admin   {}", prepared.admin_hint);
+    // Jeton de mise en route (ADR-0045), écrit par l'API au démarrage s'il n'y a aucun compte.
+    if let Ok(token) = std::fs::read_to_string(root().join(&config.setup.token_file)) {
+        println!(
+            "  setup   http://localhost:{PANEL_PORT}/setup with token {}",
+            token.trim()
+        );
+    }
     if !args.no_reload {
         println!("  reload  Rust sources watched: api and daemon rebuilt and restarted on change");
     }
