@@ -93,16 +93,28 @@ depuis Internet ou seulement depuis vos nœuds.
 Avec `--full`, tout cela est fait. Un `Caddyfile` que vous avez déjà modifié n'est pas écrasé :
 le script affiche le bloc à ajouter.
 
-## 4. Créer le premier administrateur
+## 4. Première mise en route
+
+Tant qu'aucun compte n'existe, le panel affiche un assistant : jeton de mise en route, compte
+super admin, nom du projet, puis connexion (la vérification en deux étapes est exigée à la
+première connexion). Le script affiche le jeton en fin d'installation ; sinon, lisez-le sur la
+machine :
 
 ```bash
-sudo kuro-api-admin admin create --email vous@example.com --name "Votre nom"
+sudo cat /var/lib/kuro/setup-token
 ```
 
-Le mot de passe est demandé de façon interactive, jamais passé en argument. La vérification en
-deux étapes (TOTP) est exigée à la première connexion.
+Ouvrez `https://panel.example.com` et suivez les écrans. Le jeton ne sert qu'une fois : sans lui,
+personne ne peut créer le premier compte depuis le réseau.
 
-Ouvrez ensuite `https://panel.example.com` et connectez-vous.
+Sans panel, ou dans un script, la même mise en route se fait sur la machine :
+
+```bash
+sudo kuro-api-admin setup --email vous@example.com --name "Votre nom" --project-name "Mon projet"
+```
+
+Le mot de passe est demandé de façon interactive, jamais passé en argument (`--password-stdin`
+pour un script).
 
 ## Tout sur une seule machine
 

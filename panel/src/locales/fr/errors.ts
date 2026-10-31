@@ -167,6 +167,9 @@ const codes = {
   content_source_unauthorized: 'La source a refusé cette clé d’API : vérifiez-la dans sa console.',
   daemon_timeout: 'Le nœud n’a pas répondu à temps.',
   daemon_error: 'Le nœud a refusé la commande.',
+  invalid_project_name: 'Nom du projet invalide (1 à 80 caractères).',
+  setup_done: 'La mise en route est déjà faite : un compte existe.',
+  setup_token_unavailable: 'Le jeton de mise en route n’est pas disponible sur la machine : utilisez la commande kuro-api setup.',
 } satisfies Record<ErrorCode, string>
 
 export default {

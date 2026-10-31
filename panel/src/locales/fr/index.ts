@@ -85,6 +85,30 @@ export default {
       en: 'English',
     },
   },
+  setup: {
+    steps: 'Étapes de la mise en route',
+    stepNames: { token: 'Jeton', account: 'Compte', project: 'Projet', login: 'Connexion' },
+    welcome: {
+      title: 'Bienvenue sur Kuro',
+      subtitle: 'Cette API n’a encore aucun compte. Quelques écrans suffisent pour la mettre en route.',
+      token: 'Jeton de mise en route',
+      tokenHelp: 'Il a été affiché à la fin de l’installation. Sinon, lisez-le sur la machine de l’API :',
+      tokenCommand: 'sudo cat /var/lib/kuro/setup-token',
+    },
+    account: {
+      title: 'Votre compte',
+      subtitle: 'Le premier compte est super admin : il a tous les droits et crée les autres.',
+      name: 'Nom affiché',
+      passwordHelp: '12 caractères au moins.',
+    },
+    project: {
+      title: 'Votre projet',
+      subtitle: 'Le nom s’affiche sur la page de connexion, dans le panel et dans les messages. Modifiable ensuite dans les paramètres.',
+      name: 'Nom du projet (facultatif)',
+      help: 'Vide : « Kuro ».',
+      submit: 'Créer le compte',
+    },
+  },
   auth: {
     title: 'Connexion',
     subtitle: 'Accès réservé à l’équipe d’administration.',
@@ -355,6 +379,11 @@ export default {
       title: 'Journal d’audit',
       help: 'Les événements plus anciens sont supprimés chaque jour (RGPD). 30 jours au moins, 3 650 au plus.',
       retention: 'Conservation (jours)',
+    },
+    identity: {
+      title: 'Identité',
+      help: 'Le nom du projet s’affiche sur la page de connexion, dans le panel et dans les messages envoyés.',
+      name: 'Nom du projet',
     },
     alerts: {
       title: 'Seuils d’alerte',

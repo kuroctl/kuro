@@ -3,6 +3,8 @@
 // menu (tiroir) se referme dès qu'une page est choisie.
 import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+
+import { useSetupStatus } from '@/features/setup/setup.queries'
 import { cn } from '@/shared/lib/utils'
 import { useRoute } from 'vue-router'
 
@@ -21,6 +23,9 @@ import AccountMenu from './AccountMenu.vue'
 import { sectionOf, sections } from './sections'
 
 const { t } = useI18n()
+// Nom du projet (ADR-0045), « Kuro » tant qu'il n'est pas réglé.
+const { data: setup } = useSetupStatus()
+const projectName = computed(() => setup.value?.project_name || t('app.name'))
 
 const route = useRoute()
 const current = computed(() => sectionOf(route.path)?.key)
@@ -42,10 +47,11 @@ watch(
     <SidebarHeader class="items-center pt-5 pb-3">
       <RouterLink
         to="/servers"
-        :aria-label="t('app.name')"
+        :aria-label="projectName"
+        :title="projectName"
         class="flex size-10 items-center justify-center rounded-xl bg-foreground text-lg font-extrabold text-background"
       >
-        {{ t('app.name').charAt(0) }}
+        {{ projectName.charAt(0).toUpperCase() }}
       </RouterLink>
     </SidebarHeader>
     <SidebarContent>

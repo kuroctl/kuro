@@ -176,6 +176,23 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             .or_else(|| config.mcp.public_url.clone()),
         allow_private_targets: config.notifications.allow_private_targets,
     };
+    // Première mise en route (ADR-0045) : le jeton est écrit sur l'hôte tant qu'aucun admin
+    // n'existe ; sans lui, la CLI `kuro-api setup` reste possible.
+    let setup = kuro_api::setup::SetupState {
+        pool: pool.clone(),
+        iam: iam.clone(),
+        token_file: config.setup.token_file.clone(),
+    };
+    match setup.ensure_token().await {
+        Ok(Some(path)) => tracing::warn!(
+            path = %path.display(),
+            "no admin account yet: open the panel with the setup token in this file, or run `kuro-api setup`"
+        ),
+        Ok(None) => {}
+        Err(error) => {
+            tracing::error!(%error, "setup token not written: run `kuro-api setup` on the host")
+        }
+    }
     let state = AppState {
         content_sources,
         dns: dns.clone(),
@@ -196,6 +213,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         ),
         http: kuro_api::http::policy::HttpPolicy::from_config(&config.http),
         readiness: daemon_listener.readiness(),
+        setup: setup.clone(),
         notifications,
     };
 

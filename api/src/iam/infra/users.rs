@@ -324,6 +324,13 @@ impl UserRepository {
         Ok(())
     }
 
+    /// Nombre de comptes, actifs ou non : zéro tant que l'API est à configurer (ADR-0045).
+    pub async fn count_all(conn: &mut PgConnection) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar!(r#"SELECT count(*) AS "count!" FROM admin_users"#)
+            .fetch_one(conn)
+            .await
+    }
+
     /// Super-admins actifs autres que `excluded` (règle du dernier super-admin).
     pub async fn other_active_super_admins(
         conn: &mut PgConnection,

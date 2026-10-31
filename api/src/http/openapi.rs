@@ -15,6 +15,7 @@ struct ApiDoc;
 pub fn document() -> utoipa::openapi::OpenApi {
     let mut doc = ApiDoc::openapi();
     doc.merge(system::http::SystemApi::openapi());
+    doc.merge(crate::setup::http::SetupApi::openapi());
     doc.merge(iam::http::IamApi::openapi());
     doc.merge(audit::http::AuditApi::openapi());
     doc.merge(nodes::http::NodesApi::openapi());

@@ -46,14 +46,22 @@ docker compose logs -f api
 On first start, the API applies its migrations and creates the private certificate authority of
 the nodes in the `kuro-data` volume. Caddy obtains the HTTPS certificate on the first visit.
 
-## 4. Create the first administrator
+## 4. First-run setup
+
+Open `https://panel.example.com`: while no account exists, the panel shows a wizard that asks for
+the setup token, written by the API in its volume:
 
 ```bash
-docker compose exec api kuro-entrypoint admin create --email you@example.com --name "Your Name"
+docker compose exec api cat /var/lib/kuro/setup-token
 ```
 
-The password is asked interactively, never passed as an argument. Then open
-`https://panel.example.com` and sign in.
+Then the super admin account, the project name, and sign-in. Without a panel:
+
+```bash
+docker compose exec api kuro-entrypoint setup --email you@example.com --name "Your Name"
+```
+
+The password is asked interactively, never passed as an argument.
 
 ## Add a node
 

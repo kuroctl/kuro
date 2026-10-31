@@ -93,16 +93,27 @@ or only from your nodes.
 With `--full`, all of this is done. A `Caddyfile` you already edited is not overwritten: the
 script prints the block to add.
 
-## 4. Create the first admin
+## 4. First-run setup
+
+While no account exists, the panel shows a setup wizard: setup token, super admin account,
+project name, then sign-in (two-step verification is required at first login). The script prints
+the token at the end of the installation; otherwise read it on the machine:
 
 ```bash
-sudo kuro-api-admin admin create --email you@example.com --name "Your name"
+sudo cat /var/lib/kuro/setup-token
 ```
 
-The password is asked interactively, never passed as an argument. Two-step verification (TOTP)
-is required at first login.
+Open `https://panel.example.com` and follow the screens. The token is used once: without it,
+nobody can create the first account from the network.
 
-Then open `https://panel.example.com` and sign in.
+Without a panel, or in a script, the same setup runs on the machine:
+
+```bash
+sudo kuro-api-admin setup --email you@example.com --name "Your name" --project-name "My project"
+```
+
+The password is asked interactively, never passed as an argument (`--password-stdin` for a
+script).
 
 ## Everything on one machine
 

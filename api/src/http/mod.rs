@@ -66,6 +66,7 @@ pub fn router(state: AppState) -> Router {
         .merge(crate::notifications::http::routes());
     let routes = Router::new()
         .nest("/api", system::http::routes())
+        .nest("/api", crate::setup::http::routes())
         .nest("/api/admin/v1", admin)
         .route("/api/openapi.json", get(openapi::serve))
         .merge(oauth::http::public_routes())

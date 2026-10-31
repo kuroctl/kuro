@@ -138,6 +138,8 @@ audit_actions! {
 
     // Paramètres du projet
     SettingsUpdated => "system.settings_updated",
+    // Première mise en route (ADR-0045)
+    SetupCompleted => "system.setup_completed",
 
     // Notifications (ADR-0044)
     NotificationChannelCreated => "notification.channel_created",

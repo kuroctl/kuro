@@ -37,6 +37,10 @@ require_totp = false
 
 # Conservation du journal d'audit : dans les paramètres du projet (panel), purge quotidienne.
 
+[setup]
+# Jeton de la première mise en route (ADR-0045), écrit tant qu'aucun admin n'existe.
+token_file = ".kuro-dev/setup-token"
+
 [enrollment]
 # token_ttl_secs = 900
 # certificate_validity_days = 365

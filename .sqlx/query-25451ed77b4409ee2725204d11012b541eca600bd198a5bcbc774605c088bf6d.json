@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT default_memory_mb, max_memory_mb, default_cpu_percent, max_cpu_percent,\n                    default_disk_mb, max_disk_mb, default_backup_limit, max_backup_limit,\n                    audit_retention_days, mcp_enabled, alert_cpu_percent, alert_memory_percent,\n                    alert_minutes, updated_at\n             FROM platform_settings FOR UPDATE",
+  "query": "SELECT default_memory_mb, max_memory_mb, default_cpu_percent, max_cpu_percent,\n                    default_disk_mb, max_disk_mb, default_backup_limit, max_backup_limit,\n                    audit_retention_days, mcp_enabled, alert_cpu_percent, alert_memory_percent,\n                    alert_minutes, project_name, updated_at\n             FROM platform_settings",
   "describe": {
     "columns": [
       {
@@ -148,6 +148,17 @@
       },
       {
         "ordinal": 13,
+        "name": "project_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "project_name"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -175,8 +186,9 @@
       false,
       false,
       false,
+      true,
       false
     ]
   },
-  "hash": "9a6d9da849bf5d68ad2c2f063ebe513276ffeb82021ae877c3df2a605bd4040c"
+  "hash": "25451ed77b4409ee2725204d11012b541eca600bd198a5bcbc774605c088bf6d"
 }

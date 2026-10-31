@@ -63,6 +63,10 @@ error_codes! {
     // Comptes et rôles
     InvalidEmail => "invalid_email", "Invalid email address";
     InvalidDisplayName => "invalid_display_name", "Invalid display name";
+    InvalidProjectName => "invalid_project_name", "Project name must be 1 to 80 characters";
+    // Première mise en route (ADR-0045)
+    SetupDone => "setup_done", "Setup already done: an admin account exists";
+    SetupTokenUnavailable => "setup_token_unavailable", "Setup token unavailable on the host: use `kuro-api setup`";
     WeakPassword => "weak_password", "Password does not meet the policy";
     PasswordUnchanged => "password_unchanged", "The new password must differ from the current one";
     EmailTaken => "email_taken", "Email already in use";

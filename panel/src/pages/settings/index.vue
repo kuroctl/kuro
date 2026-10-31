@@ -10,10 +10,12 @@ import { usePermissions } from '@/features/account/account.queries'
 import McpSettingsCard from '@/features/settings/components/McpSettingsCard.vue'
 import { type PlatformSettings, type SettingsPatch, useSettingsApi } from '@/features/settings/settings.api'
 import { useInvalidateSettings, usePlatformSettings } from '@/features/settings/settings.queries'
+import { invalidateSetupStatus } from '@/features/setup/setup.queries'
 import { type FieldErrors, useApiError } from '@/shared/api/useApiError'
 import PageHeader from '@/shared/layout/PageHeader.vue'
 import { CORES_INPUT, coresToPercent, percentToCores } from '@/shared/lib/format'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/shared/ui/number-field'
 import { Skeleton } from '@/shared/ui/skeleton'
@@ -41,12 +43,15 @@ const isCpu = (field: Field) => field === 'default_cpu_percent' || field === 'ma
 const form = reactive<Record<Field, number | undefined>>(Object.fromEntries(FIELDS.map((f) => [f, undefined])) as Record<Field, number | undefined>)
 const errors = ref<FieldErrors>({})
 const pending = ref(false)
+/** Nom du projet (ADR-0045) ; vide : « Kuro ». */
+const projectName = ref('')
 
 function load(value: PlatformSettings) {
   for (const field of FIELDS) {
     const stored = value[field]
     form[field] = stored == null ? undefined : isCpu(field) ? percentToCores(stored) : stored
   }
+  projectName.value = value.project_name ?? ''
 }
 watch(settings, (value) => value && load(value), { immediate: true })
 
@@ -62,6 +67,10 @@ const patch = computed<SettingsPatch>(() => {
   for (const field of FIELDS) {
     if (settings.value && parsed(field) !== (settings.value[field] ?? null)) changes[field] = parsed(field)
   }
+  const name = projectName.value.trim()
+  if (settings.value && name !== (settings.value.project_name ?? '')) {
+    return { ...changes, project_name: name || null } as SettingsPatch
+  }
   return changes as SettingsPatch
 })
 const dirty = computed(() => Object.keys(patch.value).length > 0)
@@ -73,8 +82,9 @@ async function save() {
     load(await update(patch.value))
     toast.success(t('settings.saved'))
     await invalidate()
+    await invalidateSetupStatus()
   } catch (failure) {
-    errors.value = handleError(failure, FIELDS)
+    errors.value = handleError(failure, [...FIELDS, 'project_name'])
   } finally {
     pending.value = false
   }
@@ -93,6 +103,18 @@ async function save() {
       <template v-else>
         <McpSettingsCard :settings="settings" :editable="editable" />
         <form class="grid gap-6" @submit.prevent="save">
+          <Card>
+            <CardHeader>
+              <CardTitle>{{ t('settings.identity.title') }}</CardTitle>
+              <CardDescription>{{ t('settings.identity.help') }}</CardDescription>
+            </CardHeader>
+            <CardContent class="grid max-w-md gap-1.5">
+              <Label for="project_name">{{ t('settings.identity.name') }}</Label>
+              <Input id="project_name" v-model="projectName" maxlength="80" :placeholder="t('app.name')" :disabled="!editable" :aria-invalid="!!errors.project_name" />
+              <p v-if="errors.project_name" class="text-xs text-destructive">{{ errors.project_name }}</p>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>{{ t('settings.resources.title') }}</CardTitle>

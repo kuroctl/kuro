@@ -16,5 +16,6 @@ mod panel;
 mod rate_limit;
 mod servers;
 mod settings;
+mod setup;
 mod support;
 mod system_health;

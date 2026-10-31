@@ -86,6 +86,30 @@ export default {
       en: 'English',
     },
   },
+  setup: {
+    steps: 'Setup steps',
+    stepNames: { token: 'Token', account: 'Account', project: 'Project', login: 'Sign in' },
+    welcome: {
+      title: 'Welcome to Kuro',
+      subtitle: 'This API has no account yet. A few screens are enough to set it up.',
+      token: 'Setup token',
+      tokenHelp: 'It was shown at the end of the installation. Otherwise, read it on the API machine:',
+      tokenCommand: 'sudo cat /var/lib/kuro/setup-token',
+    },
+    account: {
+      title: 'Your account',
+      subtitle: 'The first account is a super admin: it has every right and creates the others.',
+      name: 'Display name',
+      passwordHelp: 'At least 12 characters.',
+    },
+    project: {
+      title: 'Your project',
+      subtitle: 'The name shows on the sign-in page, in the panel and in sent messages. It can be changed later in the settings.',
+      name: 'Project name (optional)',
+      help: 'Empty: “Kuro”.',
+      submit: 'Create the account',
+    },
+  },
   auth: {
     title: 'Sign in',
     subtitle: 'Restricted to the administration team.',
@@ -356,6 +380,11 @@ export default {
       title: 'Audit log',
       help: 'Older events are deleted every day (GDPR). At least 30 days, at most 3,650.',
       retention: 'Retention (days)',
+    },
+    identity: {
+      title: 'Identity',
+      help: 'The project name shows on the sign-in page, in the panel and in sent messages.',
+      name: 'Project name',
     },
     alerts: {
       title: 'Alert thresholds',

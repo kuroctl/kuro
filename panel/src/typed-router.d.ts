@@ -276,6 +276,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/setup': RouteRecordInfo<
+      '/setup',
+      '/setup',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/users/': RouteRecordInfo<
       '/users/',
       '/users',
@@ -599,6 +606,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/settings/steam-account.vue': {
       routes:
         | '/settings/steam-account'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/setup.vue': {
+      routes:
+        | '/setup'
       views:
         | never
       pathParamNames:

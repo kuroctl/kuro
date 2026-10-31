@@ -9,6 +9,7 @@ mod node;
 mod pki;
 mod region;
 mod serve;
+mod setup;
 
 use std::path::PathBuf;
 
@@ -34,6 +35,8 @@ struct Cli {
 enum Command {
     /// Démarre l'API REST et le listener des daemons (commande par défaut).
     Serve,
+    /// Première mise en route sans panel : super admin et nom du projet (ADR-0045).
+    Setup(setup::Command),
     /// Écrit le document OpenAPI (JSON) sur la sortie standard.
     Openapi,
     /// CA privée et certificat serveur du listener daemon.
@@ -65,6 +68,7 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::load(cli.config.as_deref()).context("loading configuration")?;
     match command {
         Command::Serve => serve::run(config).await,
+        Command::Setup(command) => setup::run(command, &config).await,
         Command::Pki(command) => pki::run(command, &config).await,
         Command::Node(command) => node::run(command, &config).await,
         Command::Region(command) => region::run(command, &config).await,

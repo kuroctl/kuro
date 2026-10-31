@@ -7,7 +7,10 @@ import type { ErrorCode, FieldProblem, Schemas } from '@/shared/api/types'
 export const API = '/api/admin/v1'
 export const REQUEST_ID = '0123456789abcdef'
 
-export const server = setupServer()
+/** Mise en route faite (ADR-0045) : l'état par défaut de tous les tests, un test peut le remplacer. */
+export const setupDone = () => http.get('/api/setup', () => HttpResponse.json({ needed: false, project_name: null }))
+
+export const server = setupServer(setupDone())
 
 export const profile: Schemas['ProfileDto'] = {
   user: {

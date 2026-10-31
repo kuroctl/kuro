@@ -51,6 +51,8 @@ pub struct SettingsPatch {
     pub alert_cpu_percent: Option<i32>,
     pub alert_memory_percent: Option<i32>,
     pub alert_minutes: Option<i32>,
+    /// `None` : inchangé ; `Some(None)` : retiré (« Kuro »).
+    pub project_name: Option<Option<String>>,
 }
 
 pub async fn get(pool: &PgPool) -> Result<PlatformSettings, SettingsError> {
@@ -86,8 +88,15 @@ pub async fn update(
         mcp_enabled,
         alert_cpu_percent,
         alert_memory_percent,
-        alert_minutes
+        alert_minutes,
+        project_name
     );
+    next.project_name = next
+        .project_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_owned);
     validate(&next)?;
 
     let mut changed = Map::new();
@@ -160,6 +169,11 @@ pub async fn update(
         "alert_minutes",
         json!(current.alert_minutes),
         json!(next.alert_minutes),
+    );
+    record(
+        "project_name",
+        json!(current.project_name),
+        json!(next.project_name),
     );
     if changed.is_empty() {
         return Err(SettingsError::Unprocessable(ErrorCode::EmptyPatch));
@@ -235,6 +249,14 @@ fn validate(settings: &PlatformSettings) -> Result<(), SettingsError> {
     }
     if !ALERT_MINUTES.contains(&settings.alert_minutes) {
         errors.push(out_of_range("alert_minutes".to_owned(), &ALERT_MINUTES));
+    }
+    if let Some(name) = &settings.project_name
+        && (name.chars().count() > 80 || name.chars().any(char::is_control))
+    {
+        errors.push(FieldError::new(
+            "project_name",
+            ErrorCode::InvalidProjectName,
+        ));
     }
     if errors.is_empty() {
         Ok(())

@@ -36,6 +36,14 @@ pub struct AppState {
     pub http: crate::http::policy::HttpPolicy,
     /// Disponibilité de l'instance (`/api/ready`) : état du listener daemon.
     pub readiness: crate::system::Readiness,
+    /// Première mise en route (ADR-0045) : état « à configurer » et jeton sur l'hôte.
+    pub setup: crate::setup::SetupState,
+}
+
+impl FromRef<AppState> for crate::setup::SetupState {
+    fn from_ref(state: &AppState) -> Self {
+        state.setup.clone()
+    }
 }
 
 impl FromRef<AppState> for crate::system::Readiness {

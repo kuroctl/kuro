@@ -87,6 +87,8 @@ pub struct SettingsDto {
     pub alert_memory_percent: i32,
     #[schema(example = 5)]
     pub alert_minutes: i32,
+    /// Nom du projet (ADR-0045), 1 à 80 caractères ; absent : « Kuro ».
+    pub project_name: Option<String>,
     #[serde(with = "time::serde::rfc3339")]
     #[schema(value_type = String, format = DateTime)]
     pub updated_at: OffsetDateTime,
@@ -109,6 +111,7 @@ impl SettingsDto {
             alert_cpu_percent: s.alert_cpu_percent,
             alert_memory_percent: s.alert_memory_percent,
             alert_minutes: s.alert_minutes,
+            project_name: s.project_name,
             updated_at: s.updated_at,
         }
     }
@@ -139,6 +142,10 @@ pub struct UpdatePlatformSettingsRequest {
     pub alert_cpu_percent: Option<i32>,
     pub alert_memory_percent: Option<i32>,
     pub alert_minutes: Option<i32>,
+    /// `null` retire le nom (« Kuro »).
+    #[serde(default, deserialize_with = "crate::http::patch::nullable")]
+    #[schema(value_type = Option<String>)]
+    pub project_name: Option<Option<String>>,
 }
 
 /// Paramètres du projet. Permission : `system.settings.read`.
@@ -189,6 +196,7 @@ pub async fn update_settings(
         alert_cpu_percent: request.alert_cpu_percent,
         alert_memory_percent: request.alert_memory_percent,
         alert_minutes: request.alert_minutes,
+        project_name: request.project_name,
     };
     Ok(Json(SettingsDto::new(
         settings::update(&pool, &session.context, patch).await?,

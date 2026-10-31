@@ -32,6 +32,28 @@ pub struct Config {
     pub mcp: McpConfig,
     #[serde(default)]
     pub notifications: NotificationsConfig,
+    #[serde(default)]
+    pub setup: SetupConfig,
+}
+
+/// Première mise en route (ADR-0045).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetupConfig {
+    /// Fichier du jeton de mise en route, écrit au démarrage tant qu'aucun admin n'existe.
+    #[serde(default = "default_setup_token_file")]
+    pub token_file: PathBuf,
+}
+
+impl Default for SetupConfig {
+    fn default() -> Self {
+        Self {
+            token_file: default_setup_token_file(),
+        }
+    }
+}
+
+fn default_setup_token_file() -> PathBuf {
+    PathBuf::from("/var/lib/kuro/setup-token")
 }
 
 /// Notifications et webhooks (ADR-0044).

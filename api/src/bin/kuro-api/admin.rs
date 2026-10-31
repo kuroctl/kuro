@@ -102,7 +102,7 @@ pub async fn run(command: Command, config: &Config) -> anyhow::Result<()> {
 }
 
 impl PasswordSource {
-    fn read(&self) -> anyhow::Result<String> {
+    pub(super) fn read(&self) -> anyhow::Result<String> {
         if self.password_stdin {
             let mut line = String::new();
             std::io::stdin().lock().read_line(&mut line)?;

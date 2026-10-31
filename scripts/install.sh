@@ -742,8 +742,21 @@ EOF
   else
     echo "  1. Point $public_host to this machine: Caddy obtains the certificate on the first visit."
   fi
-  echo "  $next. Create the first admin (the password is asked, never passed as an argument):"
-  echo "       sudo kuro-api-admin admin create --email you@example.com --name \"Your Name\""
+  # Première mise en route (ADR-0045) : l'API écrit le jeton au démarrage, tant qu'aucun compte
+  # n'existe. Lu ici pour l'afficher à qui a lancé l'installation, jamais journalisé ailleurs.
+  setup_token=""
+  for _ in $(seq 1 15); do
+    [ -s "$DATA_DIR/setup-token" ] && setup_token="$(cat "$DATA_DIR/setup-token")" && break
+    sleep 1
+  done
+  if [ -n "$setup_token" ]; then
+    echo "  $next. Open https://$public_host and follow the setup: your setup token is"
+    echo "       $setup_token"
+  else
+    echo "  $next. Open https://$public_host and follow the setup with the token in $DATA_DIR/setup-token"
+    echo "       (written once kuro-api runs: sudo cat $DATA_DIR/setup-token)."
+  fi
+  echo "     Without the panel: sudo kuro-api-admin setup --email you@example.com --name \"Your Name\""
   if ! has_role node; then
     echo "  $((next + 1)). Add a node in the panel, then on it: curl -fsSL https://get.kuroctl.com/node | sudo -E bash -s -- --api https://$public_host:$daemon_port --ca-fingerprint …"
   fi

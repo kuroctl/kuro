@@ -101,8 +101,8 @@ cp .env.example .env
 cargo run -p kuro-api -- --config api/config.example.toml pki init --name localhost --name 127.0.0.1
 cargo run -p kuro-api -- --config api/config.example.toml
 
-# Admin account and a node (prints a one-time token and the CA fingerprint)
-cargo run -p kuro-api -- --config api/config.example.toml admin create --email admin@example.com --name Admin
+# First-run setup (super admin and project name), then a node (one-time token and CA fingerprint)
+cargo run -p kuro-api -- --config api/config.example.toml setup --email admin@example.com --name Admin
 cargo run -p kuro-api -- --config api/config.example.toml node add --name dev-1
 
 # Enroll and start the daemon

@@ -39,6 +39,8 @@ pub struct TestAdmin {
     pub webhooks: std::sync::Arc<super::notifications::FakeWebhooks>,
     pub notifications: kuro_api::notifications::application::NotificationsState,
     pub dns: kuro_api::dns::application::DnsState,
+    /// Première mise en route : son fichier de jeton est propre à chaque instance.
+    pub setup: kuro_api::setup::SetupState,
     /// État lu par `/api/ready` : aucun listener ne tourne ici, les tests le simulent.
     pub readiness: kuro_api::system::Readiness,
 }
@@ -129,6 +131,12 @@ impl TestAdmin {
             sources: servers.content.clone(),
         };
         let readiness = kuro_api::system::Readiness::default();
+        let setup = kuro_api::setup::SetupState {
+            pool: pool.clone(),
+            iam: iam.clone(),
+            token_file: std::env::temp_dir()
+                .join(format!("kuro-test-setup-{}", uuid::Uuid::now_v7())),
+        };
         let router = http::router(AppState {
             pool: pool.clone(),
             iam: iam.clone(),
@@ -147,6 +155,7 @@ impl TestAdmin {
             content_sources,
             http: super::http::http_policy(),
             readiness: readiness.clone(),
+            setup: setup.clone(),
         });
         Self {
             pool,
@@ -164,6 +173,7 @@ impl TestAdmin {
             webhooks,
             notifications,
             dns,
+            setup,
             readiness,
         }
     }

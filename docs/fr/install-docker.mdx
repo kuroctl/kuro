@@ -46,14 +46,22 @@ docker compose logs -f api
 Au premier démarrage, l'API applique ses migrations et crée l'autorité de certification privée des
 nœuds dans le volume `kuro-data`. Caddy obtient le certificat HTTPS à la première visite.
 
-## 4. Créer le premier administrateur
+## 4. Première mise en route
+
+Ouvrez `https://panel.example.com` : tant qu'aucun compte n'existe, le panel affiche un assistant
+qui demande le jeton de mise en route, écrit par l'API dans son volume :
 
 ```bash
-docker compose exec api kuro-entrypoint admin create --email vous@example.com --name "Votre nom"
+docker compose exec api cat /var/lib/kuro/setup-token
 ```
 
-Le mot de passe est demandé de façon interactive, jamais passé en argument. Ouvrez ensuite
-`https://panel.example.com` et connectez-vous.
+Puis le compte super admin et le nom du projet, et la connexion. Sans panel :
+
+```bash
+docker compose exec api kuro-entrypoint setup --email vous@example.com --name "Votre nom"
+```
+
+Le mot de passe est demandé de façon interactive, jamais passé en argument.
 
 ## Ajouter un nœud
 

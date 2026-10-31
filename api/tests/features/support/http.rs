@@ -107,7 +107,13 @@ pub async fn get_with_panel(panel: Option<&std::path::Path>, path: &str) -> Test
         panel_url: None,
         allow_private_targets: false,
     };
+    let setup = kuro_api::setup::SetupState {
+        pool: pool.clone(),
+        iam: iam.clone(),
+        token_file: std::env::temp_dir().join(format!("kuro-test-setup-{}", uuid::Uuid::now_v7())),
+    };
     let state = AppState {
+        setup,
         iam,
         enrollment: enrollment_settings(),
         links,
