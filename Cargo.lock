@@ -2107,7 +2107,7 @@ dependencies = [
 
 [[package]]
 name = "kuro-api"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "argon2",
@@ -2165,7 +2165,7 @@ dependencies = [
 
 [[package]]
 name = "kuro-daemon"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "base64 0.23.1",
@@ -2208,7 +2208,7 @@ dependencies = [
 
 [[package]]
 name = "kuro-prefab"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "flate2",
  "image",
@@ -2231,7 +2231,7 @@ dependencies = [
 
 [[package]]
 name = "kuro-protocol"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -2242,7 +2242,7 @@ dependencies = [
 
 [[package]]
 name = "kuro-runtime"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "rustls",
  "serde",
@@ -5012,7 +5012,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "clap",
