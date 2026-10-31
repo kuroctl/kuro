@@ -58,7 +58,13 @@ pub async fn revoke(
     Ok(node)
 }
 
-/// Possible dans tous les états. Les tokens partent avec le nœud ; le journal d'audit reste.
+/// Supprime un nœud `pending` (jamais enrôlé : une ligne et ses tokens), `offline` ou `revoked`
+/// (ADR-0046). Un nœud `online` est refusé : arrêter son daemon d'abord. Les serveurs encore
+/// assignés sont refusés aussi : les supprimer ou les déplacer d'abord.
+///
+/// Les tokens d'enrôlement partent avec le nœud (cascade). Son certificat, s'il en a un, est
+/// inscrit parmi les certificats révoqués : un daemon qui se présenterait encore avec est refusé
+/// comme révoqué, et s'arrête pour de bon. Le journal d'audit reste.
 pub async fn delete(
     pool: &PgPool,
     context: &AuditContext,
@@ -66,13 +72,22 @@ pub async fn delete(
     id: Uuid,
 ) -> Result<(), NodesError> {
     let mut tx = AuditedTx::begin(pool, context).await?;
-    let node = NodeRepository::get(&mut tx, id)
+    let node = NodeRepository::lock(&mut tx, id)
         .await?
         .ok_or(NodesError::NotFound)?;
+    if node.status == NodeStatus::Online {
+        return Err(NodesError::Conflict(ErrorCode::NodeOnline));
+    }
+    if NodeRepository::count_servers(&mut tx, id).await? > 0 {
+        return Err(NodesError::Conflict(ErrorCode::NodeHasServers));
+    }
+    if let Some(fingerprint) = &node.cert_fingerprint {
+        NodeRepository::remember_revoked_certificate(&mut tx, fingerprint, &node.name).await?;
+    }
     NodeRepository::delete(&mut tx, id)
         .await
         .map_err(|error| match error.as_database_error() {
-            // Un serveur est encore déployé sur ce nœud (ADR-0013).
+            // Un serveur a été déployé sur ce nœud entre-temps (ADR-0013).
             Some(db) if db.is_foreign_key_violation() => {
                 NodesError::Conflict(ErrorCode::NodeHasServers)
             }
@@ -81,10 +96,15 @@ pub async fn delete(
     tx.commit(
         AuditEvent::success(AuditAction::NodeDeleted)
             .target("node", id)
-            .details(json!({ "name": node.name, "status": node.status })),
+            .details(json!({
+                "name": node.name,
+                "status": node.status.as_str(),
+                "certificate_revoked": node.cert_fingerprint.is_some(),
+            })),
     )
     .await?;
 
+    // Le nœud n'était pas `online`, mais une session peut être ouverte sans `hello` accepté.
     links.disconnect(NodeId::from(id), DisconnectReason::Deleted);
     Ok(())
 }

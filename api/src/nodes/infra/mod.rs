@@ -8,4 +8,4 @@ mod repository;
 pub use allocations::{AllocationRecord, AllocationRepository};
 pub use instances::{InstanceRepository, Swept};
 pub use regions::{RegionRecord, RegionRepository};
-pub use repository::{NodeRecord, NodeRepository, PlacementPatch, RegionFilter};
+pub use repository::{LockedNode, NodeRecord, NodeRepository, PlacementPatch, RegionFilter};

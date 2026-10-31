@@ -113,7 +113,7 @@ permissions! {
     NodesRegionsManage => "nodes.regions.manage", Nodes, "Créer, modifier, supprimer des régions", sensitive = false, Available;
     NodesEnrollment => "nodes.enrollment", Nodes, "Réémettre un token pour un nœud en attente", sensitive = true, Available;
     NodesRevoke => "nodes.revoke", Nodes, "Révoquer le certificat et couper le nœud", sensitive = true, Available;
-    NodesDelete => "nodes.delete", Nodes, "Supprimer un nœud (et couper sa session)", sensitive = true, Available;
+    NodesDelete => "nodes.delete", Nodes, "Supprimer un nœud en attente ou hors ligne", sensitive = true, Available;
     NodesAllocationsRead => "nodes.allocations.read", Nodes, "Voir les ports alloués", sensitive = false, Available;
     NodesAllocationsManage => "nodes.allocations.manage", Nodes, "Créer ou supprimer des plages de ports", sensitive = false, Available;
 

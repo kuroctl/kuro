@@ -28,6 +28,12 @@ vérifier qu'il parle bien à **votre** API avant de lui envoyer le jeton
   précédents ne valent plus rien). Même chose pour réenrôler un nœud révoqué.
 </Tip>
 
+<Note>
+  Nœud créé par erreur ? Tant qu'il n'est pas enrôlé, **Supprimer** sur sa fiche l'efface avec
+  son jeton. Un nœud hors ligne se supprime aussi, une fois ses serveurs supprimés ou déplacés :
+  son certificat est alors révoqué et le daemon encore installé s'arrête.
+</Note>
+
 En ligne de commande, sur la machine de l'API :
 
 ```bash

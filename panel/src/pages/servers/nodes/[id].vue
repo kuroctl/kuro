@@ -1,12 +1,13 @@
 <script setup lang="ts">
 // Détail d'un nœud : enrôlement (en attente ou révoqué), emplacement (région, lieu, position sur la carte), adresse publique et nom
-// DNS, essais du Studio et ports.
+// DNS, essais du Studio, ports, et suppression tant qu'il n'est pas en ligne.
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 
 import { usePermissions } from '@/features/account/account.queries'
 import NodeAddressCard from '@/features/dns/components/NodeAddressCard.vue'
 import AllocationsCard from '@/features/nodes/components/AllocationsCard.vue'
+import NodeDeleteCard from '@/features/nodes/components/NodeDeleteCard.vue'
 import NodeEnrollmentCard from '@/features/nodes/components/NodeEnrollmentCard.vue'
 import NodeLocationCard from '@/features/nodes/components/NodeLocationCard.vue'
 import NodeTrialsCard from '@/features/nodes/components/NodeTrialsCard.vue'
@@ -36,6 +37,7 @@ const { can } = usePermissions()
       <NodeAddressCard v-if="node" :node="node" :editable="can('nodes.update')" />
       <NodeTrialsCard v-if="node" :node="node" :editable="can('nodes.update')" />
       <AllocationsCard :node-id="route.params.id" />
+      <NodeDeleteCard v-if="node && can('nodes.delete') && node.status !== 'online'" :node="node" />
     </div>
   </div>
 </template>

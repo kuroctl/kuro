@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO revoked_certificates (fingerprint, node_name) VALUES ($1, $2)\n             ON CONFLICT (fingerprint) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f9733ae12af2e701b7837d4470d32aec3ac26c3d4bf64f5ce637191e93547ad8"
+}

@@ -35,6 +35,15 @@ pub struct NodeRecord {
     pub public_ipv6: Option<String>,
 }
 
+/// Nœud verrouillé pour une décision sur son cycle de vie.
+#[derive(Debug, Clone)]
+pub struct LockedNode {
+    pub name: String,
+    pub status: NodeStatus,
+    /// Absent tant que le nœud n'est pas enrôlé.
+    pub cert_fingerprint: Option<String>,
+}
+
 /// Filtre de liste : tous, une région, ou les nœuds sans région.
 #[derive(Debug, Clone, Copy, Default)]
 pub enum RegionFilter {
@@ -204,6 +213,70 @@ impl NodeRepository {
             name: row.name,
             status: NodeStatus::Pending,
         }))
+    }
+
+    /// Nom, statut et certificat du nœud, verrouillés jusqu'à la fin de la transaction.
+    pub async fn lock(
+        conn: &mut PgConnection,
+        id: Uuid,
+    ) -> Result<Option<LockedNode>, sqlx::Error> {
+        let row = sqlx::query!(
+            "SELECT name, status, cert_fingerprint FROM nodes WHERE id = $1 FOR UPDATE",
+            id
+        )
+        .fetch_optional(conn)
+        .await?;
+        row.map(|row| {
+            Ok(LockedNode {
+                name: row.name,
+                status: row
+                    .status
+                    .parse()
+                    .map_err(|error| sqlx::Error::Decode(Box::new(error)))?,
+                cert_fingerprint: row.cert_fingerprint,
+            })
+        })
+        .transpose()
+    }
+
+    /// Serveurs encore assignés au nœud : ils bloquent sa suppression.
+    pub async fn count_servers(conn: &mut PgConnection, id: Uuid) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar!(
+            r#"SELECT count(*) AS "count!" FROM servers WHERE node_id = $1"#,
+            id
+        )
+        .fetch_one(conn)
+        .await
+    }
+
+    /// Le certificat d'un nœud supprimé reste refusé, comme révoqué (ADR-0046).
+    pub async fn remember_revoked_certificate(
+        conn: &mut PgConnection,
+        fingerprint: &str,
+        node_name: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            "INSERT INTO revoked_certificates (fingerprint, node_name) VALUES ($1, $2)
+             ON CONFLICT (fingerprint) DO NOTHING",
+            fingerprint,
+            node_name,
+        )
+        .execute(conn)
+        .await?;
+        Ok(())
+    }
+
+    /// Certificat d'un nœud supprimé, présenté sur le lien daemon.
+    pub async fn certificate_revoked(
+        &self,
+        fingerprint: &CertFingerprint,
+    ) -> Result<bool, sqlx::Error> {
+        sqlx::query_scalar!(
+            r#"SELECT EXISTS (SELECT 1 FROM revoked_certificates WHERE fingerprint = $1) AS "revoked!""#,
+            fingerprint.as_str(),
+        )
+        .fetch_one(&self.pool)
+        .await
     }
 
     /// Statut du nœud, verrouillé jusqu'à la fin de la transaction.

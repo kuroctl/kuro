@@ -53,6 +53,14 @@ impl Presence {
         self.nodes.find_by_fingerprint(fingerprint).await
     }
 
+    /// Certificat d'un nœud supprimé (ADR-0046) : refusé comme révoqué, le daemon s'arrête.
+    pub async fn certificate_revoked(
+        &self,
+        fingerprint: &CertFingerprint,
+    ) -> Result<bool, sqlx::Error> {
+        self.nodes.certificate_revoked(fingerprint).await
+    }
+
     /// `hello` accepté : le nœud est joignable, tenu par cette instance, et ses
     /// caractéristiques sont à jour. `false` si le nœud a été révoqué ou supprimé depuis son
     /// identification.

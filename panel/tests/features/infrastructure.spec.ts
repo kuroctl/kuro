@@ -1,5 +1,5 @@
 // Infrastructure (ADR-0021) : vue d'ensemble (carte, indicateurs, derniers serveurs), carte du
-// monde, régions, emplacement et enrôlement d'un nœud. MapLibre est simulé (`tests/support/maplibre.ts`).
+// monde, régions, emplacement, enrôlement et suppression d'un nœud. MapLibre est simulé (`tests/support/maplibre.ts`).
 import { screen, waitFor, within } from '@testing-library/vue'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
@@ -394,5 +394,78 @@ describe('node enrollment', () => {
     await router.push(`/servers/nodes/${OTHER_NODE}`)
     await screen.findByText('Emplacement')
     expect(screen.queryByText('Enrôlement')).toBeNull()
+  })
+})
+
+describe('node deletion', () => {
+  const offline: Schemas['NodeDto'] = { ...placed, status: 'offline' }
+
+  it('offers deletion for a pending and an offline node', async () => {
+    setup()
+    server.use(http.get(`${API}/nodes/${OTHER_NODE}`, () => HttpResponse.json(pending)))
+    const { router } = await renderApp(`/servers/nodes/${OTHER_NODE}`)
+    expect(await screen.findByRole('button', { name: 'Supprimer' })).toBeTruthy()
+
+    server.use(http.get(`${API}/nodes/${NODE_ID}`, () => HttpResponse.json(offline)))
+    await router.push(`/servers/nodes/${NODE_ID}`)
+    expect(await screen.findByRole('button', { name: 'Supprimer' })).toBeTruthy()
+    expect(screen.getByText('Le nœud est hors ligne. Ses serveurs doivent d’abord être supprimés ou déplacés. Son certificat est révoqué : un daemon encore installé s’arrêtera.')).toBeTruthy()
+  })
+
+  it('offers no deletion for an online node', async () => {
+    setup()
+    server.use(http.get(`${API}/nodes/${NODE_ID}`, () => HttpResponse.json(placed)))
+    await renderApp(`/servers/nodes/${NODE_ID}`)
+    await screen.findByText('Emplacement')
+    expect(screen.queryByText('Supprimer le nœud')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Supprimer' })).toBeNull()
+  })
+
+  it('deletes the node after confirmation and goes back to the list', async () => {
+    setup()
+    let calls = 0
+    server.use(
+      http.get(`${API}/nodes/${OTHER_NODE}`, () => HttpResponse.json(pending)),
+      http.delete(`${API}/nodes/${OTHER_NODE}`, () => {
+        calls += 1
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { user, router } = await renderApp(`/servers/nodes/${OTHER_NODE}`)
+
+    await user.click(await screen.findByRole('button', { name: 'Supprimer' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText('Supprimer le nœud dev-2 ?')).toBeTruthy()
+    await user.click(within(dialog).getByRole('button', { name: 'Supprimer définitivement' }))
+
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/servers/nodes'))
+    expect(calls).toBe(1)
+    expect(await screen.findByText('Nœud dev-2 supprimé.')).toBeTruthy()
+  })
+
+  it('explains that a node still hosting servers cannot be deleted', async () => {
+    setup()
+    server.use(
+      http.get(`${API}/nodes/${NODE_ID}`, () => HttpResponse.json(offline)),
+      http.delete(`${API}/nodes/${NODE_ID}`, () => problem(409, 'node_has_servers')),
+    )
+    const { user, router } = await renderApp(`/servers/nodes/${NODE_ID}`)
+
+    await user.click(await screen.findByRole('button', { name: 'Supprimer' }))
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Supprimer définitivement' }))
+
+    expect(await screen.findByText('Ce nœud héberge encore des serveurs : supprimez-les ou déplacez-les d’abord.')).toBeTruthy()
+    expect(router.currentRoute.value.path).toBe(`/servers/nodes/${NODE_ID}`)
+  })
+
+  it('hides deletion without the permission', async () => {
+    setup()
+    server.use(
+      http.get(`${API}/me`, () => HttpResponse.json({ ...profile, all_permissions: false, permissions: ['nodes.read'] })),
+      http.get(`${API}/nodes/${OTHER_NODE}`, () => HttpResponse.json(pending)),
+    )
+    await renderApp(`/servers/nodes/${OTHER_NODE}`)
+    await screen.findByText('Emplacement')
+    expect(screen.queryByRole('button', { name: 'Supprimer' })).toBeNull()
   })
 })

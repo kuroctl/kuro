@@ -77,6 +77,22 @@ describe('first-run setup', () => {
     expect(await screen.findByText('Bienvenue sur Kuro')).toBeTruthy()
   })
 
+  it('refuses a short password at the account step, before sending anything', async () => {
+    server.use(...anonymous(), needed())
+    const { user } = await renderApp('/setup')
+
+    await user.type(await screen.findByLabelText('Jeton de mise en route'), 'kuro_setup_abc')
+    await user.click(screen.getByRole('button', { name: 'Continuer' }))
+    await user.type(await screen.findByLabelText('Nom affiché'), 'Owner')
+    await user.type(screen.getByLabelText('Adresse e-mail'), 'owner@example.com')
+    await user.type(screen.getByLabelText('Mot de passe'), 'short')
+    await user.type(screen.getByLabelText('Confirmez le mot de passe'), 'short')
+    await user.click(screen.getByRole('button', { name: 'Continuer' }))
+
+    expect(await screen.findByText('Le mot de passe doit contenir au moins 12 caractères.')).toBeTruthy()
+    expect(screen.queryByLabelText('Nom du projet (facultatif)')).toBeNull()
+  })
+
   it('refuses mismatched passwords before sending anything', async () => {
     server.use(...anonymous(), needed())
     const { user } = await renderApp('/setup')

@@ -235,10 +235,12 @@ pub async fn revoke(
     Ok(Json(node.into()))
 }
 
-/// Supprime le nœud et coupe sa session. Permission : `nodes.delete`.
+/// Supprime un nœud en attente, hors ligne ou révoqué ; ses tokens partent avec lui et son
+/// certificat reste refusé. Permission : `nodes.delete`.
 #[utoipa::path(delete, path = "/api/admin/v1/nodes/{id}", tag = "admin-nodes", security(("bearer" = [])),
     params(("id" = Uuid, Path)),
-    responses((status = 204), (status = 403, body = Problem), (status = 404, body = Problem)))]
+    responses((status = 204), (status = 403, body = Problem), (status = 404, body = Problem),
+              (status = 409, description = "Nœud en ligne (`node_online`), ou serveurs encore assignés (`node_has_servers`)", body = Problem)))]
 pub async fn delete(
     State(iam): State<IamState>,
     State(pool): State<PgPool>,

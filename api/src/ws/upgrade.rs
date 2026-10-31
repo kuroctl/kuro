@@ -30,10 +30,21 @@ pub(super) async fn daemon_socket(
             return error_response(StatusCode::FORBIDDEN, ErrorCode::NodeRevoked);
         }
         Ok(Some(node)) => node,
-        Ok(None) => {
-            tracing::warn!(%fingerprint, "unknown node certificate");
-            return error_response(StatusCode::FORBIDDEN, ErrorCode::UnknownNode);
-        }
+        // Nœud supprimé (ADR-0046) : son daemon doit s'arrêter, pas réessayer sans fin.
+        Ok(None) => match state.link.presence.certificate_revoked(&fingerprint).await {
+            Ok(true) => {
+                tracing::warn!(%fingerprint, "certificate of a deleted node refused");
+                return error_response(StatusCode::FORBIDDEN, ErrorCode::NodeRevoked);
+            }
+            Ok(false) => {
+                tracing::warn!(%fingerprint, "unknown node certificate");
+                return error_response(StatusCode::FORBIDDEN, ErrorCode::UnknownNode);
+            }
+            Err(error) => {
+                tracing::error!(%error, "failed to identify node");
+                return error_response(StatusCode::INTERNAL_SERVER_ERROR, ErrorCode::InternalError);
+            }
+        },
         Err(error) => {
             tracing::error!(%error, "failed to identify node");
             return error_response(StatusCode::INTERNAL_SERVER_ERROR, ErrorCode::InternalError);

@@ -4,6 +4,7 @@ use axum::http::{Method, StatusCode};
 use serde_json::{Value, json};
 
 use crate::support::admin::{Session, TestAdmin};
+use crate::support::platform::Platform;
 
 async fn root(admin: &TestAdmin) -> Session {
     admin
@@ -357,7 +358,7 @@ async fn revocation_rules_and_audit() {
 }
 
 #[tokio::test]
-async fn deletion_removes_the_node_and_is_audited() {
+async fn a_pending_node_is_deleted_with_its_tokens_and_audited() {
     let admin = TestAdmin::start().await;
     let session = root(&admin).await;
     let created = create_node(&admin, &session, json!({ "name": "par-01" })).await;
@@ -373,7 +374,61 @@ async fn deletion_removes_the_node_and_is_audited() {
 
     assert_eq!(deleted.status, StatusCode::NO_CONTENT);
     assert_eq!(again.status, StatusCode::NOT_FOUND);
+    let tokens: i64 = sqlx::query_scalar("SELECT count(*) FROM enrollment_tokens")
+        .fetch_one(&admin.pool)
+        .await
+        .unwrap();
+    assert_eq!(tokens, 0);
     let event = admin.last_audit("node.deleted").await;
     assert_eq!(event.details["name"], "par-01");
+    assert_eq!(event.details["status"], "pending");
+    assert_eq!(event.details["certificate_revoked"], false);
     assert_eq!(event.target_id.as_deref(), Some(id));
+}
+
+/// Un nœud en ligne, puis hors ligne avec un serveur, ne se supprime pas ; une fois le serveur
+/// parti, la suppression révoque son certificat.
+#[tokio::test]
+async fn deletion_refuses_an_online_node_and_a_node_still_hosting_servers() {
+    let platform = Platform::start().await;
+    let mut daemon = platform.online_node("node-1", "25565").await;
+    let node = daemon.node.id;
+    let path = format!("/nodes/{node}");
+    let (server, _) = platform.deploy_minecraft(&mut daemon, json!({})).await;
+
+    let online = platform.call(Method::DELETE, &path, None).await;
+    assert_eq!(online.status, StatusCode::CONFLICT, "{}", online.json);
+    assert_eq!(online.json["code"], "node_online");
+
+    drop(daemon);
+    platform.api.wait_for_status(node, "offline").await;
+    let busy = platform.call(Method::DELETE, &path, None).await;
+    assert_eq!(busy.status, StatusCode::CONFLICT, "{}", busy.json);
+    assert_eq!(busy.json["code"], "node_has_servers");
+    assert_eq!(platform.api.status(node).await, "offline");
+
+    // Le serveur part (supprimé ou déplacé) : le nœud peut être supprimé.
+    sqlx::query(
+        "UPDATE allocations SET server_id = NULL, port_name = NULL WHERE server_id = $1::uuid",
+    )
+    .bind(server["id"].as_str().unwrap())
+    .execute(&platform.api.pool)
+    .await
+    .unwrap();
+    sqlx::query("DELETE FROM servers WHERE id = $1::uuid")
+        .bind(server["id"].as_str().unwrap())
+        .execute(&platform.api.pool)
+        .await
+        .unwrap();
+    let deleted = platform.call(Method::DELETE, &path, None).await;
+    assert_eq!(deleted.status, StatusCode::NO_CONTENT, "{}", deleted.json);
+
+    let revoked: Vec<String> = sqlx::query_scalar("SELECT node_name FROM revoked_certificates")
+        .fetch_all(&platform.api.pool)
+        .await
+        .unwrap();
+    assert_eq!(revoked, vec!["node-1".to_owned()]);
+    let event = platform.admin.last_audit("node.deleted").await;
+    assert_eq!(event.details["status"], "offline");
+    assert_eq!(event.details["certificate_revoked"], true);
 }

@@ -27,6 +27,12 @@ node check it is talking to **your** API before sending it the token
   working). Same to re-enroll a revoked node.
 </Tip>
 
+<Note>
+  Node created by mistake? Until it is enrolled, **Delete** on its page removes it along with its
+  token. An offline node can be deleted too, once its servers are deleted or moved: its certificate
+  is then revoked and a daemon still installed stops.
+</Note>
+
 From the command line, on the API machine:
 
 ```bash

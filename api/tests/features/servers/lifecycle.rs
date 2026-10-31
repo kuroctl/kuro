@@ -330,9 +330,13 @@ async fn a_node_hosting_servers_cannot_be_deleted() {
     let platform = Platform::start().await;
     let mut daemon = platform.online_node("node-1", "25565").await;
     platform.deploy_minecraft(&mut daemon, json!({})).await;
+    let node = daemon.node.id;
 
+    // Un nœud en ligne est refusé pour lui-même (ADR-0046) : hors ligne, ce sont ses serveurs.
+    drop(daemon);
+    platform.api.wait_for_status(node, "offline").await;
     let response = platform
-        .call(Method::DELETE, &format!("/nodes/{}", daemon.node.id), None)
+        .call(Method::DELETE, &format!("/nodes/{node}"), None)
         .await;
 
     assert_eq!(response.status, StatusCode::CONFLICT);

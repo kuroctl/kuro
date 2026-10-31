@@ -32,7 +32,8 @@ pub enum Command {
         #[arg(long)]
         reason: Option<String>,
     },
-    /// Supprime le nœud (irréversible). Sa session est coupée au prochain heartbeat.
+    /// Supprime un nœud en attente, hors ligne ou révoqué (irréversible) ; un nœud en ligne est
+    /// refusé, et des serveurs encore assignés aussi. Son certificat reste refusé.
     Delete {
         #[arg(long)]
         name: String,
@@ -104,7 +105,9 @@ pub async fn run(command: Command, config: &Config) -> anyhow::Result<()> {
             }
             let id = inventory::id_by_name(&pool, &name).await?;
             lifecycle::delete(&pool, &AuditContext::cli("node delete"), &links, id).await?;
-            println!("node {name} deleted");
+            println!(
+                "node {name} deleted; its certificate stays refused, re-enroll the host as a new node"
+            );
         }
     }
     Ok(())

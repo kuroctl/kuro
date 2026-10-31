@@ -20,6 +20,8 @@ import { Label } from '@/shared/ui/label'
 
 type Step = 'token' | 'account' | 'project' | 'login'
 const STEPS: Step[] = ['token', 'account', 'project', 'login']
+/** Règle de l'API (`auth::password::check_policy`), vérifiée à l'écran du compte. */
+const PASSWORD_LENGTH = { min: 12, max: 1024 }
 
 const { t } = useI18n()
 const router = useRouter()
@@ -46,6 +48,11 @@ function goAccount() {
 
 function goProject() {
   errors.value = {}
+  const length = [...password.value].length
+  if (length < PASSWORD_LENGTH.min || length > PASSWORD_LENGTH.max) {
+    errors.value = { password: t('errors.weak_password') }
+    return
+  }
   if (password.value !== confirmation.value) {
     errors.value = { confirmation: t('auth.newPassword.mismatch') }
     return

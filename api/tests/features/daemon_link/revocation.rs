@@ -1,10 +1,12 @@
-//! Révocation et suppression d'un nœud connecté : coupure, refus de reconnexion, réenrôlement.
+//! Révocation et suppression d'un nœud : coupure, refus de reconnexion, réenrôlement. Un nœud
+//! connecté ne se supprime pas (ADR-0046).
 
 use std::time::Duration;
 
 use kuro_api::audit::domain::AuditContext;
 use kuro_api::enrollment::application::reissue_token;
-use kuro_api::nodes::application::lifecycle;
+use kuro_api::error_code::ErrorCode;
+use kuro_api::nodes::application::{NodesError, lifecycle};
 use kuro_api::nodes::domain::NoLiveLinks;
 use kuro_daemon::link::LinkError;
 use tokio_util::sync::CancellationToken;
@@ -126,24 +128,42 @@ async fn a_revoked_node_can_be_reenrolled_with_a_new_token() {
 }
 
 #[tokio::test]
-async fn deleting_a_connected_node_disconnects_it() {
+async fn deleting_a_connected_node_is_refused() {
     let api = TestApi::start().await;
     let node = api.enroll_node("node-1").await;
     let mut ws = api.connect(&node).await;
     say_hello(&mut ws).await;
 
+    let refused = lifecycle::delete(&api.pool, &context(), api.links.as_ref(), node.id.as_uuid())
+        .await
+        .unwrap_err();
+
+    assert!(
+        matches!(refused, NodesError::Conflict(ErrorCode::NodeOnline)),
+        "{refused}"
+    );
+    assert_eq!(api.status(node.id).await, "online");
+    // La session reste ouverte : le heartbeat est accepté.
+    send(&mut ws, heartbeat()).await;
+    assert_eq!(api.status(node.id).await, "online");
+}
+
+#[tokio::test]
+async fn a_deleted_node_is_gone_and_its_certificate_stays_refused() {
+    let api = TestApi::start().await;
+    let node = api.enroll_node("node-1").await;
+    assert_eq!(api.status(node.id).await, "offline");
+
     lifecycle::delete(&api.pool, &context(), api.links.as_ref(), node.id.as_uuid())
         .await
         .unwrap();
 
-    let notice = recv(&mut ws).await.unwrap();
-    assert_eq!(notice["payload"]["code"], "node_revoked");
-    assert_eq!(notice["payload"]["message"], "node deleted");
-    assert_closed(&mut ws).await;
     let count: i64 = sqlx::query_scalar("SELECT count(*) FROM nodes")
         .fetch_one(&api.pool)
         .await
         .unwrap();
     assert_eq!(count, 0);
-    assert!(kuro_daemon::link::connect(&node.config).await.is_err());
+    // Le daemon encore installé sur la machine s'arrête pour de bon, comme après une révocation.
+    let again = kuro_daemon::link::connect(&node.config).await.unwrap_err();
+    assert!(matches!(again, LinkError::Revoked), "{again}");
 }

@@ -102,6 +102,7 @@ error_codes! {
     NodeNotPending => "node_not_pending", "The node is already enrolled";
     NodeAlreadyRevoked => "node_already_revoked", "The node is already revoked";
     NodeNotEnrolled => "node_not_enrolled", "The node is not enrolled yet";
+    NodeOnline => "node_online", "The node is online: stop its daemon before deleting it";
 
     // Enrôlement et lien daemon
     InvalidToken => "invalid_token", "Invalid, expired or already used token";
@@ -117,7 +118,7 @@ error_codes! {
     UnknownAllocation => "unknown_allocation", "Unknown allocation";
     AllocationTaken => "allocation_taken", "This port is already assigned";
     AllocationInUse => "allocation_in_use", "This port is assigned to a server";
-    NodeHasServers => "node_has_servers", "The node still hosts servers or allocations";
+    NodeHasServers => "node_has_servers", "The node still hosts servers: delete or move them first";
     // Prefabs et serveurs
     UnknownPrefab => "unknown_prefab", "Unknown prefab or version";
     InvalidPrefab => "invalid_prefab", "Invalid prefab or archive";

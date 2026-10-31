@@ -20,6 +20,8 @@ export function useNodesApi() {
 
     update: (id: string, body: Schemas['UpdateNodeRequest']) => http.patch<Node>(`${BASE}/${id}`, body).then((response) => response.data),
 
+    remove: (id: string) => http.delete<void>(`${BASE}/${id}`).then(() => undefined),
+
     allocations: (id: string) => http.get<Allocation[]>(`${BASE}/${id}/allocations`).then((response) => response.data),
 
     addAllocations: (id: string, body: Schemas['CreateAllocationsRequest']) =>
