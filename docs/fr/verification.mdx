@@ -13,7 +13,9 @@ Chaque release de Kuro publie, à côté des archives :
 
 - `SHA256SUMS` : la somme SHA-256 de chaque archive ;
 - `SHA256SUMS.minisig` : la signature de cette liste, faite avec la clé privée
-  [minisign](https://jedisct1.github.io/minisign/) du projet.
+  [minisign](https://jedisct1.github.io/minisign/) du projet ;
+- `IMAGE` : le tag et l'empreinte (`sha256`) de l'image Docker de l'API publiée pour cette
+  version, listé dans `SHA256SUMS` et donc couvert par la même signature.
 
 La clé **publique** correspondante est écrite dans le script d'installation
 (`MINISIGN_PUBKEY`). Avant d'installer quoi que ce soit, le script :

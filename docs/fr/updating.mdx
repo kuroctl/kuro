@@ -14,6 +14,16 @@ curl -fsSLo install.sh https://get.kuroctl.com/api
 sudo bash install.sh
 ```
 
+## L'API avec Docker
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Une version précise se règle dans `.env` (`KURO_VERSION=X.Y.Z`), voir
+[Installer avec Docker](/fr/install-docker).
+
 ## Un nœud
 
 Un nœud déjà enrôlé n'est pas réenrôlé : ni jeton ni empreinte à fournir.

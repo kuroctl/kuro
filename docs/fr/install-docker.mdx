@@ -1,0 +1,97 @@
+---
+title: "Installer avec Docker"
+sidebarTitle: "Avec Docker"
+description: "L'API, le panel et les prefabs officiels dans une image, avec PostgreSQL et Caddy par Docker Compose."
+---
+
+Chaque release publie une image officielle de l'API, `ghcr.io/kuroctl/kuro-api`, avec le panel et
+les prefabs officiels. Elle convient à une machine où Docker est déjà installé et où vous préférez
+tout gérer par Compose plutôt que par un service système.
+
+<Note>
+  Seule l'API est dans l'image. Un nœud (le daemon qui fait tourner les serveurs de jeu) pilote le
+  Docker de l'hôte : il s'installe avec le script, sur la même machine ou ailleurs
+  ([Ajouter un nœud](/fr/add-a-node)).
+</Note>
+
+## 1. Prérequis
+
+- Docker avec Compose (`docker compose version`) ;
+- un nom public qui pointe déjà vers la machine (enregistrement DNS `A` ou `AAAA`) : Caddy en a
+  besoin pour le certificat, les nœuds pour se connecter ;
+- les ports `80` et `443` (panel) et `8443` (nœuds, mTLS) ouverts en entrée.
+
+## 2. Récupérer les fichiers
+
+Trois fichiers, pris sur la version que vous installez :
+
+```bash
+mkdir kuro && cd kuro
+for f in docker-compose.yml Caddyfile .env.example; do
+  curl -fsSLO "https://raw.githubusercontent.com/kuroctl/kuro/v0.2.0/docker/$f"
+done
+cp .env.example .env
+```
+
+Remplissez `.env` : le nom public, un mot de passe pour PostgreSQL et la clé des sessions
+(`openssl rand -hex 32`). Cette clé ne doit plus changer ensuite.
+
+## 3. Démarrer
+
+```bash
+docker compose up -d
+docker compose logs -f api
+```
+
+Au premier démarrage, l'API applique ses migrations et crée l'autorité de certification privée des
+nœuds dans le volume `kuro-data`. Caddy obtient le certificat HTTPS à la première visite.
+
+## 4. Créer le premier administrateur
+
+```bash
+docker compose exec api kuro-entrypoint admin create --email vous@example.com --name "Votre nom"
+```
+
+Le mot de passe est demandé de façon interactive, jamais passé en argument. Ouvrez ensuite
+`https://panel.example.com` et connectez-vous.
+
+## Ajouter un nœud
+
+Dans le panel, « Ajouter un nœud » donne la commande à lancer sur la machine du nœud. L'adresse
+de l'API y est `https://panel.example.com:8443` : le port `8443` est publié directement par le
+service `api`, sans passer par Caddy.
+
+## Configurer
+
+L'image se règle par des variables `KURO_API_*`, une par clé de la
+[configuration](/fr/configuration), les sections séparées par `__` (`KURO_API_HTTP__BIND`).
+Les valeurs de `docker-compose.yml` sont celles d'une installation par le script. Pour un fichier
+TOML complet, montez-le et indiquez son chemin :
+
+```yaml
+services:
+  api:
+    environment:
+      KURO_API_CONFIG: /etc/kuro/api.toml
+    volumes:
+      - ./api.toml:/etc/kuro/api.toml:ro
+```
+
+Les variables gardent la priorité sur le fichier.
+
+## Mettre à jour
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Pour une version précise, mettez-la dans `.env` (`KURO_VERSION=0.2.0`). Mettez à jour l'API avant
+les nœuds ([Mettre à jour](/fr/updating)).
+
+## Vérifier l'image
+
+Le fichier `IMAGE` de chaque release donne l'empreinte (`sha256`) de l'image publiée ; il est
+couvert par la signature de `SHA256SUMS` ([Vérifier ce qu'on installe](/fr/verification)).
+Pour épingler l'image à cette empreinte plutôt qu'à son tag, remplacez `image:` dans
+`docker-compose.yml` par la ligne `ghcr.io/kuroctl/kuro-api@sha256:…` du fichier.

@@ -1,0 +1,82 @@
+# Kuro avec Docker (ADR-0016, amendement) : PostgreSQL, l'API (panel et prefabs officiels inclus)
+# et Caddy, qui publie le panel en HTTPS et obtient le certificat tout seul.
+#
+#   cp .env.example .env   # puis remplir KURO_PUBLIC_HOST, POSTGRES_PASSWORD, KURO_API_AUTH__SECRET_KEY
+#   docker compose up -d
+#   docker compose exec api kuro-entrypoint admin create --email vous@example.com --name "Votre nom"
+#
+# Le daemon (rôle node) ne tourne pas ici : il pilote le Docker de l'hôte (install.sh node).
+# Les nœuds joignent l'API sur le port 8443 (mTLS), publié directement par le service api.
+
+name: kuro
+
+services:
+  postgres:
+    image: docker.io/library/postgres:17.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kuro
+      POSTGRES_DB: kuro
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -q -U kuro -d kuro"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks:
+      - kuro
+
+  api:
+    image: ghcr.io/kuroctl/kuro-api:${KURO_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KURO_PUBLIC_HOST: ${KURO_PUBLIC_HOST:?set KURO_PUBLIC_HOST in .env}
+      KURO_API_DATABASE__URL: postgres://kuro:${POSTGRES_PASSWORD}@postgres:5432/kuro
+      KURO_API_AUTH__SECRET_KEY: ${KURO_API_AUTH__SECRET_KEY:?set KURO_API_AUTH__SECRET_KEY in .env}
+      # Serveur MCP des agents IA (ADR-0023), ouvert ou coupé dans Paramètres › Projet.
+      KURO_API_MCP__PUBLIC_URL: https://${KURO_PUBLIC_HOST}
+      # Caddy est le seul proxy cru pour l'adresse du client (audit, limitation de débit).
+      KURO_API_HTTP__TRUSTED_PROXIES: '["172.28.0.3"]'
+    volumes:
+      - kuro-data:/var/lib/kuro
+    ports:
+      - "8443:8443"
+    networks:
+      kuro:
+        ipv4_address: 172.28.0.2
+
+  caddy:
+    image: docker.io/library/caddy:2
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      KURO_PUBLIC_HOST: ${KURO_PUBLIC_HOST}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      kuro:
+        ipv4_address: 172.28.0.3
+
+networks:
+  kuro:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+
+volumes:
+  postgres:
+  kuro-data:
+  caddy-data:
+  caddy-config:

@@ -14,6 +14,16 @@ curl -fsSLo install.sh https://get.kuroctl.com/api
 sudo bash install.sh
 ```
 
+## The API with Docker
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+A specific version is set in `.env` (`KURO_VERSION=X.Y.Z`), see
+[Install with Docker](/en/install-docker).
+
 ## A node
 
 An enrolled node is not re-enrolled: no token or fingerprint needed.

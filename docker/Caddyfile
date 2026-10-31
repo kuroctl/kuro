@@ -1,0 +1,5 @@
+# Publie le panel et l'API en HTTPS (certificat Let's Encrypt obtenu à la première visite).
+# KURO_PUBLIC_HOST vient du fichier .env, par docker-compose.yml.
+{$KURO_PUBLIC_HOST} {
+	reverse_proxy api:8080
+}

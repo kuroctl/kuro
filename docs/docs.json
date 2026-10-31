@@ -25,6 +25,7 @@
             "group": "Installer",
             "pages": [
               "fr/install-api",
+              "fr/install-docker",
               "fr/add-a-node",
               "fr/verification",
               "fr/updating"
@@ -62,6 +63,7 @@
             "group": "Install",
             "pages": [
               "en/install-api",
+              "en/install-docker",
               "en/add-a-node",
               "en/verification",
               "en/updating"

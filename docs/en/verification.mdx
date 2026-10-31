@@ -12,6 +12,8 @@ on its own, and Kuro provides the value for the second.
 Every Kuro release publishes, next to the archives:
 
 - `SHA256SUMS`: the SHA-256 sum of each archive;
+- `IMAGE`: the tag and digest (`sha256`) of the API Docker image published for that version,
+  listed in `SHA256SUMS` and therefore covered by the same signature;
 - `SHA256SUMS.minisig`: the signature of that list, made with the project's private
   [minisign](https://jedisct1.github.io/minisign/) key.
 
