@@ -664,7 +664,7 @@ impl KuroMcp {
         let state = &self.state;
         Ok(match name {
             "list_servers" => {
-                let views = servers::list(&state.servers, Some(LIST_LIMIT), 0)
+                let views = servers::list(&state.servers, None, Some(LIST_LIMIT), 0)
                     .await
                     .map_err(servers_failure)?;
                 ok(json!(views.iter().map(server_summary).collect::<Vec<_>>()))

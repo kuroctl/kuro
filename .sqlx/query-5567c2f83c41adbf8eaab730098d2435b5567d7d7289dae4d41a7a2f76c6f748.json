@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH previous AS (\n                   SELECT state FROM servers WHERE id = $1 AND node_id = $2 FOR UPDATE\n               )\n               UPDATE servers s SET state = $3, state_reason = $4, updated_at = now()\n               FROM previous\n               WHERE s.id = $1 AND s.node_id = $2 AND (s.state <> 'deleting' OR $3 = 'failed')\n               RETURNING previous.state",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "state",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "state"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5567c2f83c41adbf8eaab730098d2435b5567d7d7289dae4d41a7a2f76c6f748"
+}

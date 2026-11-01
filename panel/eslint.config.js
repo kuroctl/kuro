@@ -28,7 +28,7 @@ export default defineConfigWithVueTs(
   },
   {
     // Pages du routage par fichiers (`login.vue`, `index.vue`) et composants shadcn d'un mot.
-    files: ['src/pages/**/*.vue', 'src/shared/ui/**/*.vue', 'src/App.vue'],
+    files: ['src/pages/**/*.vue', 'src/shared/ui/**/*.vue', 'src/App.vue', 'tests/fixtures/*/pages/**/*.vue'],
     rules: { 'vue/multi-word-component-names': 'off' },
   },
 )

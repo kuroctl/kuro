@@ -2,9 +2,12 @@
 // dossier `src/locales/<code>/` typé `satisfies typeof fr`.
 import { createI18n } from 'vue-i18n'
 
+import extensions from 'virtual:kuro-panel-extensions'
+
 import en from '@/locales/en'
 import fr from '@/locales/fr'
 import { setRequestLanguage } from '@/shared/api/http'
+import { extensionMessages } from '@/shared/extensions'
 
 export type MessageSchema = typeof fr
 
@@ -36,6 +39,11 @@ export const i18n = createI18n({
   fallbackLocale: 'en',
   messages: { fr, en },
 })
+
+// Textes des extensions du panel (ADR-0051), sous `ext.<nom>` : hors du schéma typé de Kuro.
+for (const locale of SUPPORTED_LOCALES) {
+  i18n.global.mergeLocaleMessage(locale, { ext: extensionMessages(extensions, locale) } as never)
+}
 
 export function applyLocale(locale: Locale) {
   i18n.global.locale.value = locale

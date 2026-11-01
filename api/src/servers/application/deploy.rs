@@ -249,11 +249,30 @@ async fn deploy_with(
 pub(super) async fn deploy_recording_failure(state: &ServersState, id: Uuid, first: bool) {
     if let Err(error) = deploy(state, id, first).await {
         tracing::warn!(server_id = %id, %error, "server deployment failed");
-        record_failure(state, id, &error).await;
+        let reason = record_failure(state, id, &error).await;
+        // Premier déploiement refusé avant toute installation (ADR-0051).
+        if first {
+            let owner_ref = match state.pool.acquire().await {
+                Ok(mut conn) => ServerRepository::get(&mut conn, id)
+                    .await
+                    .ok()
+                    .flatten()
+                    .and_then(|server| server.owner_ref),
+                Err(_) => None,
+            };
+            state
+                .events
+                .emit(crate::servers::domain::ServerEvent::InstallFailed {
+                    server_id: id,
+                    owner_ref,
+                    reason: Some(reason),
+                });
+        }
     }
 }
 
-pub(super) async fn record_failure(state: &ServersState, id: Uuid, error: &ServersError) {
+/// Enregistre l'échec (`failed`) et renvoie la raison retenue.
+pub(super) async fn record_failure(state: &ServersState, id: Uuid, error: &ServersError) -> String {
     let reason = match error {
         ServersError::Conflict(code) | ServersError::Unprocessable(code) => {
             code.as_str().to_owned()
@@ -269,6 +288,7 @@ pub(super) async fn record_failure(state: &ServersState, id: Uuid, error: &Serve
     if let Err(db) = outcome.await {
         tracing::error!(server_id = %id, %db, "failed to record the deployment failure");
     }
+    reason
 }
 
 /// Réponse du daemon : acceptée, ou refus traduit en erreur stable.

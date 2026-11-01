@@ -182,6 +182,7 @@ fn session_context(
         user_agent: Some(truncate(client_version, MAX_SSH_CLIENT_VERSION_BYTES)),
         request_id: Some(session_id.to_string()),
         agent: None,
+        owner: None,
     }
 }
 

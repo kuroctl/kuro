@@ -5,6 +5,7 @@
 //! - métier : un module par domaine (`system`, `nodes`, `enrollment`, `pki`, puis `auth`…),
 //!   chacun découpé en couches `domain` / `application` / `infra` / `http` selon ses besoins.
 
+pub mod app;
 pub mod audit;
 pub mod auth;
 pub mod cluster;
@@ -14,6 +15,8 @@ pub mod db;
 pub mod dns;
 pub mod enrollment;
 pub mod error_code;
+pub mod extension;
+pub(crate) mod extension_key;
 pub mod http;
 pub mod iam;
 pub mod mail;
@@ -30,5 +33,8 @@ pub mod sftp;
 pub mod state;
 pub mod studio;
 pub mod system;
+/// Harnais de test des extensions (fonctionnalité `testing`).
+#[cfg(feature = "testing")]
+pub mod testing;
 pub mod validation;
 pub mod ws;

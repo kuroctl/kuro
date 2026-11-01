@@ -1,5 +1,9 @@
-// Sections du rail et leur sous-menu. Les libellés sont des clés i18n.
+// Sections du rail et leur sous-menu. Les libellés sont des clés i18n. Les extensions du panel
+// (ADR-0051) ajoutent les leurs et complètent les sous-menus de Kuro (`withExtensions`).
 import { Bell, Bot, Boxes, Earth, Gamepad2, Globe, LayoutDashboard, Mail, Map as MapIcon, Network, PackageSearch, ScrollText, Server, Settings, ShieldCheck, Sparkles, type LucideIcon, UserCog, UserRound, Users } from '@lucide/vue'
+import extensions from 'virtual:kuro-panel-extensions'
+
+import { withExtensions } from '@/shared/extensions'
 
 export interface SubnavItem {
   label: string
@@ -11,16 +15,21 @@ export interface SubnavItem {
   permission?: string
 }
 
+export type BuiltinSectionKey = 'servers' | 'prefabs' | 'users' | 'settings' | 'account'
+
 export interface Section {
-  key: 'servers' | 'prefabs' | 'users' | 'settings' | 'account'
+  /** Section de Kuro, ou d'une extension (son nom, par convention). */
+  key: BuiltinSectionKey | (string & {})
   label: string
   icon?: LucideIcon
   to: string
   title: string
   items: SubnavItem[]
+  /** Section affichée dans le rail seulement avec cette permission. */
+  permission?: string
 }
 
-export const sections: Section[] = [
+const builtin: Section[] = [
   {
     key: 'servers',
     label: 'nav.servers',
@@ -86,6 +95,8 @@ export const sections: Section[] = [
     ],
   },
 ]
+
+export const sections: Section[] = withExtensions(builtin, extensions)
 
 export function sectionOf(path: string): Section | undefined {
   return sections.find((section) => path === section.to || path.startsWith(`${section.to}/`))

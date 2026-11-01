@@ -173,7 +173,7 @@ function submit() {
               >
               <span class="grid gap-0.5">
                 <span class="flex flex-wrap items-center gap-2">
-                  {{ text.label(permission.key) }}
+                  {{ text.label(permission.key, permission.label) }}
                   <span v-if="permission.sensitive" class="inline-flex items-center gap-1 text-xs text-warning"><ShieldAlert class="size-3.5" />{{ t('roles.editor.sensitive') }}</span>
                   <span v-if="permission.availability === 'reserved'" class="text-xs text-muted-foreground">{{ t('common.soon') }}</span>
                   <span v-else-if="!readonly && !holds(permission.key)" class="text-xs text-muted-foreground">{{ t('roles.editor.notHeld') }}</span>

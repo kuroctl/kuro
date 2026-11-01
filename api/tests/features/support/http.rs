@@ -76,6 +76,7 @@ pub async fn get_with_panel(panel: Option<&std::path::Path>, path: &str) -> Test
     let iam = IamState::new(pool.clone(), &auth_config(false)).unwrap();
     let links = std::sync::Arc::new(kuro_api::ws::LinkRegistry::default());
     let servers = kuro_api::servers::application::ServersState {
+        events: kuro_api::servers::application::ServerEventSink::default(),
         pool: pool.clone(),
         commands: links.clone(),
         secrets_key: *iam.keys.server_secrets(),
@@ -124,6 +125,7 @@ pub async fn get_with_panel(panel: Option<&std::path::Path>, path: &str) -> Test
         setup,
         mail,
         sftp: kuro_api::sftp::SftpState { pool: pool.clone() },
+        client_identity: kuro_api::extension::ClientIdentity::default(),
         iam,
         enrollment: enrollment_settings(),
         links,

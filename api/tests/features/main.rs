@@ -6,17 +6,21 @@
 
 mod admin;
 mod audit;
+mod client;
 mod cluster;
 mod config;
 mod daemon_link;
 mod enrollment;
 mod errors;
+mod extension;
 mod openapi;
 mod panel;
 mod rate_limit;
+mod server_events;
 mod servers;
 mod settings;
 mod setup;
 mod sftp;
 mod support;
 mod system_health;
+mod testing_harness;

@@ -1,9 +1,9 @@
 //! `kuro-api region …` : mêmes cas d'usage que `/api/admin/v1/regions`.
 
+use crate::audit::domain::AuditContext;
+use crate::config::Config;
+use crate::nodes::application::{NewRegion, regions};
 use clap::Subcommand;
-use kuro_api::audit::domain::AuditContext;
-use kuro_api::config::Config;
-use kuro_api::nodes::application::{NewRegion, regions};
 
 #[derive(Debug, Subcommand)]
 pub enum Command {

@@ -85,22 +85,27 @@ impl AuditRepository {
             .await?
             .unwrap_or_else(|| GENESIS.to_owned());
 
-        // Agent IA : son client et son accès rejoignent le détail, couvert par le chaînage.
-        let details = match &context.agent {
-            Some(agent) => {
-                let mut details = match &event.details {
-                    serde_json::Value::Null => serde_json::json!({}),
-                    other => other.clone(),
-                };
-                if let Some(object) = details.as_object_mut() {
+        // Agent IA (son client et son accès) ou propriétaire (son identifiant opaque) : ils
+        // rejoignent le détail, couvert par le chaînage.
+        let details = if context.agent.is_none() && context.owner.is_none() {
+            event.details.clone()
+        } else {
+            let mut details = match &event.details {
+                serde_json::Value::Null => serde_json::json!({}),
+                other => other.clone(),
+            };
+            if let Some(object) = details.as_object_mut() {
+                if let Some(agent) = &context.agent {
                     object.insert(
                         "agent".to_owned(),
                         serde_json::json!({ "client": agent.client_id, "grant": agent.grant_id }),
                     );
                 }
-                details
+                if let Some(owner) = &context.owner {
+                    object.insert("owner_ref".to_owned(), serde_json::json!(owner));
+                }
             }
-            None => event.details.clone(),
+            details
         };
         let record = ChainRecord {
             id: Uuid::now_v7(),

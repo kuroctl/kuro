@@ -25,6 +25,7 @@ use axum::response::Response;
 use axum::routing::get;
 use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
 
+use crate::extension::MountedExtension;
 use crate::state::AppState;
 use crate::{
     audit, content, dns, enrollment, iam, mcp, nodes, oauth, prefabs, servers, settings, studio,
@@ -39,6 +40,12 @@ use crate::{
 ///
 /// Avec `http.panel_dir`, toute autre route sert le panel (ADR-0016).
 pub fn router(state: AppState) -> Router {
+    router_with(state, Vec::new())
+}
+
+/// Routeur complet avec les routes des extensions compilées (ADR-0051), chacune sous
+/// `/api/<nom>` : mêmes couches que Kuro (identifiant de requête, politique, délai, journal).
+pub fn router_with(state: AppState, extensions: Vec<MountedExtension>) -> Router {
     let panel = state.panel.clone();
     // `/mcp` seulement si le serveur d'autorisation est configuré (`mcp.public_url`).
     let agents = state.oauth.as_ref().map(|oauth| {
@@ -66,7 +73,17 @@ pub fn router(state: AppState) -> Router {
         .merge(crate::notifications::http::routes())
         .merge(crate::mail::http::routes())
         .merge(crate::sftp::http::routes());
-    let routes = Router::new()
+    let routes = extensions
+        .into_iter()
+        .fold(Router::new(), |routes, extension| {
+            routes.nest(&format!("/api/{}", extension.name), extension.routes)
+        });
+    // Espace client (ADR-0051) : seulement avec un fournisseur d'identité.
+    let routes = match state.client_identity.provider() {
+        Some(_) => routes.nest("/api/client/v1", servers::http::client_routes()),
+        None => routes,
+    };
+    let routes = routes
         .nest("/api", system::http::routes())
         .nest("/api", crate::setup::http::routes())
         .nest("/api/admin/v1", admin)

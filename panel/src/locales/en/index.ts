@@ -729,6 +729,7 @@ export default {
         prefabs: 'Prefabs',
         customers: 'Customers',
         system: 'System',
+        extensions: 'Extensions',
       } satisfies Record<PermissionCategory, string>,
     },
   },

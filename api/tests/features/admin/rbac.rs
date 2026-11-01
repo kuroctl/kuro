@@ -670,6 +670,12 @@ fn protected_routes() -> Vec<(Method, String, Option<Value>, Vec<Permission>)> {
             vec![Permission::ServersUpdate],
         ),
         (
+            Method::PUT,
+            format!("/servers/{id}/owner"),
+            Some(json!({"owner_ref": null})),
+            vec![Permission::ServersUpdate],
+        ),
+        (
             Method::PATCH,
             format!("/servers/{id}/settings"),
             Some(json!({"settings": {}})),

@@ -30,7 +30,10 @@ export function useApiError() {
   const { t, te, locale } = useI18n()
 
   function translate(code: ErrorCode, params?: object): string {
-    const key = `errors.${code}`
+    // Code d'une extension (ADR-0051) : `cloud.catalog.slug_taken` se traduit dans les textes de
+    // l'extension, `ext.cloud.errors.catalog.slug_taken`. Un code de Kuro n'a jamais de point.
+    const dot = code.indexOf('.')
+    const key = dot < 0 ? `errors.${code}` : `ext.${code.slice(0, dot)}.errors.${code.slice(dot + 1)}`
     return te(key) ? t(key, (params ?? {}) as Record<string, unknown>) : t('errors.unknown')
   }
 

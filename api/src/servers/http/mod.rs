@@ -2,6 +2,7 @@
 
 mod actions;
 mod backups;
+mod client;
 mod console;
 mod content;
 mod error;
@@ -27,7 +28,7 @@ use crate::servers::application::ServersState;
 #[openapi(
     paths(
         servers::list, servers::get, servers::create, servers::update_settings,
-        servers::update_resources, servers::suspend, servers::unsuspend, servers::power, servers::reinstall, servers::delete, console::ticket, console::command, actions::run,
+        servers::update_resources, servers::set_owner, servers::suspend, servers::unsuspend, servers::power, servers::reinstall, servers::delete, console::ticket, console::command, actions::run,
         metrics::history,
         files::list, files::read, files::write, files::mkdir, files::rename, files::delete,
         files::history, files::version, files::restore, files::deleted,
@@ -45,6 +46,28 @@ use crate::servers::application::ServersState;
     tags((name = "admin-servers", description = "Serveurs déployés à partir de prefabs"))
 )]
 pub struct ServersApi;
+
+/// Espace client (ADR-0051) : les serveurs du propriétaire identifié par une extension.
+#[derive(OpenApi)]
+#[openapi(
+    paths(client::list, client::get, client::power),
+    tags((name = "client-servers", description = "Serveurs du propriétaire (espace client, ADR-0051)"))
+)]
+pub struct ClientServersApi;
+
+/// Routes de l'espace client, montées sous `/api/client/v1` quand une extension fournit
+/// l'identité des propriétaires.
+pub fn client_routes<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    ServersState: FromRef<S>,
+    crate::extension::ClientIdentity: FromRef<S>,
+{
+    Router::new()
+        .route("/servers", get(client::list))
+        .route("/servers/{id}", get(client::get))
+        .route("/servers/{id}/power", post(client::power))
+}
 
 pub fn routes<S>() -> Router<S>
 where
@@ -69,6 +92,7 @@ where
         .route("/servers/{id}", get(servers::get).delete(servers::delete))
         .route("/servers/{id}/settings", patch(servers::update_settings))
         .route("/servers/{id}/resources", patch(servers::update_resources))
+        .route("/servers/{id}/owner", put(servers::set_owner))
         .route("/servers/{id}/suspend", post(servers::suspend))
         .route("/servers/{id}/unsuspend", post(servers::unsuspend))
         .route("/servers/{id}/power", post(servers::power))

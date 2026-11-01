@@ -22,7 +22,7 @@ use crate::audit::infra::AuditedTx;
 use crate::error_code::{ErrorCode, FieldError};
 use crate::nodes::domain::{NodeId, NodeStatus};
 use crate::prefabs::application as prefabs;
-use crate::servers::domain::{NodeCommands, ServerState};
+use crate::servers::domain::{NodeCommands, ServerEvent, ServerState};
 use crate::servers::infra::{ServerRecord, ServerRepository};
 use crate::settings::application::Resources;
 
@@ -270,7 +270,20 @@ pub async fn set_suspended(
     };
     tx.commit(AuditEvent::success(action).target("server", id))
         .await?;
-    get(state, id).await
+    let view = get(state, id).await?;
+    let (server_id, owner_ref) = (id, view.server.owner_ref.clone());
+    state.events.emit(if suspended {
+        ServerEvent::Suspended {
+            server_id,
+            owner_ref,
+        }
+    } else {
+        ServerEvent::Unsuspended {
+            server_id,
+            owner_ref,
+        }
+    });
+    Ok(view)
 }
 
 pub async fn power(

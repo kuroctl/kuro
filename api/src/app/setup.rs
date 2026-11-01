@@ -3,12 +3,12 @@
 //! Même cas d'usage que `POST /api/setup`, sans jeton : l'accès au shell vaut tous les droits.
 //! Compte super admin et nom du projet, rien de plus ; le reste se règle dans le panel.
 
+use crate::audit::domain::AuditContext;
+use crate::config::Config;
+use crate::iam::application::IamState;
+use crate::setup::{SetupError, SetupRequest, SetupState};
 use anyhow::Context;
 use clap::Args;
-use kuro_api::audit::domain::AuditContext;
-use kuro_api::config::Config;
-use kuro_api::iam::application::IamState;
-use kuro_api::setup::{SetupError, SetupRequest, SetupState};
 
 use super::admin::PasswordSource;
 

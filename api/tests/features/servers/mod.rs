@@ -18,6 +18,7 @@ mod loaders;
 mod metrics;
 mod modpacks;
 mod notifications;
+mod owner;
 mod prefab_catalog;
 mod prefab_minimums;
 mod prefabs;

@@ -5,12 +5,12 @@
 
 use std::io::{BufRead, IsTerminal};
 
+use crate::audit::domain::AuditContext;
+use crate::config::Config;
+use crate::iam::application::{IamState, NewAdminUser, users};
+use crate::iam::domain::{Authority, SUPER_ADMIN_ROLE_ID};
 use anyhow::{Context, bail};
 use clap::{Args, Subcommand};
-use kuro_api::audit::domain::AuditContext;
-use kuro_api::config::Config;
-use kuro_api::iam::application::{IamState, NewAdminUser, users};
-use kuro_api::iam::domain::{Authority, SUPER_ADMIN_ROLE_ID};
 
 #[derive(Debug, Subcommand)]
 pub enum Command {

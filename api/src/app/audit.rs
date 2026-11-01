@@ -1,10 +1,10 @@
 //! `kuro-api audit …` : intégrité et conservation du journal (ADR-0008).
 
+use crate::audit::application;
+use crate::audit::domain::AuditContext;
+use crate::config::Config;
 use anyhow::bail;
 use clap::Subcommand;
-use kuro_api::audit::application;
-use kuro_api::audit::domain::AuditContext;
-use kuro_api::config::Config;
 
 #[derive(Debug, Subcommand)]
 pub enum Command {

@@ -430,6 +430,9 @@ fn author(context: &AuditContext) -> Option<FileAuthor> {
     let kind = match context.actor.kind {
         ActorKind::Admin => AuthorKind::Admin,
         ActorKind::Customer => AuthorKind::Customer,
+        // Propriétaire (ADR-0051) : sans uuid, son identifiant opaque n'est pas gardé ici. À
+        // revoir avec les fichiers de l'espace client (tranche 4 de l'ADR-0051).
+        ActorKind::Owner => AuthorKind::Customer,
         ActorKind::Agent => AuthorKind::Agent,
         ActorKind::System | ActorKind::Cli => AuthorKind::System,
         ActorKind::Node | ActorKind::Anonymous => return None,

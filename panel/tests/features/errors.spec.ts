@@ -43,6 +43,13 @@ describe('API errors', () => {
     expect(await screen.findByText('Impossible de joindre le serveur.')).toBeTruthy()
   })
 
+  it('translates the code of a compiled extension with its own texts', async () => {
+    // Extension de démonstration `demo` (ADR-0051) : `demo.notes.locked` → `ext.demo.errors.notes.locked`.
+    await submitWith(() => problem(409, 'demo.notes.locked'))
+
+    expect(await screen.findByText('Ces notes sont verrouillées.')).toBeTruthy()
+  })
+
   it('falls back to a generic message for a code the panel does not know yet', async () => {
     await submitWith(() => problem(409, 'node_quarantined'))
 

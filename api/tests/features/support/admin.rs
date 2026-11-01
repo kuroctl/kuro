@@ -84,12 +84,38 @@ impl TestAdmin {
         Self::on(pool, links, console, require_totp)
     }
 
+    /// Kuro avec des extensions compilées (ADR-0051), préparées sur une base neuve : leurs
+    /// migrations appliquées, leurs routes montées sous `/api/<nom>`.
+    pub async fn with_extensions(
+        config: std::collections::BTreeMap<String, Value>,
+        factories: Vec<kuro_api::extension::ExtensionFactory>,
+    ) -> Self {
+        let pool = db::fresh_pool().await;
+        let mounted = kuro_api::extension::prepare(&pool, &config, factories)
+            .await
+            .unwrap();
+        let links: std::sync::Arc<kuro_api::ws::LinkRegistry> = std::sync::Arc::default();
+        let console = kuro_api::servers::application::ConsoleHub::new(links.clone());
+        Self::on_with(pool, links, console, false, mounted)
+    }
+
     /// Routeur REST sur une base et un registre de liens donnés (partagés avec un listener).
     pub fn on(
         pool: PgPool,
         links: std::sync::Arc<kuro_api::ws::LinkRegistry>,
         console: kuro_api::servers::application::ConsoleHub,
         require_totp: bool,
+    ) -> Self {
+        Self::on_with(pool, links, console, require_totp, Vec::new())
+    }
+
+    /// Routeur REST avec des extensions déjà préparées (`extension::prepare`).
+    pub fn on_with(
+        pool: PgPool,
+        links: std::sync::Arc<kuro_api::ws::LinkRegistry>,
+        console: kuro_api::servers::application::ConsoleHub,
+        require_totp: bool,
+        extensions: Vec<kuro_api::extension::MountedExtension>,
     ) -> Self {
         let iam = IamState::new(pool.clone(), &auth_config(require_totp)).unwrap();
         let content = std::sync::Arc::new(super::content::FakeModrinth::default());
@@ -123,6 +149,7 @@ impl TestAdmin {
             dns_provider.clone(),
         );
         let servers = kuro_api::servers::application::ServersState {
+            events: kuro_api::servers::application::ServerEventSink::of(&extensions),
             pool: pool.clone(),
             commands: links.clone(),
             secrets_key: *iam.keys.server_secrets(),
@@ -148,28 +175,35 @@ impl TestAdmin {
             token_file: std::env::temp_dir()
                 .join(format!("kuro-test-setup-{}", uuid::Uuid::now_v7())),
         };
-        let router = http::router(AppState {
-            pool: pool.clone(),
-            iam: iam.clone(),
-            enrollment: enrollment_settings(),
-            links,
-            servers: servers.clone(),
-            panel: None,
-            prefabs_dir: kuro_api::prefabs::application::PrefabsDir {
-                dir: std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs"),
-                publish_to_dir: false,
+        let router = http::router_with(
+            AppState {
+                pool: pool.clone(),
+                iam: iam.clone(),
+                enrollment: enrollment_settings(),
+                links,
+                servers: servers.clone(),
+                panel: None,
+                prefabs_dir: kuro_api::prefabs::application::PrefabsDir {
+                    dir: std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs"),
+                    publish_to_dir: false,
+                },
+                stores: kuro_api::prefabs::store::StoresState::new(
+                    vec![store.config()],
+                    store.clone(),
+                ),
+                notifications: notifications.clone(),
+                oauth: Some(super::oauth::oauth_state(&pool, metadata.clone())),
+                dns: dns.clone(),
+                content_sources,
+                http: super::http::http_policy(),
+                readiness: readiness.clone(),
+                setup: setup.clone(),
+                mail: mail.clone(),
+                sftp: kuro_api::sftp::SftpState { pool: pool.clone() },
+                client_identity: kuro_api::extension::ClientIdentity::of(&extensions),
             },
-            stores: kuro_api::prefabs::store::StoresState::new(vec![store.config()], store.clone()),
-            notifications: notifications.clone(),
-            oauth: Some(super::oauth::oauth_state(&pool, metadata.clone())),
-            dns: dns.clone(),
-            content_sources,
-            http: super::http::http_policy(),
-            readiness: readiness.clone(),
-            setup: setup.clone(),
-            mail: mail.clone(),
-            sftp: kuro_api::sftp::SftpState { pool: pool.clone() },
-        });
+            extensions,
+        );
         Self {
             pool,
             iam,

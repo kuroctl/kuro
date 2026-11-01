@@ -3,6 +3,7 @@
 //! Les sections imbriquées se surchargent avec `__`, par exemple `KURO_API_HTTP__BIND`.
 //! `database.url`, les chemins PKI de `daemon` et `auth.secret_key` n'ont pas de valeur par défaut.
 
+use std::collections::BTreeMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -36,6 +37,10 @@ pub struct Config {
     pub setup: SetupConfig,
     #[serde(default)]
     pub mail: MailConfig,
+    /// Sections `[extensions.<nom>]` des extensions compilées (ADR-0051), transmises telles
+    /// quelles : chaque extension valide la sienne.
+    #[serde(default)]
+    pub extensions: BTreeMap<String, serde_json::Value>,
 }
 
 /// Envoi d'e-mails (ADR-0046).

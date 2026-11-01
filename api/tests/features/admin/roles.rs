@@ -25,8 +25,10 @@ async fn catalog_lists_permissions_by_category() {
 
     assert_eq!(catalog.status, StatusCode::OK);
     let categories = catalog.json.as_array().unwrap();
+    // Hors catégorie `extensions`, que remplissent d'autres tests du binaire (ADR-0051).
     let count: usize = categories
         .iter()
+        .filter(|category| category["key"] != "extensions")
         .map(|category| category["permissions"].as_array().unwrap().len())
         .sum();
     assert_eq!(count, Permission::ALL.len());

@@ -5,18 +5,36 @@ import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vitest/config'
 import VueRouter from 'vue-router/vite'
 
+import { kuroPanelExtensions, parseExtensions, routesFolders } from './build/extensions'
+
+const root = fileURLToPath(new URL('.', import.meta.url))
+// Extensions du panel admin (ADR-0051 § 8) : `KURO_PANEL_EXTENSIONS=<nom>=<dossier>,…`. Les
+// tests montent l'extension de démonstration de `tests/fixtures/panel-extension`.
+const extensions = parseExtensions(
+  process.env.VITEST ? 'demo=tests/fixtures/panel-extension' : process.env.KURO_PANEL_EXTENSIONS,
+  root,
+)
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    // Routage par fichiers (`src/pages/`) : doit précéder le plugin Vue.
-    VueRouter({ routesFolder: 'src/pages', dts: 'src/typed-router.d.ts' }),
+    // Routage par fichiers (`src/pages/`, puis les pages des extensions sous `/<nom>/`) : doit
+    // précéder le plugin Vue. Les types des routes ne s'écrivent que pour le panel seul (ils sont
+    // commités) ; un build avec extensions choisit leur emplacement (`KURO_PANEL_TYPED_ROUTER`).
+    VueRouter({
+      routesFolder: routesFolders(extensions),
+      dts: extensions.length === 0 ? 'src/typed-router.d.ts' : (process.env.KURO_PANEL_TYPED_ROUTER ?? false),
+    }),
     vue(),
     tailwindcss(),
+    kuroPanelExtensions(extensions),
   ],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   server: {
+    // Les dossiers des extensions sont hors du panel : le serveur de dev doit pouvoir les servir.
+    fs: { allow: [root, ...extensions.map((extension) => extension.dir)] },
     // Même origine que l'API : le cookie de rafraîchissement `SameSite=Strict` fonctionne.
     // `KURO_API_URL` : API sur un autre port (plusieurs environnements en parallèle).
     // `ws` : WebSocket de la console, relayé lui aussi (même origine, `Origin` accepté par l'API).

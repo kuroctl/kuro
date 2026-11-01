@@ -128,6 +128,9 @@ async fn every_error_code_is_published_in_the_openapi_document() {
         .unwrap()
         .iter()
         .map(|code| code.as_str().unwrap())
+        // Codes d'extensions enregistrés par d'autres tests du binaire (ADR-0051) : un code de
+        // Kuro n'a jamais de point.
+        .filter(|code| !code.contains('.'))
         .collect();
     let catalog: Vec<&str> = ErrorCode::ALL.iter().map(|code| code.as_str()).collect();
 
@@ -144,6 +147,9 @@ async fn every_permission_key_is_published_in_the_openapi_document() {
         .unwrap()
         .iter()
         .map(|key| key.as_str().unwrap())
+        // Les permissions d'extensions enregistrées par d'autres tests du même binaire
+        // (ADR-0051) sont publiées aussi : seules celles de Kuro sont comparées ici.
+        .filter(|key| !crate::support::is_extension_permission(key))
         .collect();
     let catalog: Vec<&str> = kuro_api::iam::domain::Permission::ALL
         .iter()

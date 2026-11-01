@@ -1827,6 +1827,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/servers/{id}/owner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change le propriétaire d'un serveur (transfert, ADR-0051) ; `null` le rend interne. Kuro ne
+         *     vérifie que le format : l'extension qui a posé l'identifiant en répond. Permission :
+         *     `servers.update`.
+         */
+        put: operations["set_owner"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/servers/{id}/power": {
         parameters: {
             query?: never;
@@ -2756,6 +2777,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/client/v1/servers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Serveurs du propriétaire, par nom. */
+        get: operations["list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/client/v1/servers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Un serveur du propriétaire. */
+        get: operations["get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/client/v1/servers/{id}/power": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Démarre, arrête, redémarre ou tue un serveur du propriétaire. Refusé sur un serveur suspendu,
+         *     quelle que soit l'action.
+         */
+        post: operations["power"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/enroll": {
         parameters: {
             query?: never;
@@ -3019,7 +3094,7 @@ export interface components {
             started: boolean;
         };
         /** @enum {string} */
-        Category: "iam" | "audit" | "nodes" | "servers" | "prefabs" | "customers" | "system";
+        Category: "iam" | "audit" | "nodes" | "servers" | "prefabs" | "customers" | "system" | "extensions";
         CategoryDto: {
             key: components["schemas"]["Category"];
             label: string;
@@ -3079,6 +3154,35 @@ export interface components {
         };
         /** @enum {string} */
         ClientRegistrationDto: "metadata" | "dynamic";
+        /**
+         * @description Serveur vu par son propriétaire : ce qu'il faut pour le reconnaître et le rejoindre, sans
+         *     nœud, sans réglages ni cause technique d'échec.
+         */
+        ClientServerDto: {
+            allocations: components["schemas"]["ServerAllocationDto"][];
+            /** Format: int32 */
+            backup_limit: number;
+            /**
+             * Format: int32
+             * @description 100 = un cœur.
+             */
+            cpu_percent: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int32 */
+            disk_mb: number;
+            /** @description Nom dans la zone DNS (`survie` pour `survie.<domaine>`). */
+            dns_label?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: int32 */
+            memory_mb: number;
+            name: string;
+            prefab: components["schemas"]["ServerPrefabDto"];
+            state: components["schemas"]["ServerState"];
+            /** @description Suspendu : ni démarrage, ni fichiers, ni sauvegarde. */
+            suspended: boolean;
+        };
         CommandRequest: {
             /**
              * @description Une ligne, sans caractère de contrôle, 1 024 caractères au plus.
@@ -3414,6 +3518,12 @@ export interface components {
             name: string;
             /** Format: uuid */
             node_id: string;
+            /**
+             * @description Propriétaire (ADR-0051) : `<extension>:<identifiant>`, opaque pour Kuro ; absent pour un
+             *     serveur interne.
+             * @example cloud:6f1c2a9e-3b7d-4c8e-9a51-2d4f8b0c7e13
+             */
+            owner_ref?: string | null;
             /** @example minecraft-java */
             prefab_id: string;
             /** @description Dernière version importée si absente. */
@@ -3622,7 +3732,7 @@ export interface components {
             token: string;
         };
         /** @enum {string} */
-        ErrorCode: "validation_failed" | "invalid_body" | "invalid_parameter" | "empty_patch" | "not_found" | "unauthorized" | "forbidden" | "internal_error" | "rate_limited" | "request_timeout" | "invalid_credentials" | "invalid_challenge" | "invalid_code" | "totp_already_enabled" | "totp_setup_not_started" | "totp_not_enabled" | "totp_code_required" | "totp_required_by_policy" | "elevation_required" | "invalid_email" | "invalid_display_name" | "invalid_project_name" | "setup_done" | "setup_token_unavailable" | "mail_not_configured" | "mail_send_failed" | "invalid_mail_host" | "invalid_mail_address" | "invalid_mail_field" | "ssh_key_invalid" | "ssh_key_unsupported" | "ssh_key_exists" | "ssh_key_not_found" | "invalid_recipients" | "user_disabled" | "weak_password" | "password_unchanged" | "email_taken" | "cannot_disable_self" | "cannot_delete_self" | "cannot_change_own_roles" | "use_own_password_change" | "cannot_reset_own_totp" | "insufficient_permissions_for_target" | "insufficient_permissions_for_role" | "cannot_grant_permissions_you_lack" | "last_super_admin" | "unknown_role" | "invalid_role_name" | "invalid_description" | "invalid_color" | "role_name_taken" | "system_role" | "unknown_permission" | "permission_not_assignable" | "invalid_node_name" | "node_name_taken" | "unknown_region" | "invalid_region_slug" | "invalid_region_name" | "region_slug_taken" | "region_not_empty" | "invalid_coordinates" | "invalid_location" | "invalid_reason" | "node_not_pending" | "node_already_revoked" | "node_not_enrolled" | "node_online" | "invalid_token" | "invalid_csr" | "already_enrolled" | "client_certificate_required" | "unknown_node" | "node_revoked" | "invalid_port_range" | "invalid_ip" | "no_free_allocation" | "unknown_allocation" | "allocation_taken" | "allocation_in_use" | "node_has_servers" | "unknown_prefab" | "invalid_prefab" | "prefab_exists" | "store_unavailable" | "store_untrusted" | "store_corrupted" | "prefab_in_use" | "invalid_setting" | "setting_not_editable" | "invalid_server_name" | "invalid_resources" | "node_offline" | "daemon_too_old" | "console_held_elsewhere" | "node_not_for_trials" | "prefab_draft_needs_test_node" | "dns_not_configured" | "invalid_domain" | "invalid_dns_label" | "dns_label_taken" | "dns_label_reserved" | "invalid_sites_domain" | "sites_domain_not_configured" | "invalid_ip_address" | "unknown_dns_provider" | "dns_token_required" | "dns_provider_unauthorized" | "dns_zone_not_found" | "dns_provider_unavailable" | "upgrade_blocked" | "upgrade_not_newer" | "oauth_no_scope" | "server_busy" | "server_not_running" | "invalid_command" | "unknown_action" | "invalid_action_param" | "action_not_schedulable" | "invalid_path" | "file_not_found" | "file_exists" | "file_conflict" | "file_not_text" | "file_too_large" | "backup_not_found" | "invalid_backup_name" | "backups_disabled" | "backup_limit_reached" | "backup_in_progress" | "backup_not_ready" | "backup_locked" | "schedule_not_found" | "invalid_metrics_range" | "notification_channel_not_found" | "notification_rule_not_found" | "invalid_notification_name" | "invalid_notification_channel_kind" | "invalid_notification_language" | "invalid_webhook_url" | "invalid_notification_scope" | "invalid_notification_events" | "invalid_notification_channels" | "invalid_schedule_name" | "invalid_cron" | "invalid_timezone" | "invalid_schedule_step" | "schedule_limit_reached" | "schedule_running" | "resource_above_ceiling" | "resource_below_prefab_minimum" | "disk_quota_exceeded" | "server_suspended" | "content_slot_not_found" | "content_not_supported" | "game_version_not_pinned" | "content_not_found" | "content_already_installed" | "content_incompatible" | "content_required" | "content_up_to_date" | "provider_unavailable" | "modpack_installed" | "content_in_modpack" | "invalid_modpack" | "content_distribution_forbidden" | "content_source_unsupported" | "upload_not_accepted" | "content_value_required" | "invalid_content_value" | "unknown_content_source" | "content_source_not_configured" | "content_source_key_required" | "content_source_unauthorized" | "steam_account_required" | "steam_account_not_configured" | "steam_account_username_invalid" | "steam_account_password_invalid" | "steam_game_missing" | "steam_game_not_found" | "value_out_of_range" | "daemon_timeout" | "daemon_error";
+        ErrorCode: "validation_failed" | "invalid_body" | "invalid_parameter" | "empty_patch" | "not_found" | "unauthorized" | "forbidden" | "internal_error" | "rate_limited" | "request_timeout" | "invalid_credentials" | "invalid_challenge" | "invalid_code" | "totp_already_enabled" | "totp_setup_not_started" | "totp_not_enabled" | "totp_code_required" | "totp_required_by_policy" | "elevation_required" | "invalid_email" | "invalid_display_name" | "invalid_project_name" | "setup_done" | "setup_token_unavailable" | "mail_not_configured" | "mail_send_failed" | "invalid_mail_host" | "invalid_mail_address" | "invalid_mail_field" | "ssh_key_invalid" | "ssh_key_unsupported" | "ssh_key_exists" | "ssh_key_not_found" | "invalid_recipients" | "user_disabled" | "weak_password" | "password_unchanged" | "email_taken" | "cannot_disable_self" | "cannot_delete_self" | "cannot_change_own_roles" | "use_own_password_change" | "cannot_reset_own_totp" | "insufficient_permissions_for_target" | "insufficient_permissions_for_role" | "cannot_grant_permissions_you_lack" | "last_super_admin" | "unknown_role" | "invalid_role_name" | "invalid_description" | "invalid_color" | "role_name_taken" | "system_role" | "unknown_permission" | "permission_not_assignable" | "invalid_node_name" | "node_name_taken" | "unknown_region" | "invalid_region_slug" | "invalid_region_name" | "region_slug_taken" | "region_not_empty" | "invalid_coordinates" | "invalid_location" | "invalid_reason" | "node_not_pending" | "node_already_revoked" | "node_not_enrolled" | "node_online" | "invalid_token" | "invalid_csr" | "already_enrolled" | "client_certificate_required" | "unknown_node" | "node_revoked" | "invalid_port_range" | "invalid_ip" | "no_free_allocation" | "unknown_allocation" | "allocation_taken" | "allocation_in_use" | "node_has_servers" | "unknown_prefab" | "invalid_prefab" | "prefab_exists" | "store_unavailable" | "store_untrusted" | "store_corrupted" | "prefab_in_use" | "invalid_setting" | "setting_not_editable" | "invalid_server_name" | "invalid_owner_ref" | "invalid_resources" | "node_offline" | "daemon_too_old" | "console_held_elsewhere" | "node_not_for_trials" | "prefab_draft_needs_test_node" | "dns_not_configured" | "invalid_domain" | "invalid_dns_label" | "dns_label_taken" | "dns_label_reserved" | "invalid_sites_domain" | "sites_domain_not_configured" | "invalid_ip_address" | "unknown_dns_provider" | "dns_token_required" | "dns_provider_unauthorized" | "dns_zone_not_found" | "dns_provider_unavailable" | "upgrade_blocked" | "upgrade_not_newer" | "oauth_no_scope" | "server_busy" | "server_not_running" | "invalid_command" | "unknown_action" | "invalid_action_param" | "action_not_schedulable" | "invalid_path" | "file_not_found" | "file_exists" | "file_conflict" | "file_not_text" | "file_too_large" | "backup_not_found" | "invalid_backup_name" | "backups_disabled" | "backup_limit_reached" | "backup_in_progress" | "backup_not_ready" | "backup_locked" | "schedule_not_found" | "invalid_metrics_range" | "notification_channel_not_found" | "notification_rule_not_found" | "invalid_notification_name" | "invalid_notification_channel_kind" | "invalid_notification_language" | "invalid_webhook_url" | "invalid_notification_scope" | "invalid_notification_events" | "invalid_notification_channels" | "invalid_schedule_name" | "invalid_cron" | "invalid_timezone" | "invalid_schedule_step" | "schedule_limit_reached" | "schedule_running" | "resource_above_ceiling" | "resource_below_prefab_minimum" | "disk_quota_exceeded" | "server_suspended" | "content_slot_not_found" | "content_not_supported" | "game_version_not_pinned" | "content_not_found" | "content_already_installed" | "content_incompatible" | "content_required" | "content_up_to_date" | "provider_unavailable" | "modpack_installed" | "content_in_modpack" | "invalid_modpack" | "content_distribution_forbidden" | "content_source_unsupported" | "upload_not_accepted" | "content_value_required" | "invalid_content_value" | "unknown_content_source" | "content_source_not_configured" | "content_source_key_required" | "content_source_unauthorized" | "steam_account_required" | "steam_account_not_configured" | "steam_account_username_invalid" | "steam_account_password_invalid" | "steam_game_missing" | "steam_game_not_found" | "value_out_of_range" | "daemon_timeout" | "daemon_error";
         FacetValueDto: {
             count: number;
             /** @description Libellé : nom du nœud, ou dernière version du prefab (pour son icône). */
@@ -4387,6 +4497,12 @@ export interface components {
             memory_mb: number;
             name: string;
             node: components["schemas"]["ServerNodeDto"];
+            /**
+             * @description Propriétaire (ADR-0051) : identifiant opaque posé par une extension (`cloud:…`) ;
+             *     absent pour un serveur interne.
+             * @example cloud:6f1c2a9e-3b7d-4c8e-9a51-2d4f8b0c7e13
+             */
+            owner_ref?: string | null;
             pending_changes: components["schemas"]["PendingChangesDto"];
             prefab: components["schemas"]["ServerPrefabDto"];
             /** @description Des changements de contenu attendent le prochain démarrage (le serveur tournait). */
@@ -4467,6 +4583,11 @@ export interface components {
             /** @description Pourquoi le proxy est indisponible. */
             message?: string | null;
             proxy: components["schemas"]["WebProxyStateDto"];
+        };
+        /** @description Nouveau propriétaire ; `null` rend le serveur interne. */
+        SetOwnerRequest: {
+            /** @example cloud:6f1c2a9e-3b7d-4c8e-9a51-2d4f8b0c7e13 */
+            owner_ref?: string | null;
         };
         SetRolesRequest: {
             role_ids: string[];
@@ -7587,6 +7708,8 @@ export interface operations {
                 limit?: number;
                 /** @description Serveurs sautés, par nom. */
                 offset?: number;
+                /** @description Serveurs de ce propriétaire seulement (ADR-0051). */
+                owner_ref?: string;
             };
             header?: never;
             path?: never;
@@ -10319,6 +10442,56 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    set_owner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetOwnerRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Identifiant mal formé, ou propriétaire inchangé */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13290,6 +13463,127 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientServerDto"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientServerDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    power: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PowerRequest"];
+            };
+        };
+        responses: {
+            /** @description Action transmise au nœud */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Serveur suspendu, ou pas prêt */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

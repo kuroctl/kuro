@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT s.id, s.name, s.node_id, n.name AS node_name, n.status AS node_status,\n                      s.prefab_id, s.prefab_version, s.settings, s.secrets,\n                      s.memory_mb, s.cpu_percent, s.disk_mb, s.backup_limit, s.state, s.state_reason,\n                      s.suspended_at, s.disk_used_bytes, s.disk_measured_at,\n                      s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label,\n                      s.web_id, s.web_status\n               FROM servers s JOIN nodes n ON n.id = s.node_id\n               WHERE s.id = $1",
+  "query": "SELECT s.id, s.name, s.node_id, n.name AS node_name, n.status AS node_status,\n                      s.prefab_id, s.prefab_version, s.settings, s.secrets,\n                      s.memory_mb, s.cpu_percent, s.disk_mb, s.backup_limit, s.state, s.state_reason,\n                      s.suspended_at, s.disk_used_bytes, s.disk_measured_at,\n                      s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label,\n                      s.web_id, s.web_status, s.owner_ref\n               FROM servers s JOIN nodes n ON n.id = s.node_id\n               WHERE ($3::text IS NULL OR s.owner_ref = $3)\n               ORDER BY s.name, s.id\n               LIMIT $1 OFFSET $2",
   "describe": {
     "columns": [
       {
@@ -277,11 +277,24 @@
             "name": "web_status"
           }
         }
+      },
+      {
+        "ordinal": 25,
+        "name": "owner_ref",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "owner_ref"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Int8",
+        "Int8",
+        "Text"
       ]
     },
     "nullable": [
@@ -309,8 +322,9 @@
       true,
       true,
       true,
+      true,
       true
     ]
   },
-  "hash": "804f5a45bcb5d0da84e958bd73915d37dd9781f4ba1b4a835c8d5d8009b03048"
+  "hash": "bd60ca832dbf8646a6ff47333d38a7de3e863af90696e302ca3318ee3b2d78f1"
 }

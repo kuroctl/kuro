@@ -20,7 +20,7 @@ impl utoipa::PartialSchema for PermissionKey {
     fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
         utoipa::openapi::schema::ObjectBuilder::new()
             .schema_type(utoipa::openapi::schema::Type::String)
-            .enum_values(Some(Permission::ALL.iter().map(|p| p.key())))
+            .enum_values(Some(Permission::all().into_iter().map(|p| p.key())))
             .into()
     }
 }
@@ -53,7 +53,7 @@ pub async fn catalog(
     session.require(&state, Permission::IamRolesRead).await?;
 
     let mut categories: Vec<CategoryDto> = Vec::new();
-    for permission in Permission::ALL {
+    for permission in Permission::all() {
         let dto = PermissionDto {
             key: PermissionKey(permission.key()),
             label: permission.label(),

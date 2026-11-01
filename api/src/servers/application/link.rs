@@ -19,7 +19,9 @@ use crate::notifications::application as notifications;
 use crate::notifications::domain::{
     DISK_HIGH_RATIO, DISK_RESET_RATIO, Event, EventKind, ServerRef,
 };
-use crate::servers::domain::{NodeCommands, ServerEvents, ServerState};
+use crate::servers::domain::{
+    NodeCommands, ServerEvent, ServerEvents, ServerState, install_outcome,
+};
 use crate::servers::infra::{BackupRepository, ServerRepository};
 
 /// Longueur maximale d'une raison rapportée par un daemon (stockée et affichée).
@@ -64,7 +66,17 @@ impl LinkEvents {
         let mut conn = self.pool.acquire().await?;
         let node_id = node.as_uuid();
         let owned = match ServerState::from_reported(report.state) {
-            None => ServerRepository::delete_if_owned(&mut conn, report.server_id, node_id).await?,
+            None => {
+                let deleted =
+                    ServerRepository::delete_if_owned(&mut conn, report.server_id, node_id).await?;
+                if let Some(owner_ref) = &deleted {
+                    self.emit(ServerEvent::Deleted {
+                        server_id: report.server_id,
+                        owner_ref: owner_ref.clone(),
+                    });
+                }
+                deleted.is_some()
+            }
             Some(state) => {
                 let reason = report.reason.map(|r| {
                     r.chars()
@@ -72,14 +84,36 @@ impl LinkEvents {
                         .take(MAX_REASON_CHARS)
                         .collect::<String>()
                 });
-                ServerRepository::set_state_if_owned(
+                let previous = ServerRepository::set_state_if_owned(
                     &mut conn,
                     report.server_id,
                     node_id,
                     state.as_str(),
                     reason.as_deref(),
                 )
-                .await?
+                .await?;
+                // Fin d'installation (ADR-0051) : prêt ou en échec, depuis `deploying`/`installing`.
+                if let Some(installed) = previous
+                    .as_deref()
+                    .and_then(|previous| install_outcome(previous, state.as_str()))
+                {
+                    let owner_ref = ServerRepository::get(&mut conn, report.server_id)
+                        .await?
+                        .and_then(|server| server.owner_ref);
+                    self.emit(if installed {
+                        ServerEvent::Installed {
+                            server_id: report.server_id,
+                            owner_ref,
+                        }
+                    } else {
+                        ServerEvent::InstallFailed {
+                            server_id: report.server_id,
+                            owner_ref,
+                            reason,
+                        }
+                    });
+                }
+                previous.is_some()
             }
         };
         // Suppression confirmée : ses enregistrements DNS n'ont plus de raison d'attendre.
@@ -130,6 +164,13 @@ impl LinkEvents {
             self.start(report.server_id);
         }
         Ok(())
+    }
+
+    /// Événement pour les extensions (ADR-0051), par les cas d'usage rattachés.
+    fn emit(&self, event: ServerEvent) {
+        if let Some(servers) = self.servers.get() {
+            servers.events.emit(event);
+        }
     }
 
     /// Démarrage audité au nom du système, hors de la boucle du lien : la commande attend la

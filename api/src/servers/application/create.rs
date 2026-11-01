@@ -16,6 +16,7 @@ use crate::error_code::{ErrorCode, FieldError};
 use crate::nodes::domain::NodeStatus;
 use crate::nodes::infra::{AllocationRepository, NodeRepository};
 use crate::prefabs::application::{self as prefabs, PrefabsError};
+use crate::servers::domain::ServerEvent;
 use crate::servers::infra::{NewServerRow, ServerRepository};
 use crate::settings::application::Resources;
 
@@ -42,6 +43,8 @@ pub struct NewServer {
     pub start_when_installed: bool,
     /// Sauvegardes gardées (ADR-0018).
     pub backup_limit: Option<i32>,
+    /// Propriétaire (ADR-0051) ; `None` : serveur interne.
+    pub owner_ref: Option<String>,
 }
 
 pub async fn create(
@@ -79,6 +82,8 @@ pub async fn create(
             ));
         }
     }
+
+    let owner_ref = super::owner::checked(input.owner_ref.clone())?;
 
     platform
         .check_ceilings(resources, |_| true)
@@ -171,6 +176,7 @@ pub async fn create(
             start_when_installed: input.start_when_installed,
             backup_limit: resources.backup_limit,
             web_id: web_id.as_deref(),
+            owner_ref: owner_ref.as_deref(),
         },
     )
     .await?;
@@ -214,10 +220,15 @@ pub async fn create(
                 "web_id": web_id,
                 "start_when_installed": input.start_when_installed,
                 "backup_limit": resources.backup_limit,
+                "owner_ref": owner_ref,
             })),
     )
     .await?;
 
+    state.events.emit(ServerEvent::Created {
+        server_id: id,
+        owner_ref: owner_ref.clone(),
+    });
     // Le serveur existe : un échec de déploiement le laisse en `failed`, avec sa raison.
     deploy::deploy_recording_failure(state, id, true).await;
     get(state, id).await

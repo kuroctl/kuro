@@ -38,9 +38,8 @@ pub const CODE_PREFIX: &str = "kuro_code_";
 
 /// Scopes proposés aux clients : les permissions attribuables et accordables à un agent.
 pub fn supported_scopes() -> Vec<Permission> {
-    Permission::ALL
-        .iter()
-        .copied()
+    Permission::all()
+        .into_iter()
         .filter(|p| p.availability() == Availability::Available && p.agent_grantable())
         .collect()
 }

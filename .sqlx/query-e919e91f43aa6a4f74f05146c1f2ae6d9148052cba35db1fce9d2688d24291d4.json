@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT s.id, s.name, s.node_id, n.name AS node_name, n.status AS node_status,\n                      s.prefab_id, s.prefab_version, s.settings, s.secrets,\n                      s.memory_mb, s.cpu_percent, s.disk_mb, s.backup_limit, s.state, s.state_reason,\n                      s.suspended_at, s.disk_used_bytes, s.disk_measured_at,\n                      s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label,\n                      s.web_id, s.web_status\n               FROM servers s JOIN nodes n ON n.id = s.node_id\n               WHERE s.prefab_id = $1\n               ORDER BY s.name, s.id",
+  "query": "SELECT s.id, s.name, s.node_id, n.name AS node_name, n.status AS node_status,\n                      s.prefab_id, s.prefab_version, s.settings, s.secrets,\n                      s.memory_mb, s.cpu_percent, s.disk_mb, s.backup_limit, s.state, s.state_reason,\n                      s.suspended_at, s.disk_used_bytes, s.disk_measured_at,\n                      s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label,\n                      s.web_id, s.web_status, s.owner_ref\n               FROM servers s JOIN nodes n ON n.id = s.node_id\n               WHERE s.id = ANY($1)",
   "describe": {
     "columns": [
       {
@@ -277,11 +277,22 @@
             "name": "web_status"
           }
         }
+      },
+      {
+        "ordinal": 25,
+        "name": "owner_ref",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "owner_ref"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "UuidArray"
       ]
     },
     "nullable": [
@@ -309,8 +320,9 @@
       true,
       true,
       true,
+      true,
       true
     ]
   },
-  "hash": "74a6120eae1fc7af7c274377a17596c91e78c0bb51381606115f309eae14c3db"
+  "hash": "e919e91f43aa6a4f74f05146c1f2ae6d9148052cba35db1fce9d2688d24291d4"
 }

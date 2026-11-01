@@ -344,10 +344,14 @@ async fn super_admin_sees_every_permission() {
         .await;
 
     assert_eq!(me.json["all_permissions"], true);
-    assert_eq!(
-        me.json["permissions"].as_array().unwrap().len(),
-        Permission::ALL.len()
-    );
+    // Hors permissions d'extensions enregistrées par d'autres tests du binaire (ADR-0051).
+    let kuro = me.json["permissions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|key| !crate::support::is_extension_permission(key.as_str().unwrap()))
+        .count();
+    assert_eq!(kuro, Permission::ALL.len());
 }
 
 #[tokio::test]

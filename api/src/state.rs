@@ -42,6 +42,14 @@ pub struct AppState {
     pub mail: crate::mail::MailState,
     /// Accès SFTP (ADR-0047) : clés des comptes, coordonnées des serveurs.
     pub sftp: crate::sftp::SftpState,
+    /// Fournisseur d'identité de l'espace client, fourni par une extension (ADR-0051).
+    pub client_identity: crate::extension::ClientIdentity,
+}
+
+impl FromRef<AppState> for crate::extension::ClientIdentity {
+    fn from_ref(state: &AppState) -> Self {
+        state.client_identity.clone()
+    }
 }
 
 impl FromRef<AppState> for crate::sftp::SftpState {

@@ -9,7 +9,9 @@ mod role_name;
 
 pub use authority::{Authority, Principal};
 pub use email::{Email, InvalidEmail};
-pub use permission::{Availability, Category, Permission};
+pub use permission::{
+    Availability, Category, ExtensionPermission, Permission, PermissionDef, PermissionError,
+};
 pub use permission_set::{PermissionSet, WILDCARD};
 pub use role_color::{InvalidRoleColor, RoleColor};
 pub use role_name::{InvalidRoleName, RoleName};

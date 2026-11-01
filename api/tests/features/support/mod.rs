@@ -13,3 +13,11 @@ pub mod oauth;
 pub mod pki;
 pub mod platform;
 pub mod store;
+
+/// Permission d'une extension (ADR-0051) : le registre est partagé par tout le binaire de test.
+pub fn is_extension_permission(key: &str) -> bool {
+    matches!(
+        kuro_api::iam::domain::Permission::from_key(key),
+        Some(kuro_api::iam::domain::Permission::Extension(_))
+    )
+}

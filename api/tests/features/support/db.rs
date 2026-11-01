@@ -14,6 +14,13 @@ static SERVER_URL: OnceCell<String> = OnceCell::const_new();
 
 /// Base vierge, migrations appliquées.
 pub async fn fresh_pool() -> PgPool {
+    let pool = empty_pool().await;
+    kuro_api::db::migrate(&pool).await.unwrap();
+    pool
+}
+
+/// Base vierge, sans migration (le harnais des extensions les applique lui-même).
+pub async fn empty_pool() -> PgPool {
     let server = SERVER_URL.get_or_init(start_server).await;
     let name = format!("{DB_PREFIX}{}", Uuid::now_v7().simple());
 
@@ -25,13 +32,11 @@ pub async fn fresh_pool() -> PgPool {
         .await
         .unwrap();
 
-    let pool = PgPoolOptions::new()
+    PgPoolOptions::new()
         .max_connections(5)
         .connect(&format!("{server}/{name}"))
         .await
-        .unwrap();
-    kuro_api::db::migrate(&pool).await.unwrap();
-    pool
+        .unwrap()
 }
 
 async fn start_server() -> String {

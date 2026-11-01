@@ -87,6 +87,10 @@ pub struct ServerDto {
     /// Nom dans la zone DNS (`survie` pour `survie.<domaine>`, ADR-0026) ; attribué à la
     /// première synchronisation.
     pub dns_label: Option<String>,
+    /// Propriétaire (ADR-0051) : identifiant opaque posé par une extension (`cloud:…`) ;
+    /// absent pour un serveur interne.
+    #[schema(example = "cloud:6f1c2a9e-3b7d-4c8e-9a51-2d4f8b0c7e13")]
+    pub owner_ref: Option<String>,
     /// Identifiant du site web (`https://<web_id>.<domaine des sites>`, ADR-0038) ; présent pour
     /// un serveur dont le prefab a un port web.
     pub web_id: Option<String>,
@@ -184,6 +188,7 @@ pub(super) fn dto(state: &ServersState, view: ServerView) -> ServerDto {
         created_at: server.created_at,
         updated_at: server.updated_at,
         dns_label: server.dns_label.clone(),
+        owner_ref: server.owner_ref.clone(),
         web_id: server.web_id.clone(),
         web_status: web_status_dto(server.web_status.as_ref()),
         trial: server.expires_at.map(|expires_at| ServerTrialDto {
@@ -229,6 +234,17 @@ pub struct CreateServerRequest {
     /// Sauvegardes gardées (0 à 100, 0 les désactive).
     #[schema(example = 3)]
     pub backup_limit: Option<i32>,
+    /// Propriétaire (ADR-0051) : `<extension>:<identifiant>`, opaque pour Kuro ; absent pour un
+    /// serveur interne.
+    #[schema(example = "cloud:6f1c2a9e-3b7d-4c8e-9a51-2d4f8b0c7e13")]
+    pub owner_ref: Option<String>,
+}
+
+/// Nouveau propriétaire ; `null` rend le serveur interne.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct SetOwnerRequest {
+    #[schema(example = "cloud:6f1c2a9e-3b7d-4c8e-9a51-2d4f8b0c7e13")]
+    pub owner_ref: Option<String>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -288,6 +304,8 @@ pub struct ListQuery {
     pub limit: Option<usize>,
     /// Serveurs sautés, par nom.
     pub offset: Option<usize>,
+    /// Serveurs de ce propriétaire seulement (ADR-0051).
+    pub owner_ref: Option<String>,
 }
 
 /// Serveurs rendus au plus par une liste bornée.
@@ -305,7 +323,13 @@ pub async fn list(
 ) -> Result<Json<Vec<ServerDto>>, ApiError> {
     session.require(&iam, Permission::ServersRead).await?;
     let limit = query.limit.map(|limit| limit.clamp(1, MAX_LIST_LIMIT));
-    let views = servers::list(&state, limit, query.offset.unwrap_or(0)).await?;
+    let views = servers::list(
+        &state,
+        query.owner_ref.as_deref(),
+        limit,
+        query.offset.unwrap_or(0),
+    )
+    .await?;
     Ok(Json(views.into_iter().map(|v| dto(&state, v)).collect()))
 }
 
@@ -357,10 +381,31 @@ pub async fn create(
             allocations: request.allocations,
             start_when_installed: request.start_when_installed,
             backup_limit: request.backup_limit,
+            owner_ref: request.owner_ref,
         },
     )
     .await?;
     Ok((StatusCode::CREATED, Json(dto(&state, view))))
+}
+
+/// Change le propriétaire d'un serveur (transfert, ADR-0051) ; `null` le rend interne. Kuro ne
+/// vérifie que le format : l'extension qui a posé l'identifiant en répond. Permission :
+/// `servers.update`.
+#[utoipa::path(put, path = "/api/admin/v1/servers/{id}/owner", tag = "admin-servers", security(("bearer" = [])),
+    params(("id" = Uuid, Path)),
+    request_body = SetOwnerRequest,
+    responses((status = 200, body = ServerDto), (status = 403, body = Problem), (status = 404, body = Problem),
+        (status = 422, description = "Identifiant mal formé, ou propriétaire inchangé", body = Problem)))]
+pub async fn set_owner(
+    State(iam): State<IamState>,
+    State(state): State<ServersState>,
+    session: AdminSession,
+    Path(id): Path<Uuid>,
+    Json(request): Json<SetOwnerRequest>,
+) -> Result<Json<ServerDto>, ApiError> {
+    session.require(&iam, Permission::ServersUpdate).await?;
+    let view = servers::set_owner(&state, &session.context, id, request.owner_ref).await?;
+    Ok(Json(dto(&state, view)))
 }
 
 /// Modifie des réglages et redéploie le serveur (redémarré s'il tournait).

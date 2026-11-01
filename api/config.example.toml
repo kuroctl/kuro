@@ -81,3 +81,8 @@ filter = "info"
 # désactivé. Une fois configuré, il s'ouvre et se coupe à chaud dans les paramètres du projet.
 # public_url = "https://panel.example.com"
 # panel_url = "https://panel.example.com"   # page de consentement, si le panel est ailleurs
+
+# Extensions compilées avec Kuro (ADR-0051) : une section par extension, transmise telle
+# quelle à son binaire (kuro-api n'en a aucune et ignore ces sections).
+# [extensions.cloud]
+# option = "valeur"

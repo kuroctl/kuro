@@ -89,6 +89,7 @@ const codes = {
   invalid_setting: 'Invalid value.',
   setting_not_editable: 'This setting is fixed at deployment.',
   invalid_server_name: 'Invalid name (1 to 64 characters).',
+  invalid_owner_ref: 'Invalid owner: “extension:identifier” expected (e.g. cloud:abc123).',
   invalid_resources: 'Value out of range ({min} to {max}).',
   unknown_action: 'This prefab declares no such action.',
   invalid_action_param: 'Invalid parameter: check its value (pattern, bounds, choices).',

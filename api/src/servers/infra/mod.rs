@@ -56,6 +56,9 @@ pub struct ServerRecord {
     pub web_id: Option<String>,
     /// État du proxy et du certificat du site, rapporté par le daemon (`WebStatus` du protocole).
     pub web_status: Option<Value>,
+    /// Propriétaire (ADR-0051) : identifiant opaque posé par une extension ; `None` : serveur
+    /// interne, géré par les admins seuls.
+    pub owner_ref: Option<String>,
 }
 
 /// Nouveau serveur, inséré en état `deploying`.
@@ -76,6 +79,8 @@ pub struct NewServerRow<'a> {
     pub backup_limit: i32,
     /// Identifiant du site (ADR-0038), pour un prefab à port web.
     pub web_id: Option<&'a str>,
+    /// Propriétaire (ADR-0051), déjà validé.
+    pub owner_ref: Option<&'a str>,
 }
 
 /// Colonnes légères d'un serveur, pour chercher, filtrer, trier et compter sans charger ses
@@ -110,9 +115,11 @@ pub struct PendingChanges {
 }
 
 impl ServerRepository {
-    /// Serveurs par nom, `limit` au plus (`None` : tous) à partir de `offset`.
+    /// Serveurs par nom, `limit` au plus (`None` : tous) à partir de `offset` ; ceux d'un seul
+    /// propriétaire avec `owner_ref`.
     pub async fn list(
         conn: &mut PgConnection,
+        owner_ref: Option<&str>,
         limit: Option<i64>,
         offset: i64,
     ) -> Result<Vec<ServerRecord>, sqlx::Error> {
@@ -123,12 +130,14 @@ impl ServerRepository {
                       s.memory_mb, s.cpu_percent, s.disk_mb, s.backup_limit, s.state, s.state_reason,
                       s.suspended_at, s.disk_used_bytes, s.disk_measured_at,
                       s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label,
-                      s.web_id, s.web_status
+                      s.web_id, s.web_status, s.owner_ref
                FROM servers s JOIN nodes n ON n.id = s.node_id
+               WHERE ($3::text IS NULL OR s.owner_ref = $3)
                ORDER BY s.name, s.id
                LIMIT $1 OFFSET $2"#,
             limit,
             offset,
+            owner_ref,
         )
         .fetch_all(conn)
         .await
@@ -146,7 +155,7 @@ impl ServerRepository {
                       s.memory_mb, s.cpu_percent, s.disk_mb, s.backup_limit, s.state, s.state_reason,
                       s.suspended_at, s.disk_used_bytes, s.disk_measured_at,
                       s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label,
-                      s.web_id, s.web_status
+                      s.web_id, s.web_status, s.owner_ref
                FROM servers s JOIN nodes n ON n.id = s.node_id
                WHERE s.prefab_id = $1
                ORDER BY s.name, s.id"#,
@@ -180,7 +189,7 @@ impl ServerRepository {
                       s.memory_mb, s.cpu_percent, s.disk_mb, s.backup_limit, s.state, s.state_reason,
                       s.suspended_at, s.disk_used_bytes, s.disk_measured_at,
                       s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label,
-                      s.web_id, s.web_status
+                      s.web_id, s.web_status, s.owner_ref
                FROM servers s JOIN nodes n ON n.id = s.node_id
                WHERE s.id = ANY($1)"#,
             ids,
@@ -200,7 +209,7 @@ impl ServerRepository {
                       s.memory_mb, s.cpu_percent, s.disk_mb, s.backup_limit, s.state, s.state_reason,
                       s.suspended_at, s.disk_used_bytes, s.disk_measured_at,
                       s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label,
-                      s.web_id, s.web_status
+                      s.web_id, s.web_status, s.owner_ref
                FROM servers s JOIN nodes n ON n.id = s.node_id
                WHERE s.id = $1"#,
             id,
@@ -264,8 +273,8 @@ impl ServerRepository {
         sqlx::query!(
             "INSERT INTO servers (id, name, node_id, prefab_id, prefab_version, settings, secrets,
                                   memory_mb, cpu_percent, disk_mb, start_when_installed,
-                                  backup_limit, web_id, state)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'deploying')",
+                                  backup_limit, web_id, owner_ref, state)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'deploying')",
             row.id,
             row.name,
             row.node_id,
@@ -279,6 +288,34 @@ impl ServerRepository {
             row.start_when_installed,
             row.backup_limit,
             row.web_id,
+            row.owner_ref,
+        )
+        .execute(conn)
+        .await?;
+        Ok(())
+    }
+
+    /// Propriétaire actuel, ligne verrouillée jusqu'à la fin de la transaction ; `None` si le
+    /// serveur n'existe pas.
+    pub async fn owner_for_update(
+        conn: &mut PgConnection,
+        id: Uuid,
+    ) -> Result<Option<Option<String>>, sqlx::Error> {
+        let row = sqlx::query!("SELECT owner_ref FROM servers WHERE id = $1 FOR UPDATE", id)
+            .fetch_optional(conn)
+            .await?;
+        Ok(row.map(|row| row.owner_ref))
+    }
+
+    pub async fn set_owner(
+        conn: &mut PgConnection,
+        id: Uuid,
+        owner_ref: Option<&str>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            "UPDATE servers SET owner_ref = $2, updated_at = now() WHERE id = $1",
+            id,
+            owner_ref
         )
         .execute(conn)
         .await?;
@@ -524,24 +561,31 @@ impl ServerRepository {
 
     /// État rapporté par un nœud, pour l'un de ses serveurs seulement. Un serveur en
     /// suppression ne revient qu'en `failed` (la suppression a échoué).
+    /// État rapporté par le nœud du serveur ; renvoie l'état précédent (`None` : serveur d'un
+    /// autre nœud, inconnu, ou en suppression).
     pub async fn set_state_if_owned(
         conn: &mut PgConnection,
         id: Uuid,
         node_id: Uuid,
         state: &str,
         reason: Option<&str>,
-    ) -> Result<bool, sqlx::Error> {
-        let updated = sqlx::query!(
-            "UPDATE servers SET state = $3, state_reason = $4, updated_at = now()
-             WHERE id = $1 AND node_id = $2 AND (state <> 'deleting' OR $3 = 'failed')",
+    ) -> Result<Option<String>, sqlx::Error> {
+        let previous = sqlx::query_scalar!(
+            r#"WITH previous AS (
+                   SELECT state FROM servers WHERE id = $1 AND node_id = $2 FOR UPDATE
+               )
+               UPDATE servers s SET state = $3, state_reason = $4, updated_at = now()
+               FROM previous
+               WHERE s.id = $1 AND s.node_id = $2 AND (s.state <> 'deleting' OR $3 = 'failed')
+               RETURNING previous.state"#,
             id,
             node_id,
             state,
             reason,
         )
-        .execute(conn)
+        .fetch_optional(conn)
         .await?;
-        Ok(updated.rows_affected() == 1)
+        Ok(previous)
     }
 
     /// État du site web rapporté par le nœud du serveur (ADR-0038).
@@ -563,21 +607,23 @@ impl ServerRepository {
     }
 
     /// Suppression confirmée par le nœud du serveur : ses ports sont libérés, puis il disparaît.
+    /// Suppression confirmée par le nœud du serveur ; renvoie son propriétaire (`None` : serveur
+    /// d'un autre nœud ou inconnu).
     pub async fn delete_if_owned(
         conn: &mut PgConnection,
         id: Uuid,
         node_id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    ) -> Result<Option<Option<String>>, sqlx::Error> {
         let mut tx = sqlx::Connection::begin(&mut *conn).await?;
         let owned = sqlx::query!(
-            "SELECT id FROM servers WHERE id = $1 AND node_id = $2 FOR UPDATE",
+            "SELECT owner_ref FROM servers WHERE id = $1 AND node_id = $2 FOR UPDATE",
             id,
             node_id
         )
         .fetch_optional(&mut *tx)
         .await?
-        .is_some();
-        if owned {
+        .map(|row| row.owner_ref);
+        if owned.is_some() {
             sqlx::query!(
                 "UPDATE allocations SET server_id = NULL, port_name = NULL WHERE server_id = $1",
                 id

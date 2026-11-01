@@ -72,7 +72,7 @@ impl PermissionSet {
     /// Permissions effectives, catalogue complet pour `all`.
     pub fn effective(&self) -> Vec<Permission> {
         if self.all {
-            Permission::ALL.to_vec()
+            Permission::all()
         } else {
             self.granted.iter().copied().collect()
         }

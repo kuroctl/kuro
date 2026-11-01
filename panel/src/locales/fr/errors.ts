@@ -90,6 +90,7 @@ const codes = {
   invalid_setting: 'Valeur invalide.',
   setting_not_editable: 'Ce réglage est fixé au déploiement.',
   invalid_server_name: 'Nom invalide (1 à 64 caractères).',
+  invalid_owner_ref: 'Propriétaire invalide : « extension:identifiant » attendu (ex. cloud:abc123).',
   invalid_resources: 'Valeur hors limites ({min} à {max}).',
   unknown_action: 'Ce prefab ne déclare pas cette action.',
   invalid_action_param: 'Paramètre invalide : vérifiez sa valeur (motif, bornes, choix).',

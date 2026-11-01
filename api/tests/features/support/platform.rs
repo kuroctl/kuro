@@ -24,15 +24,27 @@ pub struct Platform {
 
 impl Platform {
     pub async fn start() -> Self {
+        Self::start_with_extensions(Vec::new()).await
+    }
+
+    /// Plateforme avec des extensions compilées (ADR-0051), préparées sur sa base.
+    pub async fn start_with_extensions(
+        factories: Vec<kuro_api::extension::ExtensionFactory>,
+    ) -> Self {
         let api = TestApi::start_with_heartbeat_timeout(600).await;
         let prefabs = Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs");
         let report = import_dir(&api.pool, &prefabs).await.unwrap();
         assert!(report.invalid.is_empty(), "{:?}", report.invalid);
-        let admin = TestAdmin::on(
+        let extensions =
+            kuro_api::extension::prepare(&api.pool, &std::collections::BTreeMap::new(), factories)
+                .await
+                .unwrap();
+        let admin = TestAdmin::on_with(
             api.pool.clone(),
             api.links.clone(),
             api.console.clone(),
             false,
+            extensions,
         );
         api.events.attach(admin.servers.clone());
         api.events.attach_dns(admin.dns.clone());

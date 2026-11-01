@@ -3,6 +3,12 @@
 //! Format `domaine.ressource.action`. Une permission `Reserved` existe pour figer son nom et son
 //! périmètre, mais n'est pas attribuable tant qu'aucune route ne l'utilise.
 //! Une permission sensible (`sensitive = true`) est mise en évidence dans le panel.
+//!
+//! Une extension compilée avec Kuro (ADR-0051) ajoute les siennes, préfixées par son nom
+//! (`cloud.catalog.manage`) : [`Permission::Extension`], enregistrées au démarrage.
+
+use std::collections::BTreeMap;
+use std::sync::RwLock;
 
 use serde::Serialize;
 use utoipa::ToSchema;
@@ -17,6 +23,8 @@ pub enum Category {
     Prefabs,
     Customers,
     System,
+    /// Permissions des extensions compilées (ADR-0051).
+    Extensions,
 }
 
 impl Category {
@@ -29,6 +37,7 @@ impl Category {
             Self::Prefabs => "Prefabs",
             Self::Customers => "Clients",
             Self::System => "Système",
+            Self::Extensions => "Extensions",
         }
     }
 }
@@ -47,6 +56,8 @@ macro_rules! permissions {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
         pub enum Permission {
             $($variant,)*
+            /// Permission d'une extension (ADR-0051).
+            Extension(ExtensionPermission),
         }
 
         impl Permission {
@@ -55,37 +66,44 @@ macro_rules! permissions {
             pub fn key(self) -> &'static str {
                 match self {
                     $(Permission::$variant => $key,)*
+                    Permission::Extension(permission) => permission.0.key,
                 }
             }
 
+            /// Permission de Kuro, ou d'une extension enregistrée.
             pub fn from_key(key: &str) -> Option<Self> {
                 match key {
                     $($key => Some(Permission::$variant),)*
-                    _ => None,
+                    _ => registered(key).map(Permission::of),
                 }
             }
 
             pub fn category(self) -> Category {
                 match self {
                     $(Permission::$variant => Category::$category,)*
+                    Permission::Extension(_) => Category::Extensions,
                 }
             }
 
             pub fn label(self) -> &'static str {
                 match self {
                     $(Permission::$variant => $label,)*
+                    Permission::Extension(permission) => permission.0.label,
                 }
             }
 
             pub fn is_sensitive(self) -> bool {
                 match self {
                     $(Permission::$variant => $sensitive,)*
+                    Permission::Extension(permission) => permission.0.sensitive,
                 }
             }
 
             pub fn availability(self) -> Availability {
                 match self {
                     $(Permission::$variant => Availability::$availability,)*
+                    // Une extension ne déclare que des permissions qu'elle utilise.
+                    Permission::Extension(_) => Availability::Available,
                 }
             }
         }
@@ -170,6 +188,9 @@ impl Permission {
     /// paramètres de la plateforme, enrôlement, révocation et suppression des nœuds, suppressions
     /// et effacements de données, agir en tant que client.
     pub fn agent_grantable(self) -> bool {
+        if let Self::Extension(permission) = self {
+            return permission.0.agent_grantable;
+        }
         !matches!(
             self,
             Self::IamUsersCreate
@@ -193,5 +214,223 @@ impl Permission {
                 | Self::ServersFilesSftp
                 | Self::CustomersImpersonate
         )
+    }
+}
+
+/// Définition d'une permission d'extension, déclarée en `static` par l'extension :
+/// `static CATALOG: PermissionDef = PermissionDef { key: "cloud.catalog.manage", … }`.
+#[derive(Debug)]
+pub struct PermissionDef {
+    /// `<extension>.<ressource>.<action>` : préfixée par le nom de l'extension.
+    pub key: &'static str,
+    /// Libellé de repli (le panel traduit par la clé quand il connaît l'extension).
+    pub label: &'static str,
+    /// Action à fort impact, mise en évidence dans le panel.
+    pub sensitive: bool,
+    /// Accordable à un agent IA (ADR-0023). Faux sauf décision explicite de l'extension.
+    pub agent_grantable: bool,
+}
+
+/// Référence à une permission d'extension enregistrée, comparée par sa clé.
+#[derive(Clone, Copy)]
+pub struct ExtensionPermission(&'static PermissionDef);
+
+impl ExtensionPermission {
+    pub fn key(self) -> &'static str {
+        self.0.key
+    }
+}
+
+impl std::fmt::Debug for ExtensionPermission {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.0.key)
+    }
+}
+
+impl PartialEq for ExtensionPermission {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.key == other.0.key
+    }
+}
+
+impl Eq for ExtensionPermission {}
+
+impl std::hash::Hash for ExtensionPermission {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.key.hash(state);
+    }
+}
+
+impl PartialOrd for ExtensionPermission {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ExtensionPermission {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.key.cmp(other.0.key)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum PermissionError {
+    #[error("permission {key:?} must start with {prefix:?} followed by lowercase segments")]
+    InvalidKey { key: String, prefix: String },
+    #[error("permission {0:?} is one of Kuro's")]
+    Builtin(String),
+    #[error("permission {0:?} has no label")]
+    MissingLabel(String),
+}
+
+/// Permissions d'extensions enregistrées, par clé : écrites au démarrage, lues ensuite.
+static REGISTRY: RwLock<BTreeMap<&'static str, &'static PermissionDef>> =
+    RwLock::new(BTreeMap::new());
+
+fn registered(key: &str) -> Option<&'static PermissionDef> {
+    REGISTRY
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(key)
+        .copied()
+}
+
+impl Permission {
+    /// Permission d'une extension, pour ses gardes : `session.require(&iam, Permission::of(&DEF))`.
+    pub fn of(def: &'static PermissionDef) -> Self {
+        Self::Extension(ExtensionPermission(def))
+    }
+
+    /// Catalogue complet : celles de Kuro, puis celles des extensions enregistrées, par clé.
+    pub fn all() -> Vec<Permission> {
+        let mut all = Self::ALL.to_vec();
+        all.extend(
+            REGISTRY
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .values()
+                .map(|def| Self::of(def)),
+        );
+        all
+    }
+
+    /// Enregistre les permissions de l'extension `extension` : chaque clé est préfixée par son
+    /// nom (`<extension>.x.y`, segments `[a-z][a-z0-9_]*`) et distincte de celles de Kuro.
+    /// Ré-enregistrer une clé la remplace (redémarrage, tests).
+    pub fn register(
+        extension: &str,
+        defs: &'static [PermissionDef],
+    ) -> Result<(), PermissionError> {
+        for def in defs {
+            check_extension_key(extension, def)?;
+        }
+        let mut registry = REGISTRY
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        for def in defs {
+            registry.insert(def.key, def);
+        }
+        Ok(())
+    }
+}
+
+fn check_extension_key(extension: &str, def: &PermissionDef) -> Result<(), PermissionError> {
+    let prefix = format!("{extension}.");
+    let invalid = || PermissionError::InvalidKey {
+        key: def.key.to_owned(),
+        prefix: prefix.clone(),
+    };
+    let rest = def.key.strip_prefix(&prefix).ok_or_else(invalid)?;
+    let segment_ok = |segment: &str| {
+        segment.starts_with(|c: char| c.is_ascii_lowercase())
+            && segment
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+    };
+    if rest.is_empty() || !rest.split('.').all(segment_ok) {
+        return Err(invalid());
+    }
+    if Permission::ALL.iter().any(|p| p.key() == def.key) {
+        return Err(PermissionError::Builtin(def.key.to_owned()));
+    }
+    if def.label.trim().is_empty() {
+        return Err(PermissionError::MissingLabel(def.key.to_owned()));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    static NOTES_READ: PermissionDef = PermissionDef {
+        key: "unittest.notes.read",
+        label: "Lire les notes",
+        sensitive: false,
+        agent_grantable: false,
+    };
+    static NOTES_PURGE: PermissionDef = PermissionDef {
+        key: "unittest.notes.purge",
+        label: "Purger les notes",
+        sensitive: true,
+        agent_grantable: true,
+    };
+
+    fn defs(key: &'static str) -> &'static [PermissionDef] {
+        Box::leak(Box::new([PermissionDef {
+            key,
+            label: "x",
+            sensitive: false,
+            agent_grantable: false,
+        }]))
+    }
+
+    #[test]
+    fn registered_permissions_join_the_catalog() {
+        Permission::register("unittest", std::slice::from_ref(&NOTES_READ)).unwrap();
+        Permission::register("unittest", std::slice::from_ref(&NOTES_PURGE)).unwrap();
+
+        let read = Permission::from_key("unittest.notes.read").unwrap();
+        assert_eq!(read, Permission::of(&NOTES_READ));
+        assert_eq!(read.key(), "unittest.notes.read");
+        assert_eq!(read.category(), Category::Extensions);
+        assert_eq!(read.availability(), Availability::Available);
+        assert!(!read.agent_grantable());
+        assert!(Permission::of(&NOTES_PURGE).agent_grantable());
+        assert!(Permission::of(&NOTES_PURGE).is_sensitive());
+        assert!(Permission::all().contains(&read));
+    }
+
+    #[test]
+    fn an_extension_key_carries_its_prefix_and_lowercase_segments() {
+        for key in [
+            "other.notes.read",
+            "unittest",
+            "unittest.",
+            "unittest.Notes",
+            "unittest..x",
+            "unittest.1x",
+        ] {
+            assert!(
+                matches!(
+                    Permission::register("unittest", defs(key)),
+                    Err(PermissionError::InvalidKey { .. })
+                ),
+                "{key}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_extension_cannot_redefine_a_kuro_permission() {
+        assert_eq!(
+            Permission::register("servers", defs("servers.read")),
+            Err(PermissionError::Builtin("servers.read".to_owned()))
+        );
+    }
+
+    #[test]
+    fn an_unknown_key_is_still_unknown() {
+        assert_eq!(Permission::from_key("unittest.nothing.here"), None);
     }
 }

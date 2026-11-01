@@ -2,22 +2,23 @@
 
 use std::sync::Arc;
 
+use crate::cluster::Bus;
+use crate::config::Config;
+use crate::enrollment::http::{EnrollmentSettings, EnrollmentState};
+use crate::extension::{self, ExtensionFactory};
+use crate::iam::application::IamState;
+use crate::nodes::application::{Instance, Presence};
+use crate::nodes::infra::NodeRepository;
+use crate::pki::infra::PkiFiles;
+use crate::prefabs::application as prefabs;
+use crate::servers::application::{ConsoleAccess, ConsoleHub, LinkEvents, ServersState};
+use crate::state::AppState;
+use crate::ws::{CommandRelay, DaemonListener, LinkRegistry};
+use crate::{db, http};
 use anyhow::Context;
-use kuro_api::cluster::Bus;
-use kuro_api::config::Config;
-use kuro_api::enrollment::http::{EnrollmentSettings, EnrollmentState};
-use kuro_api::iam::application::IamState;
-use kuro_api::nodes::application::{Instance, Presence};
-use kuro_api::nodes::infra::NodeRepository;
-use kuro_api::pki::infra::PkiFiles;
-use kuro_api::prefabs::application as prefabs;
-use kuro_api::servers::application::{ConsoleAccess, ConsoleHub, LinkEvents, ServersState};
-use kuro_api::state::AppState;
-use kuro_api::ws::{CommandRelay, DaemonListener, LinkRegistry};
-use kuro_api::{db, http};
 use tokio_util::sync::CancellationToken;
 
-pub async fn run(config: Config) -> anyhow::Result<()> {
+pub async fn run(config: Config, extensions: Vec<ExtensionFactory>) -> anyhow::Result<()> {
     kuro_runtime::telemetry::init(&config.log)?;
     if !config.auth.require_totp {
         tracing::warn!(
@@ -32,6 +33,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         .await
         .context("connecting to database")?;
     db::migrate(&pool).await.context("running migrations")?;
+    // Extensions (ADR-0051) : après les migrations de Kuro, leurs tables peuvent viser les siennes.
+    let extensions = extension::prepare(&pool, &config.extensions, extensions)
+        .await
+        .context("loading extensions")?;
 
     let imported = prefabs::import_dir(&pool, &config.prefabs.dir)
         .await
@@ -93,13 +98,13 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     )
     .await
     .context("starting daemon listener")?
-    .with_sftp(kuro_api::sftp::SftpState { pool: pool.clone() });
+    .with_sftp(crate::sftp::SftpState { pool: pool.clone() });
     let iam = IamState::new(pool.clone(), &config.auth)?;
     // Rôles livrés (ADR-0045) : une installation antérieure à leur arrivée les reçoit ici, une
     // seule fois ; une mise en route les crée elle-même.
-    let seeded = kuro_api::iam::application::roles::seed_defaults_once(
+    let seeded = crate::iam::application::roles::seed_defaults_once(
         &iam,
-        &kuro_api::audit::domain::AuditContext::system(),
+        &crate::audit::domain::AuditContext::system(),
     )
     .await
     .context("seeding default roles")?;
@@ -107,6 +112,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         tracing::info!(roles = ?seeded, "default roles created");
     }
     let servers = ServersState {
+        events: crate::servers::application::ServerEventSink::of(&extensions),
         pool: pool.clone(),
         commands: relay.clone(),
         secrets_key: *iam.keys.server_secrets(),
@@ -114,25 +120,25 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         console_access: ConsoleAccess {
             max_session: std::time::Duration::from_secs(config.auth.access_ttl_secs),
         },
-        content: kuro_api::content::ContentSources {
+        content: crate::content::ContentSources {
             modrinth: Arc::new(
-                kuro_api::content::modrinth::Modrinth::new(&config.content.modrinth_url)
+                crate::content::modrinth::Modrinth::new(&config.content.modrinth_url)
                     .map_err(|e| anyhow::anyhow!("content provider: {e}"))?,
             ),
             curseforge: Arc::new(
-                kuro_api::content::curseforge::CurseForge::new(&config.content.curseforge_url)
+                crate::content::curseforge::CurseForge::new(&config.content.curseforge_url)
                     .map_err(|e| anyhow::anyhow!("content provider: {e}"))?,
             ),
             steam: Arc::new(
-                kuro_api::content::steam::SteamWorkshop::new(&config.content.steam_url)
+                crate::content::steam::SteamWorkshop::new(&config.content.steam_url)
                     .map_err(|e| anyhow::anyhow!("content provider: {e}"))?,
             ),
             steam_store: Arc::new(
-                kuro_api::content::steam_store::SteamStoreClient::new(&config.content.steam_url)
+                crate::content::steam_store::SteamStoreClient::new(&config.content.steam_url)
                     .map_err(|e| anyhow::anyhow!("steam store: {e}"))?,
             ),
             steam_grid: Arc::new(
-                kuro_api::content::steamgriddb::SteamGridDb::new(&config.content.steamgriddb_url)
+                crate::content::steamgriddb::SteamGridDb::new(&config.content.steamgriddb_url)
                     .map_err(|e| anyhow::anyhow!("steamgriddb: {e}"))?,
             ),
         },
@@ -140,26 +146,26 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     // Le lien redéploie après des paquets extraits (ADR-0030) : il reçoit les cas d'usage.
     server_events.attach(servers.clone());
     // Clés d'API des sources (ADR-0029), réglées dans le panel.
-    let content_sources = kuro_api::content::settings::ContentSourcesState {
+    let content_sources = crate::content::settings::ContentSourcesState {
         pool: pool.clone(),
         key: *iam.keys.server_secrets(),
         sources: servers.content.clone(),
     };
-    kuro_api::content::settings::load(&content_sources)
+    crate::content::settings::load(&content_sources)
         .await
         .context("loading content source keys")?;
     let panel = config.http.panel_dir.as_deref().map(|dir| {
         tracing::info!(dir = %dir.display(), "serving the panel");
-        kuro_api::http::panel::Panel::new(dir)
+        crate::http::panel::Panel::new(dir)
     });
     // Serveur MCP (ADR-0023) : configuré par son URL publique, activé dans les paramètres.
-    let metadata = Arc::new(kuro_api::oauth::metadata::HttpsFetcher::new().context("tls client")?);
+    let metadata = Arc::new(crate::oauth::metadata::HttpsFetcher::new().context("tls client")?);
     let oauth = config
         .mcp
         .public_url
         .as_deref()
         .map(|url| {
-            kuro_api::oauth::application::OAuthState::new(
+            crate::oauth::application::OAuthState::new(
                 pool.clone(),
                 url,
                 config.mcp.panel_url.as_deref(),
@@ -168,10 +174,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         })
         .transpose()
         .map_err(|e| anyhow::anyhow!("mcp: {e}"))?;
-    let dns = kuro_api::dns::application::DnsState::new(
+    let dns = crate::dns::application::DnsState::new(
         pool.clone(),
         *iam.keys.server_secrets(),
-        Arc::new(kuro_api::dns::cloudflare::Cloudflare::new().context("tls client")?),
+        Arc::new(crate::dns::cloudflare::Cloudflare::new().context("tls client")?),
     );
     // Une suppression confirmée par un nœud réveille la réconciliation DNS.
     server_events.attach_dns(dns.clone());
@@ -183,24 +189,24 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         .or_else(|| config.mcp.panel_url.clone())
         .or_else(|| config.mcp.public_url.clone());
     // Envoi d'e-mails (ADR-0046) : SMTP du projet, réglé dans le panel.
-    let mail = kuro_api::mail::MailState {
+    let mail = crate::mail::MailState {
         pool: pool.clone(),
         key: secrets_key,
-        mailer: Arc::new(kuro_api::mail::LettreMailer),
+        mailer: Arc::new(crate::mail::LettreMailer),
         panel_url: panel_url.clone(),
         allow_insecure: config.mail.allow_insecure,
     };
-    let notifications = kuro_api::notifications::application::NotificationsState {
+    let notifications = crate::notifications::application::NotificationsState {
         pool: pool.clone(),
         key: secrets_key,
-        sender: Arc::new(kuro_api::notifications::sender::HttpSender::new().context("tls client")?),
+        sender: Arc::new(crate::notifications::sender::HttpSender::new().context("tls client")?),
         panel_url,
         allow_private_targets: config.notifications.allow_private_targets,
         mail: mail.clone(),
     };
     // Première mise en route (ADR-0045) : le jeton est écrit sur l'hôte tant qu'aucun admin
     // n'existe ; sans lui, la CLI `kuro-api setup` reste possible.
-    let setup = kuro_api::setup::SetupState {
+    let setup = crate::setup::SetupState {
         pool: pool.clone(),
         iam: iam.clone(),
         token_file: config.setup.token_file.clone(),
@@ -224,17 +230,18 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         enrollment: settings,
         links: relay.clone(),
         servers,
-        sftp: kuro_api::sftp::SftpState { pool: pool.clone() },
+        sftp: crate::sftp::SftpState { pool: pool.clone() },
+        client_identity: extension::ClientIdentity::of(&extensions),
         pool,
         prefabs_dir: prefabs::PrefabsDir {
             dir: config.prefabs.dir.clone(),
             publish_to_dir: config.prefabs.publish_to_dir,
         },
-        stores: kuro_api::prefabs::store::StoresState::new(
+        stores: crate::prefabs::store::StoresState::new(
             config.prefabs.stores.clone(),
-            Arc::new(kuro_api::prefabs::store::HttpFetcher::new().context("tls client")?),
+            Arc::new(crate::prefabs::store::HttpFetcher::new().context("tls client")?),
         ),
-        http: kuro_api::http::policy::HttpPolicy::from_config(&config.http),
+        http: crate::http::policy::HttpPolicy::from_config(&config.http),
         readiness: daemon_listener.readiness(),
         setup: setup.clone(),
         mail,
@@ -266,13 +273,13 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
 
     // Bus entre instances (ADR-0037) : commandes relayées, clés des sources rechargées.
     let bus = relay.subscribe(Bus::new(state.pool.clone())).subscribe(
-        kuro_api::content::settings::CHANGES_CHANNEL,
+        crate::content::settings::CHANGES_CHANNEL,
         Arc::new({
             let sources = state.content_sources.clone();
             move |_payload: &str| {
                 let sources = sources.clone();
                 tokio::spawn(async move {
-                    if let Err(error) = kuro_api::content::settings::load(&sources).await {
+                    if let Err(error) = crate::content::settings::load(&sources).await {
                         tracing::warn!(%error, "failed to reload content source keys");
                     }
                 });
@@ -282,43 +289,40 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     tokio::spawn(bus.run_forever(shutdown.clone()));
 
     // Tâches planifiées des serveurs (ADR-0022).
-    tokio::spawn(kuro_api::servers::application::scheduler::run_forever(
+    tokio::spawn(crate::servers::application::scheduler::run_forever(
         state.servers.clone(),
         shutdown.clone(),
     ));
 
     // Essais du Studio : suppression à l'expiration (ADR-0011).
-    tokio::spawn(kuro_api::studio::trials::sweep_forever(
+    tokio::spawn(crate::studio::trials::sweep_forever(
         state.servers.clone(),
         shutdown.clone(),
     ));
 
     // DNS des serveurs et des nœuds : réconciliation (ADR-0026).
-    tokio::spawn(kuro_api::dns::application::run_forever(
-        dns,
-        shutdown.clone(),
-    ));
+    tokio::spawn(crate::dns::application::run_forever(dns, shutdown.clone()));
 
     // Stats historisées : cumul horaire et purge (ADR-0043).
-    tokio::spawn(kuro_api::servers::application::metrics::run_forever(
+    tokio::spawn(crate::servers::application::metrics::run_forever(
         state.pool.clone(),
         shutdown.clone(),
     ));
 
     // Notifications : envois dus et purge du journal (ADR-0044).
-    tokio::spawn(kuro_api::notifications::application::run_forever(
+    tokio::spawn(crate::notifications::application::run_forever(
         state.notifications.clone(),
         shutdown.clone(),
     ));
 
     // Conservation du journal d'audit (ADR-0019).
-    tokio::spawn(kuro_api::audit::application::purge_daily(
+    tokio::spawn(crate::audit::application::purge_daily(
         state.pool.clone(),
         shutdown.clone(),
     ));
 
     let (http, ()) = tokio::join!(
-        http::server::serve(&config.http, state, shutdown.clone()),
+        http::server::serve(&config.http, state, extensions, shutdown.clone()),
         daemon_listener.run(shutdown.clone()),
     );
     http.context("running http server")

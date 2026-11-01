@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT owner_ref FROM servers WHERE id = $1 AND node_id = $2 FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "owner_ref",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "owner_ref"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "fd398a033e8482b6332534b2ada84c26a0d640d4a62c4e224424422ca60286e5"
+}

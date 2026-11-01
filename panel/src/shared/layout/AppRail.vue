@@ -4,6 +4,7 @@
 import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { usePermissions } from '@/features/account/account.queries'
 import { useSetupStatus } from '@/features/setup/setup.queries'
 import { cn } from '@/shared/lib/utils'
 import { useRoute } from 'vue-router'
@@ -23,13 +24,17 @@ import AccountMenu from './AccountMenu.vue'
 import { sectionOf, sections } from './sections'
 
 const { t } = useI18n()
+const { can } = usePermissions()
 // Nom du projet (ADR-0045), « Kuro » tant qu'il n'est pas réglé.
 const { data: setup } = useSetupStatus()
 const projectName = computed(() => setup.value?.project_name || t('app.name'))
 
 const route = useRoute()
 const current = computed(() => sectionOf(route.path)?.key)
-const railSections = sections.filter((section) => section.icon)
+// Section d'une extension (ADR-0051) : seulement avec sa permission.
+const railSections = computed(() =>
+  sections.filter((section) => section.icon && (!section.permission || can(section.permission))),
+)
 
 const { setOpenMobile } = useSidebar()
 watch(

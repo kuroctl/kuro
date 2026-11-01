@@ -2481,6 +2481,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "image",
+ "kuro-api",
  "kuro-daemon",
  "kuro-prefab",
  "kuro-protocol",

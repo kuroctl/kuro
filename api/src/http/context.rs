@@ -53,5 +53,6 @@ pub fn request_context(parts: &Parts) -> AuditContext {
         user_agent: header(USER_AGENT.as_str()),
         request_id: header(REQUEST_ID_HEADER),
         agent: None,
+        owner: None,
     }
 }

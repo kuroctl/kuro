@@ -1,13 +1,13 @@
 //! `kuro-api node …` : mêmes cas d'usage que `POST /api/admin/v1/nodes…`.
 
+use crate::audit::domain::AuditContext;
+use crate::config::Config;
+use crate::enrollment::application::{NodeTicket, add_node, reissue_token};
+use crate::nodes::application::{PlacementInput, inventory, lifecycle, regions};
+use crate::nodes::domain::NoLiveLinks;
+use crate::pki::infra::PkiFiles;
 use anyhow::{Context, bail};
 use clap::{Args, Subcommand};
-use kuro_api::audit::domain::AuditContext;
-use kuro_api::config::Config;
-use kuro_api::enrollment::application::{NodeTicket, add_node, reissue_token};
-use kuro_api::nodes::application::{PlacementInput, inventory, lifecycle, regions};
-use kuro_api::nodes::domain::NoLiveLinks;
-use kuro_api::pki::infra::PkiFiles;
 
 #[derive(Debug, Subcommand)]
 pub enum Command {

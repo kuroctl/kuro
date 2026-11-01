@@ -3,6 +3,7 @@
 mod auth;
 mod error;
 mod me;
+mod owner;
 mod permissions;
 mod roles;
 mod session;
@@ -18,6 +19,7 @@ use utoipa::{Modify, OpenApi};
 use crate::http::rate_limit::limit_unauthenticated;
 use crate::iam::application::IamState;
 
+pub use owner::OwnerSession;
 pub use session::AdminSession;
 
 #[derive(OpenApi)]

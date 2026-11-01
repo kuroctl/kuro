@@ -14,10 +14,12 @@ pub mod content;
 mod create;
 mod deploy;
 mod error;
+mod events;
 pub mod files;
 mod link;
 mod manage;
 pub mod metrics;
+mod owner;
 pub mod scheduler;
 pub mod schedules;
 pub mod search;
@@ -38,10 +40,12 @@ use uuid::Uuid;
 pub use console::{ConsoleAccess, ConsoleEvent, ConsoleHub, Viewer, command, console_ticket};
 pub use create::{BACKUP_LIMIT, CPU_PERCENT, DISK_MB, MEMORY_MB, NewServer, create};
 pub use error::ServersError;
+pub use events::ServerEventSink;
 pub use link::LinkEvents;
 pub use manage::{
     ResourcesPatch, delete, power, reinstall, set_suspended, update_resources, update_settings,
 };
+pub use owner::set_owner;
 pub use tickets::TICKET_TTL;
 
 use crate::auth::secret_box;
@@ -63,6 +67,8 @@ pub struct ServersState {
     pub console_access: ConsoleAccess,
     /// Sources des mods, plugins et modpacks (ADR-0020, ADR-0029).
     pub content: crate::content::ContentSources,
+    /// Événements du cycle de vie, pour les extensions (ADR-0051).
+    pub events: ServerEventSink,
 }
 
 /// Serveur et ses ports.
@@ -76,15 +82,17 @@ pub struct ServerView {
 }
 
 /// Serveurs par nom, `limit` au plus (`None` : tous) à partir de `offset`, en trois requêtes
-/// quelle que soit la taille de la page.
+/// quelle que soit la taille de la page ; ceux d'un seul propriétaire avec `owner_ref` (ADR-0051).
 pub async fn list(
     state: &ServersState,
+    owner_ref: Option<&str>,
     limit: Option<usize>,
     offset: usize,
 ) -> Result<Vec<ServerView>, ServersError> {
     let mut conn = state.pool.acquire().await?;
     let servers = ServerRepository::list(
         &mut conn,
+        owner_ref,
         limit.map(|limit| i64::try_from(limit).unwrap_or(i64::MAX)),
         i64::try_from(offset).unwrap_or(i64::MAX),
     )

@@ -5,20 +5,23 @@
 //! Le titre anglais n'est qu'un repli, la traduction se fait côté client. Codes stables : ne
 //! jamais renommer un code publié.
 
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use serde_json::{Map, Value};
 use std::borrow::Cow;
+use std::collections::BTreeMap;
+use std::sync::RwLock;
 use utoipa::ToSchema;
 
 macro_rules! error_codes {
     ($($variant:ident => $code:literal, $title:literal;)*) => {
-        // `rename_all` (et non un `rename` par variante) : c'est ce que reprend le schéma OpenAPI.
-        // Le test `every_error_code_is_published_in_the_openapi_document` vérifie l'accord avec
-        // les codes littéraux ci-dessous.
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, ToSchema)]
-        #[serde(rename_all = "snake_case")]
+        // Sérialisé par son code (`as_str`) et publié dans l'OpenAPI comme énumération fermée des
+        // codes de Kuro et des extensions enregistrées (ADR-0051). Le test
+        // `every_error_code_is_published_in_the_openapi_document` vérifie l'accord.
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub enum ErrorCode {
             $($variant,)*
+            /// Code d'une extension (ADR-0051).
+            Extension(ExtensionErrorCode),
         }
 
         impl ErrorCode {
@@ -27,6 +30,7 @@ macro_rules! error_codes {
             pub fn as_str(self) -> &'static str {
                 match self {
                     $(ErrorCode::$variant => $code,)*
+                    ErrorCode::Extension(code) => code.0.code,
                 }
             }
 
@@ -34,6 +38,7 @@ macro_rules! error_codes {
             pub fn title(self) -> &'static str {
                 match self {
                     $(ErrorCode::$variant => $title,)*
+                    ErrorCode::Extension(code) => code.0.title,
                 }
             }
         }
@@ -147,6 +152,7 @@ error_codes! {
     InvalidSetting => "invalid_setting", "Invalid setting value";
     SettingNotEditable => "setting_not_editable", "This setting is fixed after deployment";
     InvalidServerName => "invalid_server_name", "Invalid server name";
+    InvalidOwnerRef => "invalid_owner_ref", "Invalid server owner reference";
     InvalidResources => "invalid_resources", "Invalid resources";
     NodeOffline => "node_offline", "The node is offline";
     DaemonTooOld => "daemon_too_old", "The daemon of this node is too old for this prefab: update kuro-daemon on the node";
@@ -248,6 +254,112 @@ error_codes! {
     ValueOutOfRange => "value_out_of_range", "Value out of range";
     DaemonTimeout => "daemon_timeout", "The node did not answer in time";
     DaemonError => "daemon_error", "The node refused the command";
+}
+
+impl Serialize for ErrorCode {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl utoipa::PartialSchema for ErrorCode {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        utoipa::openapi::schema::ObjectBuilder::new()
+            .schema_type(utoipa::openapi::schema::Type::String)
+            .enum_values(Some(ErrorCode::all().into_iter().map(ErrorCode::as_str)))
+            .into()
+    }
+}
+
+impl ToSchema for ErrorCode {}
+
+/// Code d'erreur d'une extension, déclaré en `static` :
+/// `static SLUG_TAKEN: ErrorCodeDef = ErrorCodeDef { code: "cloud.catalog.slug_taken", title: "…" }`.
+#[derive(Debug)]
+pub struct ErrorCodeDef {
+    /// `<extension>.<…>`, stable : les clients le traduisent.
+    pub code: &'static str,
+    /// Titre anglais de repli.
+    pub title: &'static str,
+}
+
+/// Référence à un code d'extension enregistré, comparée par son code.
+#[derive(Clone, Copy)]
+pub struct ExtensionErrorCode(&'static ErrorCodeDef);
+
+impl std::fmt::Debug for ExtensionErrorCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.0.code)
+    }
+}
+
+impl PartialEq for ExtensionErrorCode {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.code == other.0.code
+    }
+}
+
+impl Eq for ExtensionErrorCode {}
+
+impl std::hash::Hash for ExtensionErrorCode {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.code.hash(state);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ErrorCodeError {
+    #[error("error code {code:?} must start with \"{extension}.\" followed by lowercase segments")]
+    InvalidCode { code: String, extension: String },
+    #[error("error code {0:?} has no title")]
+    MissingTitle(String),
+}
+
+/// Codes d'extensions enregistrés, par code : écrits au démarrage, lus ensuite.
+static REGISTRY: RwLock<BTreeMap<&'static str, &'static ErrorCodeDef>> =
+    RwLock::new(BTreeMap::new());
+
+impl ErrorCode {
+    /// Code d'une extension, pour ses erreurs : `Problem::new(status, ErrorCode::of(&DEF))`.
+    pub fn of(def: &'static ErrorCodeDef) -> Self {
+        Self::Extension(ExtensionErrorCode(def))
+    }
+
+    /// Codes de Kuro, puis ceux des extensions enregistrées, par code.
+    pub fn all() -> Vec<ErrorCode> {
+        let mut all = Self::ALL.to_vec();
+        all.extend(
+            REGISTRY
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .values()
+                .map(|def| Self::of(def)),
+        );
+        all
+    }
+
+    /// Enregistre les codes de l'extension `extension`, préfixés par son nom (un code de Kuro
+    /// n'a jamais de point : aucune collision possible). Ré-enregistrer un code le remplace.
+    pub fn register(extension: &str, defs: &'static [ErrorCodeDef]) -> Result<(), ErrorCodeError> {
+        for def in defs {
+            if !crate::extension_key::is_extension_key(extension, def.code) {
+                return Err(ErrorCodeError::InvalidCode {
+                    code: def.code.to_owned(),
+                    extension: extension.to_owned(),
+                });
+            }
+            if def.title.trim().is_empty() {
+                return Err(ErrorCodeError::MissingTitle(def.code.to_owned()));
+            }
+        }
+        let mut registry = REGISTRY
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        for def in defs {
+            registry.insert(def.code, def);
+        }
+        Ok(())
+    }
 }
 
 /// Erreur rattachée à un champ de la requête, affichée sous ce champ dans les formulaires.

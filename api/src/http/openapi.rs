@@ -23,6 +23,7 @@ pub fn document() -> utoipa::openapi::OpenApi {
     doc.merge(prefabs::http::PrefabsApi::openapi());
     doc.merge(studio::http::StudioApi::openapi());
     doc.merge(servers::http::ServersApi::openapi());
+    doc.merge(servers::http::ClientServersApi::openapi());
     doc.merge(settings::http::SettingsApi::openapi());
     doc.merge(oauth::http::OAuthApi::openapi());
     doc.merge(dns::http::DnsApi::openapi());

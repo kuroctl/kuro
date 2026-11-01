@@ -3,9 +3,11 @@ import { screen, waitFor, within } from '@testing-library/vue'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
+import type { Schemas } from '@/shared/api/types'
+
 import { API, problem, profile, server, signedIn } from '../support/api'
 import { renderApp } from '../support/app'
-import { iam, role, SUPER_ADMIN_ID, superAdmin, SUPPORT_ID } from '../support/iam'
+import { catalog, iam, role, SUPER_ADMIN_ID, superAdmin, SUPPORT_ID } from '../support/iam'
 
 const MODERATION_ID = '01a17f00-0000-7000-8000-0000000000b2'
 
@@ -79,6 +81,39 @@ describe('roles', () => {
       expect(body).toEqual({ name: 'moderation', description: '', color: '#22c55e', permissions: ['servers.read', 'servers.power'] }),
     )
     await waitFor(() => expect(router.currentRoute.value.path).toBe(`/users/roles/${SUPPORT_ID}`))
+  })
+
+  it('grants the permission of a compiled extension under its API label', async () => {
+    let body: unknown
+    // Permission d'une extension (ADR-0051) : absente des traductions du panel.
+    const extensionKey = 'cloud.catalog.manage' as Schemas['PermissionKey']
+    server.use(...signedIn(), ...iam())
+    // Déclaré à part : un `server.use` plus récent passe avant le catalogue standard d'`iam()`.
+    server.use(
+      http.get(`${API}/permissions`, () =>
+        HttpResponse.json([
+          ...catalog,
+          {
+            key: 'extensions',
+            label: 'Extensions',
+            permissions: [{ key: extensionKey, label: 'Gérer le catalogue', sensitive: true, availability: 'available' }],
+          },
+        ]),
+      ),
+      http.post(`${API}/roles`, async ({ request }) => {
+        body = await request.json()
+        return HttpResponse.json(role({ id: SUPPORT_ID, name: 'catalogue' }), { status: 201 })
+      }),
+    )
+    const { user } = await renderApp('/users/roles/new')
+
+    await user.type(await screen.findByLabelText('Nom'), 'catalogue')
+    const label = (await screen.findByText('Gérer le catalogue')).closest('label')!
+    expect(screen.getByRole('checkbox', { name: 'Toute la catégorie Extensions' })).toBeTruthy()
+    await user.click(within(label).getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: 'Créer le rôle' }))
+
+    await waitFor(() => expect(body).toMatchObject({ name: 'catalogue', permissions: ['cloud.catalog.manage'] }))
   })
 
   it('never grants a permission to come', async () => {

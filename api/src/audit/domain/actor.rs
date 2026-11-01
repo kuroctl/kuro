@@ -11,6 +11,9 @@ pub enum ActorKind {
     Anonymous,
     /// Agent IA (MCP, ADR-0023) agissant au nom de l'admin identifié.
     Agent,
+    /// Propriétaire d'un serveur (ADR-0051), identifié par une extension : son identifiant
+    /// opaque est dans `details.owner_ref`, pas dans `actor_id`.
+    Owner,
 }
 
 impl ActorKind {
@@ -23,6 +26,7 @@ impl ActorKind {
             Self::System => "system",
             Self::Anonymous => "anonymous",
             Self::Agent => "agent",
+            Self::Owner => "owner",
         }
     }
 }
@@ -39,6 +43,14 @@ impl Actor {
         Self {
             kind: ActorKind::Admin,
             id: Some(id),
+        }
+    }
+
+    /// Propriétaire d'un serveur (ADR-0051) : sans uuid, voir [`AuditContext::as_owner`].
+    pub fn owner() -> Self {
+        Self {
+            kind: ActorKind::Owner,
+            id: None,
         }
     }
 
@@ -76,6 +88,8 @@ pub struct AuditContext {
     pub request_id: Option<String>,
     /// Agent IA, quand l'acteur est `agent`.
     pub agent: Option<AgentRef>,
+    /// Propriétaire (ADR-0051), quand l'acteur est `owner` : recopié dans `details.owner_ref`.
+    pub owner: Option<String>,
 }
 
 impl AuditContext {
@@ -93,6 +107,7 @@ impl AuditContext {
             user_agent: Some(format!("kuro-api {command} (os user: {os_user})")),
             request_id: None,
             agent: None,
+            owner: None,
         }
     }
 
@@ -106,6 +121,7 @@ impl AuditContext {
             user_agent: None,
             request_id: None,
             agent: None,
+            owner: None,
         }
     }
 
@@ -117,6 +133,15 @@ impl AuditContext {
                 id: Some(schedule_id),
             },
             ..Self::system()
+        }
+    }
+
+    /// Même requête, faite par le propriétaire `owner_ref` d'un serveur (ADR-0051).
+    pub fn as_owner(&self, owner_ref: &str) -> Self {
+        Self {
+            actor: Actor::owner(),
+            owner: Some(owner_ref.to_owned()),
+            ..self.clone()
         }
     }
 
