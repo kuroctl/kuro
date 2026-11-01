@@ -42,9 +42,13 @@ OTHER="$(tail -n 1 /work/other.pub)"
 sleep 1
 
 # systemd et Docker simulés : on vérifie ce que le script demande.
+# Au démarrage, le vrai daemon crée la clé d'hôte SFTP qu'`install.sh` attend (ADR-0047).
 cat >/usr/local/bin/systemctl <<'EOF'
 #!/bin/sh
 echo "systemctl $*" >> /tmp/systemctl.log
+if [ "$*" = "restart kuro-daemon" ] && [ ! -s /etc/kuro/sftp_host_ed25519 ]; then
+  echo "simulated host key" > /etc/kuro/sftp_host_ed25519
+fi
 EOF
 cat >/usr/local/bin/docker <<'EOF'
 #!/bin/sh
@@ -122,6 +126,7 @@ printf '[api]\nurl = "wss://api.example.test:8443/api/daemon"\n' > /etc/kuro/dae
 grep -q "already enrolled" /tmp/daemon.out || fail "re-enrolled an enrolled node"
 grep -q "Requires=docker.service" /etc/systemd/system/kuro-daemon.service || fail "daemon unit"
 grep -q "restart kuro-daemon" /tmp/systemctl.log || fail "daemon not restarted"
+grep -q "LoadCredential=" /etc/systemd/system/kuro-sftp.service || fail "sftp unit"
 pass "node: binaries and unit, no re-enrollment"
 
 # --- Archive altérée -------------------------------------------------------------------------------

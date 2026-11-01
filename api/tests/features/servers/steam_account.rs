@@ -14,6 +14,8 @@ use crate::support::platform::{FakeDaemon, Platform};
 
 const ACCOUNT: &str = "/settings/steam-account";
 const PASSWORD: &str = "Pa ss!word-42";
+/// Version du prefab de test, fixée ici : celle de Valheim change avec ses mises à jour.
+const VERSION_PATH: &str = "/prefabs/steam-account-test/1.0.0";
 
 /// Valheim, dont l'étape `steamcmd` exige le compte de l'installation (comme Arma 3).
 fn account_prefab() -> Vec<u8> {
@@ -25,6 +27,16 @@ fn account_prefab() -> Vec<u8> {
     let start = manifest.find("assets:\n").unwrap();
     let end = manifest.find("services:\n").unwrap();
     let manifest = format!("{}{}", &manifest[..start], &manifest[end..])
+        .lines()
+        .map(|line| {
+            if line.starts_with("version: ") {
+                "version: 1.0.0"
+            } else {
+                line
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
         .replace("id: valheim", "id: steam-account-test")
         .replace(
             "steamcmd: { app: 896660, dir: /home/container, validate: true }",
@@ -188,9 +200,7 @@ async fn a_prefab_that_needs_the_account_waits_for_it_then_receives_it() {
     import(&platform).await;
 
     // Sans compte : signalé au catalogue, refusé à la création.
-    let version = platform
-        .call(Method::GET, "/prefabs/steam-account-test/1.1.0", None)
-        .await;
+    let version = platform.call(Method::GET, VERSION_PATH, None).await;
     assert_eq!(version.json["deployable"], false, "{}", version.json);
     assert_eq!(version.json["steam_account_missing"], true);
     let refused = platform
@@ -204,9 +214,7 @@ async fn a_prefab_that_needs_the_account_waits_for_it_then_receives_it() {
     assert_eq!(refused.json["code"], "steam_account_required");
 
     set_account(&platform).await;
-    let version = platform
-        .call(Method::GET, "/prefabs/steam-account-test/1.1.0", None)
-        .await;
+    let version = platform.call(Method::GET, VERSION_PATH, None).await;
     assert_eq!(version.json["deployable"], true);
     assert_eq!(version.json["steam_account_missing"], false);
 
