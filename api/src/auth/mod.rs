@@ -5,5 +5,6 @@ pub mod jwt;
 pub mod keys;
 pub mod opaque;
 pub mod password;
+pub mod recovery_code;
 pub mod secret_box;
 pub mod totp;

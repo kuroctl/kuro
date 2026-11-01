@@ -8,6 +8,7 @@ import { toast } from 'vue-sonner'
 
 import { usePermissions } from '@/features/account/account.queries'
 import McpSettingsCard from '@/features/settings/components/McpSettingsCard.vue'
+import SftpSettingsCard from '@/features/settings/components/SftpSettingsCard.vue'
 import { type PlatformSettings, type SettingsPatch, useSettingsApi } from '@/features/settings/settings.api'
 import { useInvalidateSettings, usePlatformSettings } from '@/features/settings/settings.queries'
 import { invalidateSetupStatus } from '@/features/setup/setup.queries'
@@ -25,8 +26,15 @@ type Resource = 'memory_mb' | 'cpu_percent' | 'disk_mb' | 'backup_limit'
 const RESOURCES: Resource[] = ['memory_mb', 'cpu_percent', 'disk_mb', 'backup_limit']
 type Alert = 'alert_cpu_percent' | 'alert_memory_percent' | 'alert_minutes'
 const ALERTS: Alert[] = ['alert_cpu_percent', 'alert_memory_percent', 'alert_minutes']
-type Field = `default_${Resource}` | `max_${Resource}` | 'audit_retention_days' | Alert
-const FIELDS: Field[] = [...RESOURCES.flatMap((r) => [`default_${r}`, `max_${r}`] as Field[]), 'audit_retention_days', ...ALERTS]
+type History = 'file_history_days' | 'file_history_max_mb'
+const HISTORY: History[] = ['file_history_days', 'file_history_max_mb']
+type Field = `default_${Resource}` | `max_${Resource}` | 'audit_retention_days' | Alert | History
+const FIELDS: Field[] = [
+  ...RESOURCES.flatMap((r) => [`default_${r}`, `max_${r}`] as Field[]),
+  'audit_retention_days',
+  ...ALERTS,
+  ...HISTORY,
+]
 
 const { t, locale } = useI18n()
 const { can } = usePermissions()
@@ -102,6 +110,7 @@ async function save() {
       <Skeleton v-else-if="!settings" class="h-80" />
       <template v-else>
         <McpSettingsCard :settings="settings" :editable="editable" />
+        <SftpSettingsCard :settings="settings" :editable="editable" />
         <form class="grid gap-6" @submit.prevent="save">
           <Card>
             <CardHeader>
@@ -195,6 +204,26 @@ async function save() {
                 </NumberFieldContent>
               </NumberField>
               <p v-if="errors.audit_retention_days" class="text-xs text-destructive">{{ errors.audit_retention_days }}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{{ t('settings.fileHistory.title') }}</CardTitle>
+              <CardDescription>{{ t('settings.fileHistory.help') }}</CardDescription>
+            </CardHeader>
+            <CardContent class="grid gap-4 sm:grid-cols-2">
+              <div v-for="field in HISTORY" :key="field" class="grid gap-1.5">
+                <Label :for="field">{{ t(`settings.fileHistory.${field}`) }}</Label>
+                <NumberField v-model="form[field]" :min="0" :step-snapping="false" :locale="locale" :disabled="!editable">
+                  <NumberFieldContent>
+                    <NumberFieldDecrement />
+                    <NumberFieldInput :id="field" :aria-invalid="!!errors[field]" />
+                    <NumberFieldIncrement />
+                  </NumberFieldContent>
+                </NumberField>
+                <p v-if="errors[field]" class="text-xs text-destructive">{{ errors[field] }}</p>
+              </div>
             </CardContent>
           </Card>
 

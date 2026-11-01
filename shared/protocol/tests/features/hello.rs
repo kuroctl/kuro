@@ -18,6 +18,7 @@ fn hello_wire_format() {
                 cpu_cores: 8,
                 memory_bytes: 17_179_869_184,
             },
+            sftp: None,
         }),
     };
 

@@ -40,6 +40,14 @@ pub struct AppState {
     pub setup: crate::setup::SetupState,
     /// Envoi d'e-mails (ADR-0046) : réglages SMTP et client.
     pub mail: crate::mail::MailState,
+    /// Accès SFTP (ADR-0047) : clés des comptes, coordonnées des serveurs.
+    pub sftp: crate::sftp::SftpState,
+}
+
+impl FromRef<AppState> for crate::sftp::SftpState {
+    fn from_ref(state: &AppState) -> Self {
+        state.sftp.clone()
+    }
 }
 
 impl FromRef<AppState> for crate::mail::MailState {

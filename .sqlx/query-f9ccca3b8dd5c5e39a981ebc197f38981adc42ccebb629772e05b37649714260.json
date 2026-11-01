@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM sftp_audit_receipts WHERE received_at < now() - interval '7 days'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "f9ccca3b8dd5c5e39a981ebc197f38981adc42ccebb629772e05b37649714260"
+}

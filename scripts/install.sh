@@ -42,6 +42,8 @@ BIN_DIR=/usr/local/bin
 ADMIN_TOOL=/usr/local/sbin/kuro-api-admin
 API_UNIT=/etc/systemd/system/kuro-api.service
 DAEMON_UNIT=/etc/systemd/system/kuro-daemon.service
+SFTP_UNIT=/etc/systemd/system/kuro-sftp.service
+SFTP_HOST_KEY="$CONFIG_DIR/sftp_host_ed25519"
 SSH_DROPIN=/etc/ssh/sshd_config.d/50-kuro.conf
 
 roles=()
@@ -56,6 +58,8 @@ api=""
 fingerprint=""
 token_file=""
 ports=""
+sftp_port=2022
+sftp=true
 version="${KURO_VERSION:-latest}"
 
 usage() {
@@ -84,6 +88,8 @@ node:
   --ca-fingerprint  CA fingerprint shown when the node was added, required on first enrollment
   --token-file      File holding the enrollment token (otherwise: KURO_ENROLL_TOKEN)
   --ports           Port range of the game servers, opened by --full (e.g. 25565-25600)
+  --sftp-port       SFTP port of the node (default 2022), opened by --full
+  --no-sftp         Do not serve SFTP on this node
 
   --version         Version to install (default: latest stable)
 EOF
@@ -112,6 +118,8 @@ while [ $# -gt 0 ]; do
     --ca-fingerprint) fingerprint="${2:-}"; shift 2 ;;
     --token-file) token_file="${2:-}"; shift 2 ;;
     --ports) ports="${2:-}"; shift 2 ;;
+    --sftp-port) sftp_port="${2:-}"; shift 2 ;;
+    --no-sftp) sftp=false; shift ;;
     --version) version="${2:-}"; shift 2 ;;
     --token) fail "--token is not supported: use KURO_ENROLL_TOKEN or --token-file (kept out of the shell history)" ;;
     -h | --help) usage; exit 0 ;;
@@ -123,6 +131,9 @@ if [ ${#roles[@]} -eq 0 ] && [ -n "$DEFAULT_ROLES" ]; then
   read -r -a roles <<<"$DEFAULT_ROLES"
 fi
 [ ${#roles[@]} -gt 0 ] || { usage >&2; fail "choose a role: api, node, or both"; }
+if ! [[ "$sftp_port" =~ ^[0-9]{1,5}$ ]] || [ "$sftp_port" -lt 1 ] || [ "$sftp_port" -gt 65535 ]; then
+  fail "--sftp-port expects a port, e.g. 2022"
+fi
 if [ -n "$ports" ] && ! [[ "$ports" =~ ^[0-9]{1,5}(-[0-9]{1,5})?$ ]]; then
   fail "--ports expects a port or a range, e.g. 25565-25600"
 fi
@@ -241,6 +252,9 @@ print_plan() {
     elif has_role node; then
       echo "  firewall ufw: allow 80/tcp, 443/tcp (web sites proxy)"
     fi
+    if has_role node && $sftp; then
+      echo "  firewall ufw: allow $sftp_port/tcp (SFTP)"
+    fi
     if has_role node; then
       if [ -n "$ports" ]; then
         echo "  firewall ufw: allow game ports $ports (tcp and udp)"
@@ -337,6 +351,10 @@ configure_firewall() {
     # Proxy des sites web du nœud (ADR-0038) : HTTPS et défis ACME.
     ufw allow 80/tcp >/dev/null
     ufw allow 443/tcp >/dev/null
+  fi
+  if has_role node && $sftp; then
+    # SFTP des fichiers des serveurs (ADR-0047).
+    ufw allow "$sftp_port/tcp" >/dev/null
   fi
   if has_role node && [ -n "$ports" ]; then
     ufw allow "${ports/-/:}/tcp" >/dev/null
@@ -672,6 +690,12 @@ install_node() {
     "${enroll[@]}"
   fi
 
+  # SFTP (ADR-0047) : le daemon l'annonce et tient le socket, `kuro-sftp` sert le SSH.
+  local sftp_env=""
+  if $sftp; then
+    sftp_env="Environment=KURO_DAEMON_SFTP__BIND=0.0.0.0:$sftp_port"
+  fi
+
   step "installing the kuro-daemon systemd unit"
   cat >"$DAEMON_UNIT" <<EOF
 [Unit]
@@ -683,6 +707,7 @@ Requires=docker.service
 
 [Service]
 ExecStart=$BIN_DIR/kuro-daemon --config $DAEMON_CONFIG
+$sftp_env
 Restart=on-failure
 RestartSec=5
 # Root : socket Docker et attribution des fichiers des serveurs à leur utilisateur (ADR-0015).
@@ -691,6 +716,10 @@ ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
 ReadWritePaths=$DATA_DIR $CONFIG_DIR
+# Socket du processus SFTP (/run/kuro/sftp.sock), gardé entre deux redémarrages.
+RuntimeDirectory=kuro
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
 
 [Install]
 WantedBy=multi-user.target
@@ -699,6 +728,78 @@ EOF
   systemctl enable --quiet kuro-daemon
   systemctl restart kuro-daemon
   step "kuro-daemon $version is running: journalctl -u kuro-daemon -f"
+  if $sftp; then
+    install_sftp
+  elif [ -f "$SFTP_UNIT" ]; then
+    systemctl disable --now --quiet kuro-sftp || true
+    rm -f "$SFTP_UNIT"
+    systemctl daemon-reload
+  fi
+}
+
+# Processus SFTP (ADR-0047) : utilisateur dédié, hors du groupe docker, qui ne voit que les
+# données des serveurs, sa clé d'hôte (transmise par systemd) et le socket du daemon.
+install_sftp() {
+  if ! id -u kuro-sftp >/dev/null 2>&1; then
+    useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin kuro-sftp
+  fi
+  install -d -m 0711 "$DATA_DIR/servers"
+  # La clé d'hôte est créée par le daemon à son démarrage.
+  for _ in $(seq 1 15); do
+    [ -s "$SFTP_HOST_KEY" ] && break
+    sleep 1
+  done
+  [ -s "$SFTP_HOST_KEY" ] || fail "kuro-daemon did not create the SFTP host key ($SFTP_HOST_KEY)"
+
+  step "installing the kuro-sftp systemd unit"
+  cat >"$SFTP_UNIT" <<EOF
+[Unit]
+Description=Kuro SFTP
+Documentation=https://github.com/$KURO_REPO
+After=network-online.target kuro-daemon.service
+Wants=network-online.target
+
+[Service]
+User=kuro-sftp
+Group=kuro-sftp
+ExecStart=$BIN_DIR/kuro-daemon --config $DAEMON_CONFIG sftp
+Environment=KURO_DAEMON_SFTP__BIND=0.0.0.0:$sftp_port
+Restart=on-failure
+RestartSec=5
+LoadCredential=host-key:$SFTP_HOST_KEY
+# Écrire dans des volumes qui appartiennent aux utilisateurs des services, rien d'autre.
+AmbientCapabilities=CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE
+CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE
+NoNewPrivileges=yes
+TemporaryFileSystem=/:ro
+BindReadOnlyPaths=$BIN_DIR/kuro-daemon $DAEMON_CONFIG
+BindPaths=$DATA_DIR/servers /run/kuro
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+MemoryMax=512M
+TasksMax=512
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload
+  systemctl enable --quiet kuro-sftp
+  systemctl restart kuro-sftp
+  step "kuro-sftp is listening on port $sftp_port: journalctl -u kuro-sftp -f"
 }
 
 # --- Déroulé -------------------------------------------------------------------------------------

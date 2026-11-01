@@ -138,7 +138,9 @@ pub async fn update(
     Path(id): Path<Uuid>,
     Json(request): Json<UpdateRoleRequest>,
 ) -> Result<Json<RoleDto>, ApiError> {
-    let authority = session.require(&state, Permission::IamRolesManage).await?;
+    let authority = session
+        .require_elevated(&state, Permission::IamRolesManage)
+        .await?;
     let patch = RolePatch {
         name: request.name,
         description: request.description,
@@ -161,7 +163,9 @@ pub async fn delete(
     session: AdminSession,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
-    let authority = session.require(&state, Permission::IamRolesManage).await?;
+    let authority = session
+        .require_elevated(&state, Permission::IamRolesManage)
+        .await?;
     roles::delete(&state, &authority, &session.context, id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM sftp_keys WHERE id = $1 AND admin_id = $2 RETURNING fingerprint",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "fingerprint",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sftp_keys",
+            "name": "fingerprint"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "927730a476e7f6d6efaadc4263e6df203354e9ea7c18f6978d9a430fdf6ab0eb"
+}

@@ -130,7 +130,7 @@ async fn a_write_is_forwarded_and_audited_without_its_content() {
     let event = setup.platform.admin.last_audit("server.file_written").await;
     assert_eq!(
         event.details,
-        json!({ "path": "/server/data/server.properties", "size": 22 })
+        json!({ "path": "/server/data/server.properties", "size": 22, "via": "web" })
     );
     assert!(!event.details.to_string().contains("hunter2"));
 }
@@ -243,15 +243,15 @@ async fn directories_renames_and_deletions_are_audited() {
     let admin = &setup.platform.admin;
     assert_eq!(
         admin.last_audit("server.directory_created").await.details,
-        json!({ "path": "/server/data/plugins" })
+        json!({ "path": "/server/data/plugins", "via": "web" })
     );
     assert_eq!(
         admin.last_audit("server.file_renamed").await.details,
-        json!({ "from": "/server/data/plugins", "to": "/server/data/mods" })
+        json!({ "from": "/server/data/plugins", "to": "/server/data/mods", "via": "web" })
     );
     assert_eq!(
         admin.last_audit("server.file_deleted").await.details,
-        json!({ "path": "/server/data/mods" })
+        json!({ "path": "/server/data/mods", "via": "web" })
     );
 }
 
@@ -366,4 +366,228 @@ async fn reading_and_writing_require_their_permissions() {
     assert_eq!(write.status, StatusCode::FORBIDDEN);
     assert_eq!(write.json["params"]["permission"], "servers.files.write");
     assert_eq!(delete.status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn a_write_names_its_author_for_the_history() {
+    let mut setup = deployed().await;
+    let (_, request) = setup
+        .exchange(
+            Method::PUT,
+            "/files/content",
+            Some(json!({ "path": "/server/data/a.txt", "content": "x" })),
+            OK,
+            json!({ "status": "ok" }),
+        )
+        .await;
+    assert_eq!(request["payload"]["author"]["kind"], "admin");
+    assert!(request["payload"]["author"]["id"].is_string());
+}
+
+#[tokio::test]
+async fn the_history_of_a_file_is_listed_by_the_node() {
+    let mut setup = deployed().await;
+    let version = uuid::Uuid::now_v7();
+    let (response, request) = setup
+        .exchange(
+            Method::GET,
+            "/files/history?path=/server/data/server.properties",
+            None,
+            "file.versions",
+            json!({ "versions": [{
+                "id": version, "at_ms": 1000, "size": 10, "sha256": "ab", "reason": "write",
+                "channel": "sftp", "author": { "kind": "admin", "id": version }
+            }] }),
+        )
+        .await;
+
+    assert_eq!(response.status, StatusCode::OK, "{}", response.json);
+    assert_eq!(request["type"], "file.history");
+    assert_eq!(
+        response.json["versions"][0],
+        json!({
+            "id": version, "at_ms": 1000, "size": 10, "sha256": "ab", "reason": "write",
+            "channel": "sftp", "author_kind": "admin", "author_id": version
+        })
+    );
+}
+
+#[tokio::test]
+async fn a_version_is_read_then_restored_and_the_restore_is_audited() {
+    let mut setup = deployed().await;
+    let version = uuid::Uuid::now_v7();
+    let (response, request) = setup
+        .exchange(
+            Method::GET,
+            &format!("/files/history/{version}?path=/server/data/server.properties"),
+            None,
+            "file.content",
+            json!({ "content": "motd=old\n", "size": 9, "modified_ms": 0, "sha256": "ab" }),
+        )
+        .await;
+    assert_eq!(response.status, StatusCode::OK, "{}", response.json);
+    assert_eq!(request["type"], "file.version.read");
+    assert_eq!(request["payload"]["version"], json!(version));
+    assert_eq!(response.json["content"], "motd=old\n");
+
+    let (response, request) = setup
+        .exchange(
+            Method::POST,
+            &format!("/files/history/{version}/restore"),
+            Some(json!({ "path": "/server/data/server.properties" })),
+            OK,
+            json!({ "status": "ok" }),
+        )
+        .await;
+    assert_eq!(response.status, StatusCode::NO_CONTENT, "{}", response.json);
+    assert_eq!(request["type"], "file.restore");
+    assert_eq!(request["payload"]["author"]["kind"], "admin");
+    let event = setup
+        .platform
+        .admin
+        .last_audit("server.file_restored")
+        .await;
+    assert_eq!(
+        event.details,
+        json!({ "path": "/server/data/server.properties", "version": version, "via": "web" })
+    );
+}
+
+#[tokio::test]
+async fn an_unknown_version_is_not_found() {
+    let mut setup = deployed().await;
+    let (response, _) = setup
+        .exchange(
+            Method::POST,
+            &format!("/files/history/{}/restore", uuid::Uuid::now_v7()),
+            Some(json!({ "path": "/server/data/server.properties" })),
+            OK,
+            refused("not_found"),
+        )
+        .await;
+    assert_eq!(response.status, StatusCode::NOT_FOUND, "{}", response.json);
+    assert_eq!(response.json["code"], "file_not_found");
+}
+
+#[tokio::test]
+async fn restoring_requires_the_write_permission_and_reading_the_history_the_read_one() {
+    let setup = deployed().await;
+    let admin = &setup.platform.admin;
+    let reader = admin
+        .account("history@example.com", &[Permission::ServersFilesRead])
+        .await;
+    let token = admin.login(&reader).await.access_token;
+    let restore = admin
+        .call(
+            Method::POST,
+            &setup.url(&format!("/files/history/{}/restore", uuid::Uuid::now_v7())),
+            Some(&token),
+            Some(json!({ "path": "/server/data/a" })),
+        )
+        .await;
+    assert_eq!(restore.status, StatusCode::FORBIDDEN);
+    assert_eq!(restore.json["params"]["permission"], "servers.files.write");
+
+    let nobody = admin.account("nobody@example.com", &[]).await;
+    let token = admin.login(&nobody).await.access_token;
+    let history = admin
+        .call(
+            Method::GET,
+            &setup.url("/files/history?path=/server/data/a"),
+            Some(&token),
+            None,
+        )
+        .await;
+    assert_eq!(history.status, StatusCode::FORBIDDEN);
+    assert_eq!(history.json["params"]["permission"], "servers.files.read");
+}
+
+#[tokio::test]
+async fn deleted_files_of_a_folder_are_listed_by_the_node() {
+    let mut setup = deployed().await;
+    let version = uuid::Uuid::now_v7();
+    let (response, request) = setup
+        .exchange(
+            Method::GET,
+            "/files/deleted?path=/server/data",
+            None,
+            "file.deleted_list",
+            json!({ "files": [{ "path": "/server/data/old.yml", "version": {
+                "id": version, "at_ms": 1000, "size": 3, "sha256": "ab", "reason": "delete",
+                "channel": "web"
+            } }] }),
+        )
+        .await;
+    assert_eq!(response.status, StatusCode::OK, "{}", response.json);
+    assert_eq!(request["type"], "file.history.deleted");
+    assert_eq!(request["payload"]["dir"], "/server/data");
+    assert_eq!(response.json["files"][0]["path"], "/server/data/old.yml");
+    assert_eq!(response.json["files"][0]["version"]["reason"], "delete");
+}
+
+#[tokio::test]
+async fn a_new_history_retention_reaches_the_nodes_and_is_journaled() {
+    let mut setup = deployed().await;
+    let (response, command) = tokio::join!(
+        setup.platform.call(
+            Method::PATCH,
+            "/settings",
+            Some(json!({ "file_history_days": 7, "file_history_max_mb": 50 })),
+        ),
+        async {
+            loop {
+                let message = crate::support::link::recv(&mut setup.daemon.ws)
+                    .await
+                    .expect("link closed");
+                if message["type"] == "node.settings" {
+                    break message;
+                }
+            }
+        }
+    );
+    assert_eq!(response.status, StatusCode::OK, "{}", response.json);
+    assert_eq!(response.json["file_history_days"], 7);
+    assert_eq!(
+        command["payload"],
+        json!({ "file_history": { "days": 7, "max_mb": 50 } })
+    );
+    let event = setup
+        .platform
+        .admin
+        .last_audit("system.settings_updated")
+        .await;
+    assert_eq!(
+        event.details["changed"]["file_history_days"],
+        json!({ "from": 30, "to": 7 })
+    );
+
+    let refused = setup
+        .platform
+        .call(
+            Method::PATCH,
+            "/settings",
+            Some(json!({ "file_history_days": 366 })),
+        )
+        .await;
+    assert_eq!(refused.status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(refused.json["fields"][0]["field"], "file_history_days");
+}
+
+#[tokio::test]
+async fn a_node_learns_the_history_retention_when_it_connects() {
+    let platform = crate::support::platform::Platform::start().await;
+    platform
+        .call(
+            Method::PATCH,
+            "/settings",
+            Some(json!({ "file_history_days": 0 })),
+        )
+        .await;
+    let node = platform.api.enroll_node("node-x").await;
+    let mut ws = platform.api.connect(&node).await;
+    let ack = crate::support::link::say_hello(&mut ws).await;
+    assert_eq!(
+        ack["payload"]["file_history"],
+        json!({ "days": 0, "max_mb": 100 })
+    );
 }

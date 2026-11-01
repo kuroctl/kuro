@@ -59,6 +59,10 @@ error_codes! {
     InvalidCode => "invalid_code", "Invalid code";
     TotpAlreadyEnabled => "totp_already_enabled", "TOTP is already enabled";
     TotpSetupNotStarted => "totp_setup_not_started", "TOTP setup has not been started";
+    TotpNotEnabled => "totp_not_enabled", "TOTP is not enabled";
+    TotpCodeRequired => "totp_code_required", "A TOTP or recovery code is required";
+    TotpRequiredByPolicy => "totp_required_by_policy", "TOTP is required on this platform";
+    ElevationRequired => "elevation_required", "Confirm your identity to perform this action";
 
     // Comptes et rôles
     InvalidEmail => "invalid_email", "Invalid email address";
@@ -73,6 +77,11 @@ error_codes! {
     InvalidMailHost => "invalid_mail_host", "Invalid SMTP host";
     InvalidMailAddress => "invalid_mail_address", "Invalid e-mail address";
     InvalidMailField => "invalid_mail_field", "Invalid value";
+    // SFTP (ADR-0047)
+    SshKeyInvalid => "ssh_key_invalid", "Not an OpenSSH public key";
+    SshKeyUnsupported => "ssh_key_unsupported", "Unsupported SSH key type: use ed25519 or ECDSA";
+    SshKeyExists => "ssh_key_exists", "This SSH key is already registered";
+    SshKeyNotFound => "ssh_key_not_found", "No such SSH key";
     InvalidRecipients => "invalid_recipients", "1 to 20 valid e-mail addresses are expected";
     UserDisabled => "user_disabled", "The account is disabled";
     WeakPassword => "weak_password", "Password does not meet the policy";

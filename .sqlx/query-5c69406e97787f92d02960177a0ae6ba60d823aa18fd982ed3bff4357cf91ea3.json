@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (\n                   SELECT 1 FROM admin_password_resets\n                   WHERE user_id = $1 AND created_at > now() - make_interval(secs => $2)\n               ) AS \"recent!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "recent!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5c69406e97787f92d02960177a0ae6ba60d823aa18fd982ed3bff4357cf91ea3"
+}

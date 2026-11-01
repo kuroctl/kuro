@@ -166,7 +166,7 @@ pub async fn put_mail(
     Json(request): Json<MailSettingsRequest>,
 ) -> Result<Json<MailSettingsDto>, ApiError> {
     session
-        .require(&iam, Permission::SystemSettingsUpdate)
+        .require_elevated(&iam, Permission::SystemSettingsUpdate)
         .await?;
     let view = mail
         .set(
@@ -195,7 +195,7 @@ pub async fn delete_mail(
     session: AdminSession,
 ) -> Result<StatusCode, ApiError> {
     session
-        .require(&iam, Permission::SystemSettingsUpdate)
+        .require_elevated(&iam, Permission::SystemSettingsUpdate)
         .await?;
     mail.remove(&session.context).await?;
     Ok(StatusCode::NO_CONTENT)

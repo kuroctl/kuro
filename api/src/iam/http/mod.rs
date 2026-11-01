@@ -24,8 +24,10 @@ pub use session::AdminSession;
 #[openapi(
     paths(
         auth::login, auth::change_required_password, auth::verify_totp, auth::start_totp_setup, auth::confirm_totp,
-        auth::refresh, auth::logout, auth::accept_invitation,
-        me::get, me::change_password,
+        auth::refresh, auth::logout, auth::accept_invitation, auth::forgot_password,
+        auth::reset_password,
+        me::get, me::change_password, me::start_totp_setup, me::confirm_totp,
+        me::regenerate_recovery_codes, me::disable_totp, me::elevate,
         permissions::catalog,
         roles::list, roles::get, roles::create, roles::update, roles::delete,
         users::list, users::get, users::create, users::update, users::delete,
@@ -69,6 +71,8 @@ where
         .route("/auth/login", post(auth::login))
         .route("/auth/password", post(auth::change_required_password))
         .route("/auth/invitation", post(auth::accept_invitation))
+        .route("/auth/password/forgot", post(auth::forgot_password))
+        .route("/auth/password/reset", post(auth::reset_password))
         .route("/auth/totp/verify", post(auth::verify_totp))
         .route("/auth/totp/setup", post(auth::start_totp_setup))
         .route("/auth/totp/confirm", post(auth::confirm_totp))
@@ -79,6 +83,14 @@ where
         .route("/auth/logout", post(auth::logout))
         .route("/me", get(me::get))
         .route("/me/password", put(me::change_password))
+        .route("/me/elevate", post(me::elevate))
+        .route("/me/totp", delete(me::disable_totp))
+        .route("/me/totp/setup", post(me::start_totp_setup))
+        .route("/me/totp/confirm", post(me::confirm_totp))
+        .route(
+            "/me/totp/recovery-codes",
+            post(me::regenerate_recovery_codes),
+        )
         .route("/permissions", get(permissions::catalog))
         .route("/roles", get(roles::list).post(roles::create))
         .route(

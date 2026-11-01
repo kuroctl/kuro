@@ -28,6 +28,9 @@ pub struct FileWrite {
     /// Absente : écriture inconditionnelle (création, écrasement voulu).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub if_sha256: Option<String>,
+    /// Qui écrit : repris dans l'historique du fichier (ADR-0049). Absent d'une API plus ancienne.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<FileAuthor>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,6 +52,8 @@ pub struct FileRename {
 pub struct FileDelete {
     pub server_id: Uuid,
     pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<FileAuthor>,
 }
 
 /// Début d'un envoi de fichier binaire (ADR-0020) : le daemon prépare un fichier temporaire,
@@ -60,6 +65,8 @@ pub struct FileUpload {
     pub path: String,
     /// Taille annoncée ; un morceau qui la dépasse est refusé.
     pub size: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<FileAuthor>,
 }
 
 /// Morceau d'un envoi, dans l'ordre (`offset`). Le dernier (`eof`) porte le SHA-256 calculé
@@ -75,4 +82,60 @@ pub struct FileUploadChunk {
     pub eof: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sha256: Option<String>,
+}
+
+/// Auteur d'une écriture, gardé avec la version qu'elle remplace (ADR-0049) : un identifiant,
+/// jamais une adresse e-mail.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileAuthor {
+    pub kind: AuthorKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<Uuid>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthorKind {
+    Admin,
+    Customer,
+    Agent,
+    System,
+    #[serde(other)]
+    Other,
+}
+
+/// Versions gardées d'un fichier, de la plus récente à la plus ancienne ; réponse
+/// `file.versions`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileHistory {
+    pub server_id: Uuid,
+    pub path: String,
+}
+
+/// Contenu texte d'une version ; réponse `file.content` (refus `not_text` pour un binaire).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileVersionRead {
+    pub server_id: Uuid,
+    pub path: String,
+    pub version: Uuid,
+}
+
+/// Remet une version à la place du fichier ; la version actuelle est gardée avant (la
+/// restauration s'annule comme une autre écriture).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileRestore {
+    pub server_id: Uuid,
+    pub path: String,
+    pub version: Uuid,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<FileAuthor>,
+}
+
+/// Fichiers d'un dossier supprimés dont une version est encore gardée ; réponse
+/// `file.deleted_list`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileHistoryDeleted {
+    pub server_id: Uuid,
+    /// Dossier (`/<service>/<volume>/…`) : seuls ses fichiers directs sont rendus.
+    pub dir: String,
 }

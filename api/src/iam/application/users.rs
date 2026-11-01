@@ -25,8 +25,8 @@ use crate::iam::domain::{
     is_valid_display_name,
 };
 use crate::iam::infra::{
-    AdminUserRecord, InvitationRepository, RoleRef, RoleRepository, SessionRepository,
-    UserRepository,
+    AdminUserRecord, InvitationRepository, RecoveryCodeRepository, RoleRef, RoleRepository,
+    SessionRepository, UserRepository,
 };
 
 #[derive(Debug, Clone)]
@@ -51,6 +51,10 @@ pub struct Profile {
     pub user: AdminUser,
     pub permissions: Vec<Permission>,
     pub all_permissions: bool,
+    /// La plateforme exige le TOTP (`auth.require_totp`) : il ne peut pas être retiré.
+    pub totp_required: bool,
+    /// Codes de secours encore utilisables.
+    pub recovery_codes_remaining: i64,
 }
 
 #[derive(Debug)]
@@ -90,11 +94,16 @@ pub async fn find_by_email(state: &IamState, email: &str) -> Result<AdminUser, I
 }
 
 pub async fn profile(state: &IamState, principal: &Principal) -> Result<Profile, IamError> {
-    let user = get(state, principal.user_id).await?;
+    let mut conn = state.pool.acquire().await?;
+    let user = load(&mut conn, principal.user_id).await?;
+    let recovery_codes_remaining =
+        RecoveryCodeRepository::remaining(&mut conn, principal.user_id).await?;
     Ok(Profile {
         user,
         permissions: principal.permissions.effective(),
         all_permissions: principal.permissions.is_all(),
+        totp_required: state.settings.require_totp,
+        recovery_codes_remaining,
     })
 }
 
@@ -312,6 +321,7 @@ pub async fn reset_totp(
     load(&mut tx, id).await?;
     ensure_manageable(&mut tx, authority, id).await?;
     UserRepository::reset_totp(&mut tx, id).await?;
+    RecoveryCodeRepository::delete_all(&mut tx, id).await?;
     SessionRepository::revoke_user(&mut tx, id, None).await?;
     tx.commit(AuditEvent::success(AuditAction::UserTotpReset).target("admin_user", id))
         .await?;

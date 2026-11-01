@@ -253,7 +253,9 @@ pub async fn put_settings(
     session: AdminSession,
     Json(request): Json<DnsSettingsRequest>,
 ) -> Result<Json<DnsSettingsDto>, ApiError> {
-    session.require(&iam, Permission::SystemDnsManage).await?;
+    session
+        .require_elevated(&iam, Permission::SystemDnsManage)
+        .await?;
     dns::configure(
         &state,
         &session.context,
@@ -279,7 +281,9 @@ pub async fn delete_settings(
     State(state): State<DnsState>,
     session: AdminSession,
 ) -> Result<StatusCode, ApiError> {
-    session.require(&iam, Permission::SystemDnsManage).await?;
+    session
+        .require_elevated(&iam, Permission::SystemDnsManage)
+        .await?;
     dns::remove(&state, &session.context).await?;
     Ok(StatusCode::NO_CONTENT)
 }

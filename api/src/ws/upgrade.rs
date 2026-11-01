@@ -1,8 +1,8 @@
 //! `GET /api/daemon` : poignée de main WebSocket, réservée aux nœuds enrôlés.
 
 use axum::Extension;
-use axum::extract::State;
 use axum::extract::ws::WebSocketUpgrade;
+use axum::extract::{ConnectInfo, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use kuro_protocol::limits::MAX_MESSAGE_BYTES;
@@ -16,6 +16,7 @@ use crate::nodes::domain::NodeStatus;
 pub(super) async fn daemon_socket(
     State(state): State<ListenerState>,
     Extension(peer): Extension<PeerCertificate>,
+    ConnectInfo(address): ConnectInfo<std::net::SocketAddr>,
     upgrade: WebSocketUpgrade,
 ) -> Response {
     let Some(fingerprint) = peer.0 else {
@@ -58,7 +59,7 @@ pub(super) async fn daemon_socket(
         .max_frame_size(MAX_MESSAGE_BYTES)
         .on_upgrade(move |socket| {
             async move {
-                session::run(socket, node, &state.link, &state.shutdown).await;
+                session::run(socket, node, address.ip(), &state.link, &state.shutdown).await;
             }
             .instrument(connection_span)
         })

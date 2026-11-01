@@ -138,6 +138,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/auth/password/forgot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mot de passe oublié (ADR-0049) : envoie un lien de réinitialisation, valable 30 minutes, si
+         *     l'adresse est celle d'un compte actif et qu'un SMTP est réglé. Réponse identique dans tous
+         *     les cas, pour ne pas révéler les comptes.
+         */
+        post: operations["forgot_password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/auth/password/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Utilise un lien « mot de passe oublié » : pose le nouveau mot de passe, ferme les sessions,
+         *     puis répond comme `login` (TOTP attendu s'il est configuré). Jeton inconnu, expiré ou déjà
+         *     utilisé : `403`.
+         */
+        post: operations["reset_password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -167,7 +209,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Confirme le TOTP avec un premier code et ouvre la session. */
+        /** Confirme le TOTP avec un premier code, délivre les codes de secours et ouvre la session. */
         post: operations["confirm_totp"];
         delete?: never;
         options?: never;
@@ -201,7 +243,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Code TOTP après un mot de passe valide. */
+        /** Code TOTP (ou code de secours) après un mot de passe valide. */
         post: operations["verify_totp"];
         delete?: never;
         options?: never;
@@ -260,6 +302,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/me/elevate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Élève la session pour les actions protégées (`403 elevation_required`). Aucune permission
+         *     requise.
+         */
+        post: operations["elevate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/me/password": {
         parameters: {
             query?: never;
@@ -271,6 +333,121 @@ export interface paths {
         /** Change son mot de passe ; les autres sessions sont fermées. Aucune permission requise. */
         put: operations["change_password"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/me/ssh-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Clés SSH du compte connecté. Aucune permission requise. */
+        get: operations["list_keys"];
+        put?: never;
+        /**
+         * Ajoute une clé SSH au compte connecté (ed25519 ou ECDSA). Aucune permission requise :
+         *     ouvrir une session SFTP exige en plus `servers.files.sftp`.
+         */
+        post: operations["add_key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/me/ssh-keys/{key_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retire une clé du compte connecté ; les sessions qui l'utilisent ferment au bail suivant. */
+        delete: operations["remove_key"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/me/totp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Retire son TOTP et ses codes de secours, si la plateforme ne l'exige pas. Aucune permission
+         *     requise.
+         */
+        delete: operations["disable_totp"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/me/totp/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Active le TOTP en attente par un premier code et délivre de nouveaux codes de secours. Un
+         *     remplacement ferme les autres sessions. Aucune permission requise.
+         */
+        post: operations["confirm_totp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/me/totp/recovery-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remplace ses codes de secours. Aucune permission requise. */
+        post: operations["regenerate_recovery_codes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/me/totp/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Commence la configuration de son TOTP : premier TOTP, ou remplacement (code actuel exigé).
+         *     Le secret attend sa confirmation par `/me/totp/confirm`. Aucune permission requise.
+         */
+        post: operations["start_totp_setup"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1418,6 +1595,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/servers/{id}/files/deleted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fichiers supprimés d'un dossier dont une version est gardée (restaurables par
+         *     `…/history/{version}/restore`). Permission : `servers.files.read`.
+         */
+        get: operations["deleted"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/servers/{id}/files/directories": {
         parameters: {
             query?: never;
@@ -1429,6 +1626,63 @@ export interface paths {
         put?: never;
         /** Crée un dossier. Permission : `servers.files.write`. */
         post: operations["mkdir"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/servers/{id}/files/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Versions gardées d'un fichier, de la plus récente à la plus ancienne. Permission :
+         *     `servers.files.read`.
+         */
+        get: operations["history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/servers/{id}/files/history/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Contenu texte d'une version. Permission : `servers.files.read`. */
+        get: operations["version"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/servers/{id}/files/history/{version}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remet une version à la place du fichier ; la version remplacée est gardée (la restauration
+         *     s'annule). Permission : `servers.files.write`.
+         */
+        post: operations["restore"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1751,6 +2005,23 @@ export interface paths {
          *     Permission : `servers.update`.
          */
         patch: operations["update_settings"];
+        trace?: never;
+    };
+    "/api/admin/v1/servers/{id}/sftp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Coordonnées SFTP du serveur pour le compte connecté. Permission : `servers.files.sftp`. */
+        get: operations["get_connection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/admin/v1/servers/{id}/suspend": {
@@ -2584,6 +2855,11 @@ export interface components {
             output: string;
             truncated: boolean;
         };
+        AddSshKeyRequest: {
+            name: string;
+            /** @description Ligne OpenSSH : `ssh-ed25519 AAAA… commentaire`. */
+            public_key: string;
+        };
         AddressRequest: {
             ipv4?: string | null;
             ipv6?: string | null;
@@ -3158,6 +3434,15 @@ export interface components {
             /** @description Mot de passe temporaire, 12 caractères minimum ; absent avec `invite`. */
             password?: string | null;
         };
+        /** @description Fichier supprimé d'un dossier, avec sa dernière version gardée. */
+        DeletedFileDto: {
+            path: string;
+            version: components["schemas"]["FileVersionDto"];
+        };
+        DeletedFilesDto: {
+            files: components["schemas"]["DeletedFileDto"][];
+            path: string;
+        };
         DeliveryDto: {
             /** Format: int32 */
             attempts: number;
@@ -3295,6 +3580,22 @@ export interface components {
             /** @description JSON de l'egg, `PTDL_v1` ou `PTDL_v2` (512 Kio au plus). */
             text: string;
         };
+        /**
+         * @description Élévation de la session (ADR-0050) : mot de passe si le compte n'a pas de TOTP, code TOTP ou
+         *     code de secours sinon.
+         */
+        ElevateRequest: {
+            /** @description Code TOTP ou code de secours ; exigé si le TOTP est actif. */
+            code?: string | null;
+            password?: string | null;
+        };
+        ElevationResponse: {
+            /**
+             * Format: int64
+             * @description Secondes pendant lesquelles les actions protégées passent sans nouvelle preuve.
+             */
+            expires_in: number;
+        };
         EnrollRequest: {
             /** @description Demande de certificat (PKCS#10, PEM) générée sur l'hôte. */
             csr_pem: string;
@@ -3321,7 +3622,7 @@ export interface components {
             token: string;
         };
         /** @enum {string} */
-        ErrorCode: "validation_failed" | "invalid_body" | "invalid_parameter" | "empty_patch" | "not_found" | "unauthorized" | "forbidden" | "internal_error" | "rate_limited" | "request_timeout" | "invalid_credentials" | "invalid_challenge" | "invalid_code" | "totp_already_enabled" | "totp_setup_not_started" | "invalid_email" | "invalid_display_name" | "invalid_project_name" | "setup_done" | "setup_token_unavailable" | "mail_not_configured" | "mail_send_failed" | "invalid_mail_host" | "invalid_mail_address" | "invalid_mail_field" | "invalid_recipients" | "user_disabled" | "weak_password" | "password_unchanged" | "email_taken" | "cannot_disable_self" | "cannot_delete_self" | "cannot_change_own_roles" | "use_own_password_change" | "cannot_reset_own_totp" | "insufficient_permissions_for_target" | "insufficient_permissions_for_role" | "cannot_grant_permissions_you_lack" | "last_super_admin" | "unknown_role" | "invalid_role_name" | "invalid_description" | "invalid_color" | "role_name_taken" | "system_role" | "unknown_permission" | "permission_not_assignable" | "invalid_node_name" | "node_name_taken" | "unknown_region" | "invalid_region_slug" | "invalid_region_name" | "region_slug_taken" | "region_not_empty" | "invalid_coordinates" | "invalid_location" | "invalid_reason" | "node_not_pending" | "node_already_revoked" | "node_not_enrolled" | "node_online" | "invalid_token" | "invalid_csr" | "already_enrolled" | "client_certificate_required" | "unknown_node" | "node_revoked" | "invalid_port_range" | "invalid_ip" | "no_free_allocation" | "unknown_allocation" | "allocation_taken" | "allocation_in_use" | "node_has_servers" | "unknown_prefab" | "invalid_prefab" | "prefab_exists" | "store_unavailable" | "store_untrusted" | "store_corrupted" | "prefab_in_use" | "invalid_setting" | "setting_not_editable" | "invalid_server_name" | "invalid_resources" | "node_offline" | "daemon_too_old" | "console_held_elsewhere" | "node_not_for_trials" | "prefab_draft_needs_test_node" | "dns_not_configured" | "invalid_domain" | "invalid_dns_label" | "dns_label_taken" | "dns_label_reserved" | "invalid_sites_domain" | "sites_domain_not_configured" | "invalid_ip_address" | "unknown_dns_provider" | "dns_token_required" | "dns_provider_unauthorized" | "dns_zone_not_found" | "dns_provider_unavailable" | "upgrade_blocked" | "upgrade_not_newer" | "oauth_no_scope" | "server_busy" | "server_not_running" | "invalid_command" | "unknown_action" | "invalid_action_param" | "action_not_schedulable" | "invalid_path" | "file_not_found" | "file_exists" | "file_conflict" | "file_not_text" | "file_too_large" | "backup_not_found" | "invalid_backup_name" | "backups_disabled" | "backup_limit_reached" | "backup_in_progress" | "backup_not_ready" | "backup_locked" | "schedule_not_found" | "invalid_metrics_range" | "notification_channel_not_found" | "notification_rule_not_found" | "invalid_notification_name" | "invalid_notification_channel_kind" | "invalid_notification_language" | "invalid_webhook_url" | "invalid_notification_scope" | "invalid_notification_events" | "invalid_notification_channels" | "invalid_schedule_name" | "invalid_cron" | "invalid_timezone" | "invalid_schedule_step" | "schedule_limit_reached" | "schedule_running" | "resource_above_ceiling" | "resource_below_prefab_minimum" | "disk_quota_exceeded" | "server_suspended" | "content_slot_not_found" | "content_not_supported" | "game_version_not_pinned" | "content_not_found" | "content_already_installed" | "content_incompatible" | "content_required" | "content_up_to_date" | "provider_unavailable" | "modpack_installed" | "content_in_modpack" | "invalid_modpack" | "content_distribution_forbidden" | "content_source_unsupported" | "upload_not_accepted" | "content_value_required" | "invalid_content_value" | "unknown_content_source" | "content_source_not_configured" | "content_source_key_required" | "content_source_unauthorized" | "steam_account_required" | "steam_account_not_configured" | "steam_account_username_invalid" | "steam_account_password_invalid" | "steam_game_missing" | "steam_game_not_found" | "value_out_of_range" | "daemon_timeout" | "daemon_error";
+        ErrorCode: "validation_failed" | "invalid_body" | "invalid_parameter" | "empty_patch" | "not_found" | "unauthorized" | "forbidden" | "internal_error" | "rate_limited" | "request_timeout" | "invalid_credentials" | "invalid_challenge" | "invalid_code" | "totp_already_enabled" | "totp_setup_not_started" | "totp_not_enabled" | "totp_code_required" | "totp_required_by_policy" | "elevation_required" | "invalid_email" | "invalid_display_name" | "invalid_project_name" | "setup_done" | "setup_token_unavailable" | "mail_not_configured" | "mail_send_failed" | "invalid_mail_host" | "invalid_mail_address" | "invalid_mail_field" | "ssh_key_invalid" | "ssh_key_unsupported" | "ssh_key_exists" | "ssh_key_not_found" | "invalid_recipients" | "user_disabled" | "weak_password" | "password_unchanged" | "email_taken" | "cannot_disable_self" | "cannot_delete_self" | "cannot_change_own_roles" | "use_own_password_change" | "cannot_reset_own_totp" | "insufficient_permissions_for_target" | "insufficient_permissions_for_role" | "cannot_grant_permissions_you_lack" | "last_super_admin" | "unknown_role" | "invalid_role_name" | "invalid_description" | "invalid_color" | "role_name_taken" | "system_role" | "unknown_permission" | "permission_not_assignable" | "invalid_node_name" | "node_name_taken" | "unknown_region" | "invalid_region_slug" | "invalid_region_name" | "region_slug_taken" | "region_not_empty" | "invalid_coordinates" | "invalid_location" | "invalid_reason" | "node_not_pending" | "node_already_revoked" | "node_not_enrolled" | "node_online" | "invalid_token" | "invalid_csr" | "already_enrolled" | "client_certificate_required" | "unknown_node" | "node_revoked" | "invalid_port_range" | "invalid_ip" | "no_free_allocation" | "unknown_allocation" | "allocation_taken" | "allocation_in_use" | "node_has_servers" | "unknown_prefab" | "invalid_prefab" | "prefab_exists" | "store_unavailable" | "store_untrusted" | "store_corrupted" | "prefab_in_use" | "invalid_setting" | "setting_not_editable" | "invalid_server_name" | "invalid_resources" | "node_offline" | "daemon_too_old" | "console_held_elsewhere" | "node_not_for_trials" | "prefab_draft_needs_test_node" | "dns_not_configured" | "invalid_domain" | "invalid_dns_label" | "dns_label_taken" | "dns_label_reserved" | "invalid_sites_domain" | "sites_domain_not_configured" | "invalid_ip_address" | "unknown_dns_provider" | "dns_token_required" | "dns_provider_unauthorized" | "dns_zone_not_found" | "dns_provider_unavailable" | "upgrade_blocked" | "upgrade_not_newer" | "oauth_no_scope" | "server_busy" | "server_not_running" | "invalid_command" | "unknown_action" | "invalid_action_param" | "action_not_schedulable" | "invalid_path" | "file_not_found" | "file_exists" | "file_conflict" | "file_not_text" | "file_too_large" | "backup_not_found" | "invalid_backup_name" | "backups_disabled" | "backup_limit_reached" | "backup_in_progress" | "backup_not_ready" | "backup_locked" | "schedule_not_found" | "invalid_metrics_range" | "notification_channel_not_found" | "notification_rule_not_found" | "invalid_notification_name" | "invalid_notification_channel_kind" | "invalid_notification_language" | "invalid_webhook_url" | "invalid_notification_scope" | "invalid_notification_events" | "invalid_notification_channels" | "invalid_schedule_name" | "invalid_cron" | "invalid_timezone" | "invalid_schedule_step" | "schedule_limit_reached" | "schedule_running" | "resource_above_ceiling" | "resource_below_prefab_minimum" | "disk_quota_exceeded" | "server_suspended" | "content_slot_not_found" | "content_not_supported" | "game_version_not_pinned" | "content_not_found" | "content_already_installed" | "content_incompatible" | "content_required" | "content_up_to_date" | "provider_unavailable" | "modpack_installed" | "content_in_modpack" | "invalid_modpack" | "content_distribution_forbidden" | "content_source_unsupported" | "upload_not_accepted" | "content_value_required" | "invalid_content_value" | "unknown_content_source" | "content_source_not_configured" | "content_source_key_required" | "content_source_unauthorized" | "steam_account_required" | "steam_account_not_configured" | "steam_account_username_invalid" | "steam_account_password_invalid" | "steam_game_missing" | "steam_game_not_found" | "value_out_of_range" | "daemon_timeout" | "daemon_error";
         FacetValueDto: {
             count: number;
             /** @description Libellé : nom du nœud, ou dernière version du prefab (pour son icône). */
@@ -3358,6 +3659,10 @@ export interface components {
             /** Format: int64 */
             size: number;
         };
+        FileHistoryDto: {
+            path: string;
+            versions: components["schemas"]["FileVersionDto"][];
+        };
         /** @enum {string} */
         FileKindDto: "file" | "directory" | "symlink" | "other";
         FileListingDto: {
@@ -3365,6 +3670,32 @@ export interface components {
             path: string;
             /** @description Le dossier compte plus d'entrées que le nœud n'en envoie : seules les premières sont là. */
             truncated: boolean;
+        };
+        /** @description Version gardée d'un fichier (ADR-0049) : son contenu avant l'écriture décrite. */
+        FileVersionDto: {
+            /**
+             * Format: int64
+             * @description Moment où elle a été remplacée (millisecondes Unix).
+             */
+            at_ms: number;
+            /** Format: uuid */
+            author_id?: string | null;
+            /** @description `admin`, `customer`, `agent`, `system` ; absent si inconnu. */
+            author_kind?: string | null;
+            /** @description `web`, `sftp`, `kuro`, ou `other`. */
+            channel: string;
+            /** Format: uuid */
+            id: string;
+            /** @description `write`, `delete`, `restore`, `start` (réécrite au démarrage), ou `other`. */
+            reason: string;
+            sha256: string;
+            /** Format: int64 */
+            size: number;
+        };
+        /** @description Demande d'un lien « mot de passe oublié ». */
+        ForgotPasswordRequest: {
+            /** @example admin@example.com */
+            email: string;
         };
         GrantDto: {
             client_id: string;
@@ -3596,6 +3927,12 @@ export interface components {
             /** @description Plus petite que la convention : jamais agrandie, à remplacer par une image plus grande. */
             small: boolean;
         };
+        /** @description Lien « mot de passe oublié » utilisé : le jeton du lien et le nouveau mot de passe. */
+        PasswordResetLinkRequest: {
+            /** @description 12 caractères minimum. */
+            password: string;
+            token: string;
+        };
         /** @description Changements de contenu en attente du prochain démarrage. */
         PendingChangesDto: {
             /**
@@ -3617,7 +3954,7 @@ export interface components {
             sensitive: boolean;
         };
         /** @enum {string} */
-        PermissionKey: "iam.users.read" | "iam.users.create" | "iam.users.update" | "iam.users.delete" | "iam.users.credentials" | "iam.roles.read" | "iam.roles.manage" | "iam.roles.assign" | "audit.read" | "nodes.read" | "nodes.create" | "nodes.update" | "nodes.regions.manage" | "nodes.enrollment" | "nodes.revoke" | "nodes.delete" | "nodes.allocations.read" | "nodes.allocations.manage" | "servers.read" | "servers.create" | "servers.update" | "servers.delete" | "servers.power" | "servers.reinstall" | "servers.upgrade" | "servers.console.read" | "servers.console.write" | "servers.actions.run" | "servers.files.read" | "servers.files.write" | "servers.backups.read" | "servers.backups.create" | "servers.backups.restore" | "servers.backups.delete" | "servers.backups.download" | "servers.schedules.read" | "servers.schedules.manage" | "servers.notifications.read" | "servers.notifications.manage" | "servers.content.read" | "servers.content.manage" | "servers.suspend" | "servers.transfer" | "prefabs.read" | "prefabs.manage" | "customers.read" | "customers.update" | "customers.suspend" | "customers.impersonate" | "system.settings.read" | "system.settings.update" | "system.dns.manage" | "system.content_sources.manage" | "system.steam_accounts.manage" | "system.notifications.read" | "system.notifications.manage";
+        PermissionKey: "iam.users.read" | "iam.users.create" | "iam.users.update" | "iam.users.delete" | "iam.users.credentials" | "iam.roles.read" | "iam.roles.manage" | "iam.roles.assign" | "audit.read" | "nodes.read" | "nodes.create" | "nodes.update" | "nodes.regions.manage" | "nodes.enrollment" | "nodes.revoke" | "nodes.delete" | "nodes.allocations.read" | "nodes.allocations.manage" | "servers.read" | "servers.create" | "servers.update" | "servers.delete" | "servers.power" | "servers.reinstall" | "servers.upgrade" | "servers.console.read" | "servers.console.write" | "servers.actions.run" | "servers.files.read" | "servers.files.write" | "servers.files.sftp" | "servers.backups.read" | "servers.backups.create" | "servers.backups.restore" | "servers.backups.delete" | "servers.backups.download" | "servers.schedules.read" | "servers.schedules.manage" | "servers.notifications.read" | "servers.notifications.manage" | "servers.content.read" | "servers.content.manage" | "servers.suspend" | "servers.transfer" | "prefabs.read" | "prefabs.manage" | "customers.read" | "customers.update" | "customers.suspend" | "customers.impersonate" | "system.settings.read" | "system.settings.update" | "system.dns.manage" | "system.content_sources.manage" | "system.steam_accounts.manage" | "system.notifications.read" | "system.notifications.manage";
         /** @enum {string} */
         PowerActionDto: "start" | "stop" | "restart" | "kill";
         PowerRequest: {
@@ -3750,6 +4087,13 @@ export interface components {
             all_permissions: boolean;
             /** @description Permissions effectives (catalogue complet pour un super-admin). */
             permissions: string[];
+            /**
+             * Format: int64
+             * @description Codes de secours du TOTP encore utilisables.
+             */
+            recovery_codes_remaining: number;
+            /** @description La plateforme exige le TOTP (`auth.require_totp`) : il ne peut pas être retiré. */
+            totp_required: boolean;
             user: components["schemas"]["AdminUserDto"];
         };
         ProjectHitDto: {
@@ -3793,6 +4137,10 @@ export interface components {
              * @example ready
              */
             status: string;
+        };
+        RecoveryCodesResponse: {
+            /** @description Codes de secours à usage unique (`xxxx-xxxx-xxxx`), lisibles cette seule fois. */
+            recovery_codes: string[];
         };
         RegionDto: {
             /** Format: date-time */
@@ -3861,6 +4209,10 @@ export interface components {
         };
         RestoreBackupRequest: {
             mode: components["schemas"]["RestoreModeDto"];
+        };
+        RestoreFileRequest: {
+            /** @example /server/data/server.properties */
+            path: string;
         };
         /** @enum {string} */
         RestoreModeDto: "overwrite" | "clean";
@@ -4166,6 +4518,17 @@ export interface components {
              * @example 2048
              */
             default_memory_mb: number;
+            /**
+             * Format: int32
+             * @description Durée de conservation d'une version d'un fichier (ADR-0049), 0 à 365 jours ; 0 coupe
+             *     l'historique et efface ce qui était gardé.
+             */
+            file_history_days: number;
+            /**
+             * Format: int32
+             * @description Place prise au plus par l'historique d'un serveur (1 à 10 240 Mio).
+             */
+            file_history_max_mb: number;
             /** Format: int32 */
             max_backup_limit?: number | null;
             /** Format: int32 */
@@ -4183,6 +4546,8 @@ export interface components {
             mcp_url?: string | null;
             /** @description Nom du projet (ADR-0045), 1 à 80 caractères ; absent : « Kuro ». */
             project_name?: string | null;
+            /** @description Accès SFTP aux fichiers des serveurs (ADR-0047) ; coupé, toute connexion est refusée. */
+            sftp_enabled: boolean;
             /** Format: date-time */
             updated_at: string;
         };
@@ -4209,12 +4574,45 @@ export interface components {
             /** @description Nom du projet, absent tant qu'il n'est pas réglé (« Kuro »). */
             project_name?: string | null;
         };
+        /** @description Coordonnées SFTP d'un serveur pour le compte connecté. */
+        SftpConnectionDto: {
+            /** @description Le nœud sert le SFTP (port et clé d'hôte annoncés). */
+            available: boolean;
+            /** @description SFTP ouvert dans les paramètres du projet. */
+            enabled: boolean;
+            /**
+             * @description Nom DNS du nœud, sinon son adresse publique saisie, sinon l'adresse vue sur son lien (hors
+             *     boucle locale) ; absent sinon.
+             */
+            host?: string | null;
+            /** @description Empreinte de la clé d'hôte du nœud, à comparer à celle que montre le client. */
+            host_key_fingerprint?: string | null;
+            node_name: string;
+            /** Format: int32 */
+            port?: number | null;
+            /** @description `<serveur>.<compte>` : propre au compte connecté. */
+            username: string;
+        };
         SourceKeyRequest: {
             /**
              * @description Clé d'API de la source (console.curseforge.com pour CurseForge,
              *     steamcommunity.com/dev/apikey pour Steam Workshop).
              */
             api_key: string;
+        };
+        /** @description Clé SSH d'un compte, sans la clé elle-même. */
+        SshKeyDto: {
+            /** @description `ssh-ed25519`, `ecdsa-sha2-nistp256`… */
+            algorithm: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description `SHA256:…`, comme l'affiche `ssh-keygen -lf`. */
+            fingerprint: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            last_used_at?: string | null;
+            name: string;
         };
         StartTrialRequest: {
             /**
@@ -4375,8 +4773,33 @@ export interface components {
         };
         TotpCodeRequest: {
             challenge: string;
-            /** @example 123456 */
+            /**
+             * @description Code TOTP, ou code de secours (`xxxx-xxxx-xxxx`) à `/auth/totp/verify`.
+             * @example 123456
+             */
             code: string;
+        };
+        TotpConfirmRequest: {
+            /**
+             * @description Code donné par l'application d'authentification pour le nouveau secret.
+             * @example 123456
+             */
+            code: string;
+        };
+        /** @description TOTP activé à la connexion : session ouverte et codes de secours. */
+        TotpConfirmedResponse: {
+            access_token: string;
+            /** Format: int64 */
+            expires_in: number;
+            /** @description Codes de secours à usage unique, lisibles cette seule fois. */
+            recovery_codes: string[];
+            token_type: string;
+        };
+        /** @description Ré-authentification avant de toucher au TOTP. */
+        TotpReauthRequest: {
+            /** @description Code TOTP ou code de secours ; exigé si le TOTP est actif. */
+            code?: string | null;
+            password: string;
         };
         TotpSetupResponse: {
             /** @description À afficher en QR code. */
@@ -4424,6 +4847,10 @@ export interface components {
             /** Format: int32 */
             default_memory_mb?: number | null;
             /** Format: int32 */
+            file_history_days?: number | null;
+            /** Format: int32 */
+            file_history_max_mb?: number | null;
+            /** Format: int32 */
             max_backup_limit?: number | null;
             /** Format: int32 */
             max_cpu_percent?: number | null;
@@ -4434,6 +4861,7 @@ export interface components {
             mcp_enabled?: boolean | null;
             /** @description `null` retire le nom (« Kuro »). */
             project_name?: string | null;
+            sftp_enabled?: boolean | null;
         };
         UpdateRegionRequest: {
             /**
@@ -4846,6 +5274,77 @@ export interface operations {
             };
         };
     };
+    forgot_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Demande prise en compte (e-mail envoyé si le compte existe) */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Adresse mal formée */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    reset_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetLinkRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Jeton invalide ou origine de la page non autorisée */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     refresh: {
         parameters: {
             query?: never;
@@ -4901,7 +5400,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AccessTokenResponse"];
+                    "application/json": components["schemas"]["TotpConfirmedResponse"];
                 };
             };
             401: {
@@ -5093,6 +5592,46 @@ export interface operations {
             };
         };
     };
+    elevate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ElevateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ElevationResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Mot de passe ou code refusé, ou code manquant */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     change_password: {
         parameters: {
             query?: never;
@@ -5120,6 +5659,309 @@ export interface operations {
                     "application/json": components["schemas"]["Problem"];
                 };
             };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_keys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SshKeyDto"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    add_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddSshKeyRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SshKeyDto"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    remove_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    disable_totp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpReauthRequest"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description TOTP exigé par la plateforme */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description TOTP non configuré */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Mot de passe ou code refusé, ou code manquant */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    confirm_totp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpConfirmRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodesResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Aucune configuration en cours */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Code refusé */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    regenerate_recovery_codes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpReauthRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodesResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description TOTP non configuré */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Mot de passe ou code refusé, ou code manquant */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    start_totp_setup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpReauthRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TotpSetupResponse"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Mot de passe ou code refusé, ou code manquant */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -8746,6 +9588,64 @@ export interface operations {
             };
         };
     };
+    deleted: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                /**
+                 * @description `/<service>/<volume>/…` ; la racine liste les services.
+                 * @example /server/data
+                 */
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletedFilesDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     mkdir: {
         parameters: {
             query?: never;
@@ -8762,6 +9662,187 @@ export interface operations {
         };
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    history: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                /**
+                 * @description `/<service>/<volume>/…` ; la racine liste les services.
+                 * @example /server/data
+                 */
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileHistoryDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                version: string;
+                /**
+                 * @description `/<service>/<volume>/…` ; la racine liste les services.
+                 * @example /server/data
+                 */
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileContentDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreFileRequest"];
+            };
+        };
+        responses: {
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9815,6 +10896,43 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_connection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SftpConnectionDto"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -4,6 +4,7 @@
 use serde_json::json;
 use uuid::Uuid;
 
+use super::mfa::{check_second_factor, issue_recovery_codes};
 use super::tokens::{self, Challenge, ChallengePurpose, SessionTokens};
 use super::{IamError, IamState, LOCK_DURATION, MAX_FAILED_ATTEMPTS};
 use crate::audit::domain::{Actor, AuditAction, AuditContext, AuditEvent};
@@ -22,6 +23,13 @@ pub enum LoginOutcome {
     TotpRequired(Challenge),
     /// Mot de passe valide, TOTP obligatoire mais pas encore configuré.
     TotpSetupRequired(Challenge),
+}
+
+/// TOTP activé à la connexion : session ouverte et codes de secours, lisibles cette seule fois.
+#[derive(Debug)]
+pub struct TotpConfirmed {
+    pub session: SessionTokens,
+    pub recovery_codes: Vec<String>,
 }
 
 /// Secret à enregistrer dans l'application d'authentification.
@@ -180,29 +188,25 @@ pub async fn verify_totp(
     let user_id = tokens::read_challenge(state, challenge, ChallengePurpose::VerifyTotp)?;
     let mut tx = AuditedTx::begin(&state.pool, context).await?;
     let credentials = usable_credentials(&mut tx, user_id).await?;
-    let sealed = credentials
-        .totp_secret
-        .as_deref()
-        .ok_or(IamError::InvalidChallenge)?;
-    let secret = secret_box::open(state.keys.totp(), sealed)?;
-
-    let last_step = credentials
-        .totp_last_step
-        .and_then(|step| u64::try_from(step).ok());
-    let Some(step) = totp::verify(&secret, code, tokens::now(), last_step)? else {
+    if credentials.totp_secret.is_none() {
+        return Err(IamError::InvalidChallenge);
+    }
+    let Some(factor) = check_second_factor(&mut tx, state, &credentials, code).await? else {
         return Err(
             fail_attempt(tx, user_id, AuditAction::TotpFailed, IamError::InvalidCode).await,
         );
     };
 
-    let step = i64::try_from(step).map_err(|_| IamError::InvalidCode)?;
-    UserRepository::record_success(&mut tx, user_id, Some(step)).await?;
+    UserRepository::record_success(&mut tx, user_id, factor.totp_step()).await?;
     let session = tokens::open_session(&mut tx, state, user_id).await?;
     tx.set_actor(Actor::admin(user_id));
+    if let Some(event) = factor.audit(user_id) {
+        tx.record(event).await?;
+    }
     tx.commit(
         AuditEvent::success(AuditAction::LoginSucceeded)
             .target("admin_user", user_id)
-            .details(json!({ "mfa": "totp" })),
+            .details(json!({ "mfa": factor.kind() })),
     )
     .await?;
     Ok(session)
@@ -239,13 +243,14 @@ pub async fn start_totp_setup(
     Ok(setup)
 }
 
-/// Seconde étape : un premier code valide active le TOTP et ouvre la session.
+/// Seconde étape : un premier code valide active le TOTP, délivre les codes de secours et
+/// ouvre la session.
 pub async fn confirm_totp(
     state: &IamState,
     context: &AuditContext,
     challenge: &str,
     code: &str,
-) -> Result<SessionTokens, IamError> {
+) -> Result<TotpConfirmed, IamError> {
     let user_id = tokens::read_challenge(state, challenge, ChallengePurpose::SetupTotp)?;
     let mut tx = AuditedTx::begin(&state.pool, context).await?;
     let credentials = usable_credentials(&mut tx, user_id).await?;
@@ -267,6 +272,7 @@ pub async fn confirm_totp(
     let step = i64::try_from(step).map_err(|_| IamError::InvalidCode)?;
     UserRepository::enable_totp(&mut tx, user_id, step).await?;
     UserRepository::record_success(&mut tx, user_id, Some(step)).await?;
+    let recovery_codes = issue_recovery_codes(&mut tx, state, user_id).await?;
     let session = tokens::open_session(&mut tx, state, user_id).await?;
     tx.set_actor(Actor::admin(user_id));
     tx.record(AuditEvent::success(AuditAction::TotpEnabled).target("admin_user", user_id))
@@ -277,7 +283,10 @@ pub async fn confirm_totp(
             .details(json!({ "mfa": "totp" })),
     )
     .await?;
-    Ok(session)
+    Ok(TotpConfirmed {
+        session,
+        recovery_codes,
+    })
 }
 
 /// Compte pouvant poursuivre une connexion (ni désactivé, ni verrouillé).
@@ -302,7 +311,7 @@ fn refusal(credentials: &Credentials) -> Option<&'static str> {
 }
 
 /// Échec compté (verrouillage au-delà du seuil) et journalisé ; retourne l'erreur à renvoyer.
-async fn fail_attempt(
+pub(super) async fn fail_attempt(
     mut tx: AuditedTx,
     user_id: Uuid,
     action: AuditAction,

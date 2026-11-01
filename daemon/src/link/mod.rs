@@ -3,6 +3,7 @@
 mod backoff;
 mod connect;
 mod host;
+mod requests;
 mod session;
 mod tls;
 
@@ -12,6 +13,7 @@ use tokio_tungstenite::tungstenite;
 use tokio_util::sync::CancellationToken;
 
 pub use connect::{WsStream, connect};
+pub use requests::{ApiRequestQueue, ApiRequests, REQUEST_TIMEOUT, RequestError, channel};
 
 use crate::config::Config;
 use crate::server::Servers;
@@ -65,7 +67,19 @@ impl LinkError {
 /// Sans `servers`, le daemon refuse les commandes de serveurs (tests du lien sans Docker).
 pub async fn run(
     config: &Config,
+    servers: Option<&mut Servers>,
+    shutdown: &CancellationToken,
+) -> Result<(), LinkError> {
+    run_with(config, servers, None, None, shutdown).await
+}
+
+/// Comme [`run`], avec les requêtes du daemon vers l'API (SFTP, ADR-0047) et le point d'accès
+/// SFTP annoncé dans `hello`.
+pub async fn run_with(
+    config: &Config,
     mut servers: Option<&mut Servers>,
+    mut requests: Option<&mut ApiRequestQueue>,
+    sftp: Option<kuro_protocol::daemon::SftpEndpoint>,
     shutdown: &CancellationToken,
 ) -> Result<(), LinkError> {
     let mut backoff = Backoff::default();
@@ -76,8 +90,15 @@ pub async fn run(
         };
         let error = match connected {
             Ok(ws) => {
-                let outcome =
-                    session::run(ws, shutdown, &mut backoff, servers.as_deref_mut()).await;
+                let outcome = session::run(
+                    ws,
+                    shutdown,
+                    &mut backoff,
+                    servers.as_deref_mut(),
+                    requests.as_deref_mut(),
+                    sftp.clone(),
+                )
+                .await;
                 if let Some(servers) = servers.as_deref_mut() {
                     servers.forget_watches();
                 }

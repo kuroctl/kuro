@@ -32,6 +32,9 @@ importers:
       '@codemirror/lint':
         specifier: 6.9.7
         version: 6.9.7
+      '@codemirror/merge':
+        specifier: 6.12.2
+        version: 6.12.2
       '@codemirror/state':
         specifier: 6.7.6
         version: 6.7.6
@@ -113,6 +116,9 @@ importers:
       vue-i18n:
         specifier: 11.4.16
         version: 11.4.16(vue@3.5.44(typescript@5.9.3))
+      vue-input-otp:
+        specifier: 0.4.0
+        version: 0.4.0(typescript@5.9.3)(vue@3.5.44(typescript@5.9.3))
       vue-router:
         specifier: 5.4.0
         version: 5.4.0(@vue/compiler-sfc@3.5.44)(pinia@4.1.0(@vue/devtools-api@8.2.1)(typescript@5.9.3)(vue@3.5.44(typescript@5.9.3)))(rolldown@1.2.15)(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3))
@@ -306,6 +312,9 @@ packages:
 
   '@codemirror/lint@6.9.7':
     resolution: {integrity: sha512-28/+iWLYxKxsvGYhSYL7zaCZqLz5+FFFDq9tVsvGv9kv8RY4fFAchJ5WX9M3YrrRlTIsECjsXPqeNgnSmNP2dg==}
+
+  '@codemirror/merge@6.12.2':
+    resolution: {integrity: sha512-V8JvyAPjHbPupqP7BeMcsdsYCbyPij74jxIbaIJDORI+VZzW44zFmon8bF+oxGWvOKhcRmkiUMXd8MxHr3YA2w==}
 
   '@codemirror/search@6.7.2':
     resolution: {integrity: sha512-gUYkYhT2+n/+VGZ+8EzE5WFkYZUZYm1VOKDudIsNqh42uRVQJ0a6Yss9sdKT3MeOYfuL1N6AZA57oza0Oyr0LA==}
@@ -1306,6 +1315,9 @@ packages:
       vue:
         optional: true
 
+  '@vueuse/core@12.8.2':
+    resolution: {integrity: sha512-HbvCmZdzAu3VGi/pWYm5Ut+Kd9mn1ZHnn4L5G8kOQTPs/IwIAmJoBrmYk2ckLArgMXZj0AW3n5CAejLUO+PhdQ==}
+
   '@vueuse/core@14.4.0':
     resolution: {integrity: sha512-X4WHz1HlCzCBoYXesUkifzzWBAcZgXG8Fi5iNPQg/epdzOB3gu8Fawj3hvuwYR1nGcXGnvxwYYcUC/71++svtQ==}
     peerDependencies:
@@ -1317,12 +1329,18 @@ packages:
     peerDependencies:
       vue: ^3.5.0
 
+  '@vueuse/metadata@12.8.2':
+    resolution: {integrity: sha512-rAyLGEuoBJ/Il5AmFHiziCPdQzRt88VxR+Y/A/QhJ1EWtWqPBBAxTAFaSkviwEuOEZNtW8pvkPgoCZQ+HxqW1A==}
+
   '@vueuse/metadata@14.4.0':
     resolution: {integrity: sha512-swx/255R6JyHZFJhx845iz5CRWDZdCfvkZOpACWc5+c5WHcG24mv8gUT1WIdFQaHt6dq79rvILd9QnCWiyVm9g==}
 
   '@vueuse/metadata@15.0.0':
     resolution: {integrity: sha512-sfWE5LADAKJ0KnjtGliMdSN8Ij/L7uP6rXIZlgPloAI4zvvefbw6H5Lt7KJA6RqQOYgVqWF5Guj50HHMIzygBg==}
     engines: {node: '>=22'}
+
+  '@vueuse/shared@12.8.2':
+    resolution: {integrity: sha512-dznP38YzxZoNloI0qpEfpkms8knDtaoQ6Y/sfS0L7Yki4zh40LFHEhur0odJC6xTHG5dxWVPiUWBXn+wCG2s5w==}
 
   '@vueuse/shared@14.4.0':
     resolution: {integrity: sha512-JRgY90Sz8DDtPMsaDflvPMp9xYk69JZAmbuDvAquUVXKr2gEjqtzGNTTthLfckH0BzBqvnu31gb4a8TGLRe79g==}
@@ -3358,6 +3376,11 @@ packages:
     peerDependencies:
       vue: ^3.0.0
 
+  vue-input-otp@0.4.0:
+    resolution: {integrity: sha512-LW+nsZmeXFVdfmPPtoGAXd3vd3T8UBjvwqs6ER4NB7TIoxTuj/reT61HNGe0NyvYDtAHZwjcTmOIX/99f4gpvA==}
+    peerDependencies:
+      vue: ^3.2.0
+
   vue-router@5.4.0:
     resolution: {integrity: sha512-pFvcYcxinDHjZUlf7AzFBrT8r8Xqvv4uMHoJnjc+EqPawXQvHTkF8S4tfSmQLpriVHUGfkaKlI7Et0KRjTMTdw==}
     peerDependencies:
@@ -3691,6 +3714,14 @@ snapshots:
       '@codemirror/state': 6.7.6
       '@codemirror/view': 6.43.15
       crelt: 1.0.7
+
+  '@codemirror/merge@6.12.2':
+    dependencies:
+      '@codemirror/language': 6.13.1
+      '@codemirror/state': 6.7.6
+      '@codemirror/view': 6.43.15
+      '@lezer/highlight': 1.2.5
+      style-mod: 4.1.4
 
   '@codemirror/search@6.7.2':
     dependencies:
@@ -4867,6 +4898,15 @@ snapshots:
       typescript: 5.9.3
       vue: 3.5.44(typescript@5.9.3)
 
+  '@vueuse/core@12.8.2(typescript@5.9.3)':
+    dependencies:
+      '@types/web-bluetooth': 0.0.21
+      '@vueuse/metadata': 12.8.2
+      '@vueuse/shared': 12.8.2(typescript@5.9.3)
+      vue: 3.5.44(typescript@5.9.3)
+    transitivePeerDependencies:
+      - typescript
+
   '@vueuse/core@14.4.0(vue@3.5.44(typescript@5.9.3))':
     dependencies:
       '@types/web-bluetooth': 0.0.21
@@ -4881,9 +4921,17 @@ snapshots:
       '@vueuse/shared': 15.0.0(vue@3.5.44(typescript@5.9.3))
       vue: 3.5.44(typescript@5.9.3)
 
+  '@vueuse/metadata@12.8.2': {}
+
   '@vueuse/metadata@14.4.0': {}
 
   '@vueuse/metadata@15.0.0': {}
+
+  '@vueuse/shared@12.8.2(typescript@5.9.3)':
+    dependencies:
+      vue: 3.5.44(typescript@5.9.3)
+    transitivePeerDependencies:
+      - typescript
 
   '@vueuse/shared@14.4.0(vue@3.5.44(typescript@5.9.3))':
     dependencies:
@@ -6818,6 +6866,14 @@ snapshots:
       '@intlify/shared': 11.4.16
       '@vue/devtools-api': 6.6.4
       vue: 3.5.44(typescript@5.9.3)
+
+  vue-input-otp@0.4.0(typescript@5.9.3)(vue@3.5.44(typescript@5.9.3)):
+    dependencies:
+      '@vueuse/core': 12.8.2(typescript@5.9.3)
+      reka-ui: 2.11.0(vue@3.5.44(typescript@5.9.3))
+      vue: 3.5.44(typescript@5.9.3)
+    transitivePeerDependencies:
+      - typescript
 
   vue-router@5.4.0(@vue/compiler-sfc@3.5.44)(pinia@4.1.0(@vue/devtools-api@8.2.1)(typescript@5.9.3)(vue@3.5.44(typescript@5.9.3)))(rolldown@1.2.15)(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0)(yaml@2.9.1))(vue@3.5.44(typescript@5.9.3)):
     dependencies:

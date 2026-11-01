@@ -11,6 +11,8 @@ fn api_message_cannot_be_decoded_as_daemon_message() {
         node_id: Uuid::nil(),
         heartbeat_interval_secs: 15,
         heartbeat_timeout_secs: 45,
+        sftp: false,
+        file_history: None,
     })))
     .unwrap();
 

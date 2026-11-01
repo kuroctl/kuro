@@ -283,3 +283,156 @@ pub async fn upload(
         }),
     ))
 }
+
+/// Version gardée d'un fichier (ADR-0049) : son contenu avant l'écriture décrite.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct FileVersionDto {
+    pub id: Uuid,
+    /// Moment où elle a été remplacée (millisecondes Unix).
+    pub at_ms: i64,
+    pub size: u64,
+    pub sha256: String,
+    /// `write`, `delete`, `restore`, `start` (réécrite au démarrage), ou `other`.
+    pub reason: String,
+    /// `web`, `sftp`, `kuro`, ou `other`.
+    pub channel: String,
+    /// `admin`, `customer`, `agent`, `system` ; absent si inconnu.
+    pub author_kind: Option<String>,
+    pub author_id: Option<Uuid>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct FileHistoryDto {
+    pub path: String,
+    pub versions: Vec<FileVersionDto>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct RestoreFileRequest {
+    #[schema(example = "/server/data/server.properties")]
+    pub path: String,
+}
+
+fn snake<T: Serialize>(value: &T) -> String {
+    serde_json::to_value(value)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .unwrap_or_else(|| "other".to_owned())
+}
+
+/// Versions gardées d'un fichier, de la plus récente à la plus ancienne. Permission :
+/// `servers.files.read`.
+#[utoipa::path(get, path = "/api/admin/v1/servers/{id}/files/history", tag = "admin-servers", security(("bearer" = [])),
+    params(("id" = Uuid, Path), PathQuery),
+    responses((status = 200, body = FileHistoryDto), (status = 403, body = Problem), (status = 404, body = Problem),
+        (status = 422, body = Problem), (status = 502, body = Problem)))]
+pub async fn history(
+    State(iam): State<IamState>,
+    State(state): State<ServersState>,
+    session: AdminSession,
+    Path(id): Path<Uuid>,
+    Query(query): Query<PathQuery>,
+) -> Result<Json<FileHistoryDto>, ApiError> {
+    session.require(&iam, Permission::ServersFilesRead).await?;
+    let history = files::history(&state, id, &query.path).await?;
+    Ok(Json(FileHistoryDto {
+        path: query.path,
+        versions: history.versions.into_iter().map(version_dto).collect(),
+    }))
+}
+
+/// Contenu texte d'une version. Permission : `servers.files.read`.
+#[utoipa::path(get, path = "/api/admin/v1/servers/{id}/files/history/{version}", tag = "admin-servers", security(("bearer" = [])),
+    params(("id" = Uuid, Path), ("version" = Uuid, Path), PathQuery),
+    responses((status = 200, body = FileContentDto), (status = 403, body = Problem), (status = 404, body = Problem),
+        (status = 422, body = Problem), (status = 502, body = Problem)))]
+pub async fn version(
+    State(iam): State<IamState>,
+    State(state): State<ServersState>,
+    session: AdminSession,
+    Path((id, version)): Path<(Uuid, Uuid)>,
+    Query(query): Query<PathQuery>,
+) -> Result<Json<FileContentDto>, ApiError> {
+    session.require(&iam, Permission::ServersFilesRead).await?;
+    let file = files::version(&state, id, &query.path, version).await?;
+    Ok(Json(FileContentDto {
+        path: query.path,
+        content: file.content,
+        size: file.size,
+        modified_ms: file.modified_ms,
+        sha256: file.sha256,
+    }))
+}
+
+/// Remet une version à la place du fichier ; la version remplacée est gardée (la restauration
+/// s'annule). Permission : `servers.files.write`.
+#[utoipa::path(post, path = "/api/admin/v1/servers/{id}/files/history/{version}/restore", tag = "admin-servers", security(("bearer" = [])),
+    params(("id" = Uuid, Path), ("version" = Uuid, Path)),
+    request_body = RestoreFileRequest,
+    responses((status = 204), (status = 403, body = Problem), (status = 404, body = Problem),
+        (status = 409, body = Problem), (status = 422, body = Problem), (status = 502, body = Problem)))]
+pub async fn restore(
+    State(iam): State<IamState>,
+    State(state): State<ServersState>,
+    session: AdminSession,
+    Path((id, version)): Path<(Uuid, Uuid)>,
+    Json(request): Json<RestoreFileRequest>,
+) -> Result<StatusCode, ApiError> {
+    session.require(&iam, Permission::ServersFilesWrite).await?;
+    files::restore(&state, &session.context, id, &request.path, version).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Fichier supprimé d'un dossier, avec sa dernière version gardée.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DeletedFileDto {
+    pub path: String,
+    pub version: FileVersionDto,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DeletedFilesDto {
+    pub path: String,
+    pub files: Vec<DeletedFileDto>,
+}
+
+fn version_dto(v: kuro_protocol::daemon::FileVersion) -> FileVersionDto {
+    FileVersionDto {
+        id: v.id,
+        at_ms: v.at_ms,
+        size: v.size,
+        sha256: v.sha256,
+        reason: snake(&v.reason),
+        channel: snake(&v.channel),
+        author_kind: v.author.map(|a| snake(&a.kind)),
+        author_id: v.author.and_then(|a| a.id),
+    }
+}
+
+/// Fichiers supprimés d'un dossier dont une version est gardée (restaurables par
+/// `…/history/{version}/restore`). Permission : `servers.files.read`.
+#[utoipa::path(get, path = "/api/admin/v1/servers/{id}/files/deleted", tag = "admin-servers", security(("bearer" = [])),
+    params(("id" = Uuid, Path), PathQuery),
+    responses((status = 200, body = DeletedFilesDto), (status = 403, body = Problem), (status = 404, body = Problem),
+        (status = 422, body = Problem), (status = 502, body = Problem)))]
+pub async fn deleted(
+    State(iam): State<IamState>,
+    State(state): State<ServersState>,
+    session: AdminSession,
+    Path(id): Path<Uuid>,
+    Query(query): Query<PathQuery>,
+) -> Result<Json<DeletedFilesDto>, ApiError> {
+    session.require(&iam, Permission::ServersFilesRead).await?;
+    let deleted = files::deleted(&state, id, &query.path).await?;
+    Ok(Json(DeletedFilesDto {
+        path: query.path,
+        files: deleted
+            .files
+            .into_iter()
+            .map(|file| DeletedFileDto {
+                path: file.path,
+                version: version_dto(file.version),
+            })
+            .collect(),
+    }))
+}

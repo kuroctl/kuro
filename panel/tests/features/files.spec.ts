@@ -71,6 +71,8 @@ describe('server files', () => {
     await router.push({ query: { path: '/server/data' } })
 
     expect(await (await browser()).findByRole('button', { name: 'server.properties' })).toBeTruthy()
+    // Les raccourcis du prefab restent là, dans les sous-dossiers aussi.
+    expect(screen.getByText(PROPERTIES)).toBeTruthy()
     expect(screen.getByText('Lien')).toBeTruthy()
     expect(screen.getByText('Trop gros pour l’éditeur')).toBeTruthy()
   })

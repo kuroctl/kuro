@@ -22,6 +22,7 @@ use crate::http::context::RequestContext;
 use crate::http::error::Problem;
 use crate::http::origin::BrowserOrigin;
 use crate::iam::application::{self, IamError, IamState, LoginOutcome, Refreshed, SessionTokens};
+use crate::mail::MailState;
 
 pub(super) const REFRESH_COOKIE: &str = "__Host-kuro_admin_refresh";
 /// Imposé par le préfixe `__Host-`.
@@ -69,6 +70,7 @@ pub struct ChallengeRequest {
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct TotpCodeRequest {
     pub challenge: String,
+    /// Code TOTP, ou code de secours (`xxxx-xxxx-xxxx`) à `/auth/totp/verify`.
     #[schema(example = "123456")]
     pub code: String,
 }
@@ -93,6 +95,16 @@ pub struct AccessTokenResponse {
     pub access_token: String,
     pub token_type: &'static str,
     pub expires_in: u64,
+}
+
+/// TOTP activé à la connexion : session ouverte et codes de secours.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct TotpConfirmedResponse {
+    pub access_token: String,
+    pub token_type: &'static str,
+    pub expires_in: u64,
+    /// Codes de secours à usage unique, lisibles cette seule fois.
+    pub recovery_codes: Vec<String>,
 }
 
 /// Première étape de connexion : e-mail et mot de passe.
@@ -138,6 +150,70 @@ pub async fn change_required_password(
         &request.new_password,
     )
     .await?;
+    Ok(login_response(&state, jar, outcome))
+}
+
+/// Demande d'un lien « mot de passe oublié ».
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ForgotPasswordRequest {
+    #[schema(example = "admin@example.com")]
+    pub email: String,
+}
+
+/// Lien « mot de passe oublié » utilisé : le jeton du lien et le nouveau mot de passe.
+#[derive(Deserialize, ToSchema)]
+pub struct PasswordResetLinkRequest {
+    pub token: String,
+    /// 12 caractères minimum.
+    pub password: String,
+}
+
+/// Jamais le jeton ni le mot de passe, même dans un journal de débogage.
+impl std::fmt::Debug for PasswordResetLinkRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("PasswordResetLinkRequest(<redacted>)")
+    }
+}
+
+/// Mot de passe oublié (ADR-0049) : envoie un lien de réinitialisation, valable 30 minutes, si
+/// l'adresse est celle d'un compte actif et qu'un SMTP est réglé. Réponse identique dans tous
+/// les cas, pour ne pas révéler les comptes.
+#[utoipa::path(post, path = "/api/admin/v1/auth/password/forgot", tag = "admin-auth",
+    request_body = ForgotPasswordRequest,
+    responses(
+        (status = 202, description = "Demande prise en compte (e-mail envoyé si le compte existe)"),
+        (status = 422, description = "Adresse mal formée", body = Problem),
+    ))]
+pub async fn forgot_password(
+    State(state): State<IamState>,
+    State(mail): State<MailState>,
+    RequestContext(context): RequestContext,
+    Json(request): Json<ForgotPasswordRequest>,
+) -> Result<StatusCode, IamError> {
+    application::password_reset::request(&state, &mail, &context, &request.email).await?;
+    Ok(StatusCode::ACCEPTED)
+}
+
+/// Utilise un lien « mot de passe oublié » : pose le nouveau mot de passe, ferme les sessions,
+/// puis répond comme `login` (TOTP attendu s'il est configuré). Jeton inconnu, expiré ou déjà
+/// utilisé : `403`.
+#[utoipa::path(post, path = "/api/admin/v1/auth/password/reset", tag = "admin-auth",
+    request_body = PasswordResetLinkRequest,
+    responses(
+        (status = 200, body = LoginResponse),
+        (status = 403, description = "Jeton invalide ou origine de la page non autorisée", body = Problem),
+        (status = 422, body = Problem),
+    ))]
+pub async fn reset_password(
+    State(state): State<IamState>,
+    _origin: BrowserOrigin,
+    RequestContext(context): RequestContext,
+    jar: CookieJar,
+    Json(request): Json<PasswordResetLinkRequest>,
+) -> Result<Response, IamError> {
+    let outcome =
+        application::password_reset::complete(&state, &context, &request.token, &request.password)
+            .await?;
     Ok(login_response(&state, jar, outcome))
 }
 
@@ -198,7 +274,7 @@ fn login_response(state: &IamState, jar: CookieJar, outcome: LoginOutcome) -> Re
     }
 }
 
-/// Code TOTP après un mot de passe valide.
+/// Code TOTP (ou code de secours) après un mot de passe valide.
 #[utoipa::path(post, path = "/api/admin/v1/auth/totp/verify", tag = "admin-auth",
     request_body = TotpCodeRequest,
     responses(
@@ -238,11 +314,11 @@ pub async fn start_totp_setup(
     }))
 }
 
-/// Confirme le TOTP avec un premier code et ouvre la session.
+/// Confirme le TOTP avec un premier code, délivre les codes de secours et ouvre la session.
 #[utoipa::path(post, path = "/api/admin/v1/auth/totp/confirm", tag = "admin-auth",
     request_body = TotpCodeRequest,
     responses(
-        (status = 200, body = AccessTokenResponse),
+        (status = 200, body = TotpConfirmedResponse),
         (status = 401, body = Problem),
         (status = 403, description = "Origine de la page non autorisée", body = Problem),
         (status = 409, body = Problem),
@@ -254,9 +330,20 @@ pub async fn confirm_totp(
     jar: CookieJar,
     Json(request): Json<TotpCodeRequest>,
 ) -> Result<Response, IamError> {
-    let tokens =
+    let confirmed =
         application::confirm_totp(&state, &context, &request.challenge, &request.code).await?;
-    Ok(authenticated(&state, jar, tokens, false))
+    let tokens = confirmed.session;
+    let body = TotpConfirmedResponse {
+        access_token: tokens.access_token,
+        token_type: "Bearer",
+        expires_in: tokens.expires_in,
+        recovery_codes: confirmed.recovery_codes,
+    };
+    Ok((
+        session_cookie(&state, jar, tokens.refresh_token),
+        Json(body),
+    )
+        .into_response())
 }
 
 /// Nouveau jeton d'accès à partir du cookie de rafraîchissement (rotation). Un cookie remplacé
@@ -307,18 +394,7 @@ pub async fn logout(
 }
 
 fn authenticated(state: &IamState, jar: CookieJar, tokens: SessionTokens, login: bool) -> Response {
-    let cookie = Cookie::build((REFRESH_COOKIE, tokens.refresh_token))
-        .http_only(true)
-        // Toujours `Secure` (exigé par `__Host-`), même en dev : les navigateurs l'acceptent sur
-        // `http://localhost`.
-        .secure(true)
-        .same_site(SameSite::Strict)
-        .path(REFRESH_COOKIE_PATH)
-        .max_age(time::Duration::seconds(
-            i64::try_from(state.settings.refresh_ttl.as_secs()).unwrap_or(i64::MAX),
-        ))
-        .build();
-    let jar = jar.add(cookie);
+    let jar = session_cookie(state, jar, tokens.refresh_token);
     if login {
         (
             jar,
@@ -340,6 +416,22 @@ fn authenticated(state: &IamState, jar: CookieJar, tokens: SessionTokens, login:
         )
             .into_response()
     }
+}
+
+/// Pose le cookie de rafraîchissement de la session.
+fn session_cookie(state: &IamState, jar: CookieJar, refresh_token: String) -> CookieJar {
+    let cookie = Cookie::build((REFRESH_COOKIE, refresh_token))
+        .http_only(true)
+        // Toujours `Secure` (exigé par `__Host-`), même en dev : les navigateurs l'acceptent sur
+        // `http://localhost`.
+        .secure(true)
+        .same_site(SameSite::Strict)
+        .path(REFRESH_COOKIE_PATH)
+        .max_age(time::Duration::seconds(
+            i64::try_from(state.settings.refresh_ttl.as_secs()).unwrap_or(i64::MAX),
+        ))
+        .build();
+    jar.add(cookie)
 }
 
 fn clear_cookie(jar: CookieJar) -> CookieJar {

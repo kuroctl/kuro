@@ -36,6 +36,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { type FileEntry, useFilesApi } from '../files.api'
 import { useFileListing, useInvalidateFiles } from '../files.queries'
 import { type DeclaredFile, isEditable, join, segments } from '../paths'
+import DeletedFiles from './DeletedFiles.vue'
 import NameDialog from './NameDialog.vue'
 import UploadButton from './UploadButton.vue'
 
@@ -136,7 +137,8 @@ const dialogTexts = computed(() => {
 
 <template>
   <div data-slot="file-browser" class="grid gap-4">
-    <Card v-if="path === '/' && declared.length > 0" class="gap-0 py-0">
+    <!-- Raccourcis vers les fichiers du prefab, à tous les niveaux de l'arborescence. -->
+    <Card v-if="declared.length > 0" class="gap-0 py-0">
       <p class="border-b px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{{ t('files.declared') }}</p>
       <ul class="divide-y">
         <li v-for="file in declared" :key="file.key">
@@ -228,6 +230,8 @@ const dialogTexts = computed(() => {
         </TableRow>
       </TableBody>
     </Table>
+
+    <DeletedFiles :server="server" :path="path" />
 
     <NameDialog
       :open="dialog !== null"

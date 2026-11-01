@@ -13,6 +13,7 @@ pub struct InvalidSecretKey;
 pub struct AuthKeys {
     jwt: [u8; 32],
     totp: [u8; 32],
+    recovery_codes: [u8; 32],
     server_secrets: [u8; 32],
     session_successors: [u8; 32],
 }
@@ -26,6 +27,7 @@ impl AuthKeys {
         Ok(Self {
             jwt: derive(&master, b"kuro/jwt/v1"),
             totp: derive(&master, b"kuro/totp/v1"),
+            recovery_codes: derive(&master, b"kuro/totp-recovery/v1"),
             server_secrets: derive(&master, b"kuro/server-secrets/v1"),
             session_successors: derive(&master, b"kuro/session-successor/v1"),
         })
@@ -37,6 +39,11 @@ impl AuthKeys {
 
     pub fn totp(&self) -> &[u8; 32] {
         &self.totp
+    }
+
+    /// Empreinte des codes de secours du TOTP.
+    pub fn recovery_codes(&self) -> &[u8; 32] {
+        &self.recovery_codes
     }
 
     /// Réglages `secret` des serveurs (mots de passe générés des prefabs).

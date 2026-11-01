@@ -1,6 +1,6 @@
 ---
 title: "Troubleshooting"
-description: "Logs, a node that stays offline, players who cannot connect, a DNS name that does not resolve."
+description: "Logs, a node that stays offline, players who cannot connect, a DNS name that does not resolve, a forgotten password, a lost phone."
 ---
 
 ## Where to read logs
@@ -35,3 +35,20 @@ The server runs in the panel, but nobody can join: game traffic does not reach t
   names lead nowhere.
 - The SRV record only exists if the server's prefab declares it (Minecraft Java: prefab version
   1.2.0 or later).
+
+## Forgotten password
+
+- On the sign-in page, **Forgot password?**: enter your address, a link valid for 30 minutes is
+  sent to you. It works once and closes your open sessions; two-step verification is still
+  asked afterwards.
+- An SMTP server must be set (**Settings › E-mail**). Without one, or if nothing arrives: another
+  admin resets your password from **Users**, or, on the API host,
+  `kuro-api admin reset-password --email <email>`.
+
+## Lost phone (two-step verification)
+
+- At sign-in, **Use a recovery code**: each of the 10 codes received when enabling it works
+  once. Once signed in, **My account › Security › Change device** registers the new phone (a
+  recovery code stands in for the current code) and gives a new set.
+- Without a recovery code: another admin resets your two-step verification from **Users**, or,
+  on the API host, `kuro-api admin reset-totp --email <email>`.

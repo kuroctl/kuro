@@ -25,6 +25,8 @@ const STATE_QUEUE: usize = 1024;
 /// ferme. Deux cents serveurs très bavards en restent loin (la console est envoyée par lots).
 const FLOOD_WINDOW: std::time::Duration = std::time::Duration::from_secs(10);
 const MAX_MESSAGES_PER_WINDOW: u32 = 50_000;
+/// Réponses aux requêtes du nœud en attente d'envoi.
+const REPLY_QUEUE: usize = 64;
 
 use super::listener::LinkContext;
 use super::registry::{Eviction, Outgoing, Registration};
@@ -34,6 +36,7 @@ use crate::nodes::domain::{DisconnectReason, Node, NodeHost};
 pub(super) async fn run(
     mut ws: WebSocket,
     node: Node,
+    peer: std::net::IpAddr,
     context: &LinkContext,
     shutdown: &CancellationToken,
 ) {
@@ -46,7 +49,7 @@ pub(super) async fn run(
                 commands,
             },
             (assigned, running_backups),
-        )) = handshake(&mut ws, &node, context).await
+        )) = handshake(&mut ws, &node, peer, context).await
         else {
             close(&mut ws).await;
             return;
@@ -93,6 +96,7 @@ pub(super) async fn run(
 async fn handshake(
     ws: &mut WebSocket,
     node: &Node,
+    peer: std::net::IpAddr,
     context: &LinkContext,
 ) -> Option<(
     Registration,
@@ -161,6 +165,11 @@ async fn handshake(
         arch: hello.host.arch,
         cpu_cores: hello.host.cpu_cores,
         memory_bytes: hello.host.memory_bytes,
+        sftp: hello
+            .sftp
+            .filter(|endpoint| valid_host_key(&endpoint.host_key_sha256))
+            .map(|endpoint| (endpoint.port, endpoint.host_key_sha256)),
+        link_address: Some(peer.to_canonical().to_string()),
     };
     // Enregistrer avant de passer `online` : l'ancienne connexion, évincée, ne repassera
     // pas le nœud `offline` derrière nous.
@@ -198,12 +207,34 @@ async fn handshake(
         }
     };
 
+    // Rétention de l'historique des fichiers (ADR-0049), lue avec le reste avant l'acquittement.
+    let file_history = {
+        let mut conn = match context.presence.pool().acquire().await {
+            Ok(conn) => Some(conn),
+            Err(error) => {
+                tracing::error!(%error, "file history policy not read");
+                None
+            }
+        };
+        match conn.as_mut() {
+            Some(conn) => crate::settings::infra::SettingsRepository::file_history(conn)
+                .await
+                .map_err(|error| tracing::error!(%error, "file history policy not read"))
+                .ok()
+                .map(|(days, max_mb)| {
+                    crate::servers::application::files::history_policy(days, max_mb)
+                }),
+            None => None,
+        }
+    };
     let ack = Envelope::reply(
         envelope.id,
         ApiMessage::HelloAck(HelloAck {
             node_id: node.id.as_uuid(),
             heartbeat_interval_secs: context.heartbeat_interval_secs,
             heartbeat_timeout_secs: context.heartbeat_timeout_secs,
+            sftp: context.sftp.is_some(),
+            file_history,
         }),
     );
     if let Err(error) = send(ws, &ack).await {
@@ -236,6 +267,8 @@ async fn serve(
             }
         }
     });
+    // Réponses aux requêtes du nœud (`sftp.*`), calculées hors de la boucle (base de données).
+    let (replies, mut ready_replies) = mpsc::channel::<Envelope<ApiMessage>>(REPLY_QUEUE);
     let mut flood_window = Instant::now();
     let mut messages_in_window: u32 = 0;
     let heartbeat_timeout = std::time::Duration::from_secs(context.heartbeat_timeout_secs);
@@ -253,6 +286,12 @@ async fn serve(
                 Ok(Eviction::Replaced) | Err(_) => return "replaced by a newer connection",
             },
             () = &mut deadline => return "heartbeat timeout",
+            Some(reply) = ready_replies.recv() => {
+                if let Err(error) = send(ws, &reply).await {
+                    tracing::debug!(%error, "failed to send reply");
+                    return "connection closed";
+                }
+            }
             Some(outgoing) = commands.recv() => {
                 let envelope = Envelope::new(outgoing.message);
                 match send(ws, &envelope).await {
@@ -323,6 +362,7 @@ async fn serve(
                         tracing::debug!(?result, "unsolicited command.result");
                     }
                     Ok(Envelope { message: DaemonMessage::FileListing(_) | DaemonMessage::FileContent(_)
+                        | DaemonMessage::FileVersions(_) | DaemonMessage::DeletedFiles(_)
                         | DaemonMessage::BackupListing(_) | DaemonMessage::BackupChunk(_)
                         | DaemonMessage::ActionResult(_), .. }) => {
                         tracing::debug!("unsolicited reply");
@@ -350,6 +390,10 @@ async fn serve(
                     Ok(Envelope { message: DaemonMessage::ServerMetrics(metrics), .. }) => {
                         context.servers.metrics(node.id, metrics);
                     }
+                    Ok(Envelope { id, message: message @ (DaemonMessage::SftpAuth(_)
+                        | DaemonMessage::SftpLease(_) | DaemonMessage::SftpAudit(_)), .. }) => {
+                        answer_sftp(context, node, id, message, replies.clone());
+                    }
                     Ok(Envelope { id, message: DaemonMessage::Hello(_), .. }) => {
                         reject(ws, Some(id), ErrorCode::UnexpectedMessage, "hello already received").await;
                     }
@@ -361,6 +405,65 @@ async fn serve(
             },
         }
     }
+}
+
+/// Requête SFTP du nœud (ADR-0047), traitée dans sa tâche : la réponse revient par `replies`.
+/// Sans SFTP sur cette API (tests du lien), ou en cas d'erreur interne, la réponse est un
+/// `error` : le nœud refuse alors la connexion SFTP, le lien reste.
+fn answer_sftp(
+    context: &LinkContext,
+    node: &Node,
+    request: MessageId,
+    message: DaemonMessage,
+    replies: mpsc::Sender<Envelope<ApiMessage>>,
+) {
+    let sftp = context.sftp.clone();
+    let node_id = node.id.as_uuid();
+    tokio::spawn(async move {
+        let outcome = match (sftp, message) {
+            (None, _) => Err("sftp is not served by this api".to_owned()),
+            (Some(sftp), DaemonMessage::SftpAuth(auth)) => {
+                crate::sftp::application::authenticate(&sftp, node_id, auth)
+                    .await
+                    .map(ApiMessage::SftpGrant)
+                    .map_err(|e| e.to_string())
+            }
+            (Some(sftp), DaemonMessage::SftpLease(lease)) => {
+                crate::sftp::application::renew(&sftp, node_id, lease)
+                    .await
+                    .map(ApiMessage::SftpLeases)
+                    .map_err(|e| e.to_string())
+            }
+            (Some(sftp), DaemonMessage::SftpAudit(audit)) => {
+                crate::sftp::application::record_events(&sftp, node_id, audit)
+                    .await
+                    .map(ApiMessage::SftpAuditAck)
+                    .map_err(|e| e.to_string())
+            }
+            (Some(_), _) => Err("not an sftp request".to_owned()),
+        };
+        let reply = outcome.unwrap_or_else(|error| {
+            tracing::error!(%error, "sftp request failed");
+            ApiMessage::Error(ProtocolError {
+                code: ErrorCode::Unavailable,
+                message: "sftp request failed".to_owned(),
+            })
+        });
+        // Session fermée entre-temps : le nœud refera sa requête à la reconnexion.
+        let _ = replies.send(Envelope::reply(request, reply)).await;
+    });
+}
+
+/// Empreinte de clé d'hôte annoncée par le nœud : `SHA256:` puis du base64, rien d'autre (elle
+/// est affichée telle quelle dans le panel).
+fn valid_host_key(fingerprint: &str) -> bool {
+    fingerprint.strip_prefix("SHA256:").is_some_and(|rest| {
+        !rest.is_empty()
+            && rest.len() <= 64
+            && rest
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'+' || b == b'/')
+    })
 }
 
 enum Incoming {

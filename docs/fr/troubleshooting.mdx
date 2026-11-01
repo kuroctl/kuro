@@ -1,6 +1,6 @@
 ---
 title: "Dépannage"
-description: "Journaux, nœud hors ligne, joueurs qui ne se connectent pas, nom DNS qui ne répond pas."
+description: "Journaux, nœud hors ligne, joueurs qui ne se connectent pas, nom DNS qui ne répond pas, mot de passe oublié, téléphone perdu."
 ---
 
 ## Où lire les journaux
@@ -37,3 +37,20 @@ le nœud.
   les noms des serveurs ne mènent nulle part.
 - Le SRV n'existe que si le prefab du serveur le déclare (Minecraft Java : version 1.2.0 ou
   plus récente du prefab).
+
+## Mot de passe oublié
+
+- Sur la page de connexion, **Mot de passe oublié ?** : saisissez votre adresse, un lien valable
+  30 minutes vous est envoyé. Il ne sert qu'une fois et ferme vos sessions ouvertes ; la
+  vérification en deux étapes reste demandée ensuite.
+- Il faut un serveur SMTP réglé (**Paramètres › E-mail**). Sans lui, ou si rien n'arrive : un
+  autre admin réinitialise votre mot de passe depuis **Utilisateurs**, ou, sur la machine de
+  l'API, `kuro-api admin reset-password --email <e-mail>`.
+
+## Téléphone perdu (vérification en deux étapes)
+
+- À la connexion, **Utiliser un code de secours** : chacun des 10 codes reçus à l'activation sert
+  une fois. Une fois connecté, **Mon compte › Sécurité › Changer d'appareil** enregistre le
+  nouveau téléphone (un code de secours tient lieu de code actuel) et en donne une nouvelle série.
+- Sans code de secours : un autre admin réinitialise votre vérification en deux étapes depuis
+  **Utilisateurs**, ou, sur la machine de l'API, `kuro-api admin reset-totp --email <e-mail>`.

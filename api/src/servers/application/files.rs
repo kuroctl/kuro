@@ -5,10 +5,11 @@ use axum::body::Bytes;
 use base64::Engine;
 use futures_util::{Stream, StreamExt};
 use kuro_protocol::api::{
-    FileDelete, FileList, FileMkdir, FileRead, FileRename, FileUpload, FileUploadChunk, FileWrite,
+    AuthorKind, FileAuthor, FileDelete, FileHistory, FileList, FileMkdir, FileRead, FileRename,
+    FileRestore, FileUpload, FileUploadChunk, FileVersionRead, FileWrite,
 };
 use kuro_protocol::daemon::server::{CommandErrorCode, CommandResult};
-use kuro_protocol::daemon::{FileContent, FileListing};
+use kuro_protocol::daemon::{FileContent, FileListing, FileVersions};
 use kuro_protocol::limits::{
     MAX_MESSAGE_BYTES, MAX_TEXT_FILE_BYTES, MAX_UPLOAD_BYTES, UPLOAD_CHUNK_BYTES, path_segments,
 };
@@ -18,7 +19,7 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use super::{ServersError, ServersState, get};
-use crate::audit::domain::{AuditAction, AuditContext, AuditEvent};
+use crate::audit::domain::{ActorKind, AuditAction, AuditContext, AuditEvent};
 use crate::audit::infra::AuditedTx;
 use crate::error_code::{ErrorCode, FieldError};
 use crate::nodes::domain::{NodeId, NodeStatus};
@@ -85,6 +86,7 @@ pub async fn write(
         path: path.clone(),
         content,
         if_sha256,
+        author: author(context),
     });
     done(request(state, node, message).await?, "path")?;
     // Audit ouvert une fois l'opération faite : aucune connexion tenue pendant l'attente du nœud.
@@ -92,7 +94,7 @@ pub async fn write(
     tx.commit(
         AuditEvent::success(AuditAction::ServerFileWritten)
             .target("server", id)
-            .details(json!({ "path": path, "size": size })),
+            .details(json!({ "path": path, "size": size, "via": "web" })),
     )
     .await?;
     Ok(())
@@ -115,13 +117,13 @@ pub async fn upload<E: std::fmt::Display>(
     size: u64,
     body: impl Stream<Item = Result<Bytes, E>> + Unpin,
 ) -> Result<Uploaded, ServersError> {
-    let uploaded = upload_raw(state, id, path, size, body).await?;
+    let uploaded = upload_raw(state, id, path, size, author(context), body).await?;
     let tx = AuditedTx::begin(&state.pool, context).await?;
     tx.commit(
         AuditEvent::success(AuditAction::ServerFileUploaded)
             .target("server", id)
             .details(
-                json!({ "path": uploaded.path, "size": uploaded.size, "sha256": uploaded.sha256 }),
+                json!({ "path": uploaded.path, "size": uploaded.size, "sha256": uploaded.sha256, "via": "web" }),
             ),
     )
     .await?;
@@ -136,6 +138,7 @@ pub(super) async fn upload_raw<E: std::fmt::Display>(
     id: Uuid,
     path: &str,
     size: u64,
+    author: Option<FileAuthor>,
     mut body: impl Stream<Item = Result<Bytes, E>> + Unpin,
 ) -> Result<Uploaded, ServersError> {
     let path = checked(path, "path")?;
@@ -154,6 +157,7 @@ pub(super) async fn upload_raw<E: std::fmt::Display>(
                 upload_id,
                 path: path.clone(),
                 size,
+                author,
             }),
         )
         .await?,
@@ -229,7 +233,7 @@ pub async fn mkdir(
     tx.commit(
         AuditEvent::success(AuditAction::ServerDirectoryCreated)
             .target("server", id)
-            .details(json!({ "path": path })),
+            .details(json!({ "path": path, "via": "web" })),
     )
     .await?;
     Ok(())
@@ -255,7 +259,7 @@ pub async fn rename(
     tx.commit(
         AuditEvent::success(AuditAction::ServerFileRenamed)
             .target("server", id)
-            .details(json!({ "from": from, "to": to })),
+            .details(json!({ "from": from, "to": to, "via": "web" })),
     )
     .await?;
     Ok(())
@@ -273,16 +277,167 @@ pub async fn delete(
     let message = ApiMessage::FileDelete(FileDelete {
         server_id: id,
         path: path.clone(),
+        author: author(context),
     });
     done(request(state, node, message).await?, "path")?;
     let tx = AuditedTx::begin(&state.pool, context).await?;
     tx.commit(
         AuditEvent::success(AuditAction::ServerFileDeleted)
             .target("server", id)
-            .details(json!({ "path": path })),
+            .details(json!({ "path": path, "via": "web" })),
     )
     .await?;
     Ok(())
+}
+
+/// Versions gardées d'un fichier (ADR-0049), de la plus récente à la plus ancienne.
+pub async fn history(
+    state: &ServersState,
+    id: Uuid,
+    path: &str,
+) -> Result<FileVersions, ServersError> {
+    let path = checked(path, "path")?;
+    let node = reachable(state, id, false).await?;
+    match request(
+        state,
+        node,
+        ApiMessage::FileHistory(FileHistory {
+            server_id: id,
+            path,
+        }),
+    )
+    .await?
+    {
+        DaemonMessage::FileVersions(versions) => Ok(versions),
+        other => Err(unexpected(other)),
+    }
+}
+
+/// Contenu texte d'une version.
+pub async fn version(
+    state: &ServersState,
+    id: Uuid,
+    path: &str,
+    version: Uuid,
+) -> Result<FileContent, ServersError> {
+    let path = checked(path, "path")?;
+    let node = reachable(state, id, false).await?;
+    match request(
+        state,
+        node,
+        ApiMessage::FileVersionRead(FileVersionRead {
+            server_id: id,
+            path,
+            version,
+        }),
+    )
+    .await?
+    {
+        DaemonMessage::FileContent(content) => Ok(content),
+        other => Err(unexpected(other)),
+    }
+}
+
+/// Remet une version à la place du fichier, journalisé (`server.file_restored`). La version
+/// remplacée est gardée par le nœud : la restauration s'annule.
+pub async fn restore(
+    state: &ServersState,
+    context: &AuditContext,
+    id: Uuid,
+    path: &str,
+    version: Uuid,
+) -> Result<(), ServersError> {
+    let path = checked(path, "path")?;
+    let node = reachable(state, id, true).await?;
+    let message = ApiMessage::FileRestore(FileRestore {
+        server_id: id,
+        path: path.clone(),
+        version,
+        author: author(context),
+    });
+    done(request(state, node, message).await?, "path")?;
+    let tx = AuditedTx::begin(&state.pool, context).await?;
+    tx.commit(
+        AuditEvent::success(AuditAction::ServerFileRestored)
+            .target("server", id)
+            .details(json!({ "path": path, "version": version, "via": "web" })),
+    )
+    .await?;
+    Ok(())
+}
+
+/// Fichiers supprimés d'un dossier dont une version est encore gardée (ADR-0049).
+pub async fn deleted(
+    state: &ServersState,
+    id: Uuid,
+    dir: &str,
+) -> Result<kuro_protocol::daemon::DeletedFiles, ServersError> {
+    let dir = checked(dir, "path")?;
+    let node = reachable(state, id, false).await?;
+    match request(
+        state,
+        node,
+        ApiMessage::FileHistoryDeleted(kuro_protocol::api::FileHistoryDeleted {
+            server_id: id,
+            dir,
+        }),
+    )
+    .await?
+    {
+        DaemonMessage::DeletedFiles(files) => Ok(files),
+        other => Err(unexpected(other)),
+    }
+}
+
+/// Rétention de l'historique telle que réglée dans le projet.
+pub fn history_policy(days: i32, max_mb: i32) -> kuro_protocol::api::HistoryPolicy {
+    kuro_protocol::api::HistoryPolicy {
+        days: u32::try_from(days).unwrap_or(0),
+        max_mb: u32::try_from(max_mb).unwrap_or(1),
+    }
+}
+
+/// Envoie la nouvelle rétention à chaque nœud en ligne, où qu'il soit tenu (ADR-0037), en tâche
+/// de fond. Un nœud hors ligne la reçoit dans `hello.ack` à sa reconnexion.
+pub fn send_history_policy(state: &ServersState, days: i32, max_mb: i32) {
+    let state = state.clone();
+    let policy = history_policy(days, max_mb);
+    tokio::spawn(async move {
+        let nodes = match sqlx::query_scalar!("SELECT id FROM nodes WHERE status = 'online'")
+            .fetch_all(&state.pool)
+            .await
+        {
+            Ok(nodes) => nodes,
+            Err(error) => {
+                tracing::error!(%error, "file history policy not sent");
+                return;
+            }
+        };
+        for node in nodes {
+            let message = ApiMessage::NodeSettings(kuro_protocol::api::NodeSettings {
+                file_history: policy,
+            });
+            if let Err(error) = state.commands.request(NodeId::from(node), message).await {
+                tracing::warn!(%node, ?error, "file history policy not delivered");
+            }
+        }
+    });
+}
+
+/// Auteur d'une écriture, gardé avec la version qu'elle remplace : l'identifiant de l'acteur,
+/// jamais son e-mail. Un agent IA écrit au nom de son admin.
+fn author(context: &AuditContext) -> Option<FileAuthor> {
+    let kind = match context.actor.kind {
+        ActorKind::Admin => AuthorKind::Admin,
+        ActorKind::Customer => AuthorKind::Customer,
+        ActorKind::Agent => AuthorKind::Agent,
+        ActorKind::System | ActorKind::Cli => AuthorKind::System,
+        ActorKind::Node | ActorKind::Anonymous => return None,
+    };
+    Some(FileAuthor {
+        kind,
+        id: context.actor.id,
+    })
 }
 
 /// Chemin normalisé (`/a/b/c`), ou refus sous le champ donné.

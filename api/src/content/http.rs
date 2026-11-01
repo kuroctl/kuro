@@ -132,7 +132,7 @@ pub async fn put_source_key(
     Json(request): Json<SourceKeyRequest>,
 ) -> Result<StatusCode, ApiError> {
     session
-        .require(&iam, Permission::SystemContentSourcesManage)
+        .require_elevated(&iam, Permission::SystemContentSourcesManage)
         .await?;
     settings::set_key(&state, &session.context, &provider, &request.api_key).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -149,7 +149,7 @@ pub async fn delete_source_key(
     Path(provider): Path<String>,
 ) -> Result<StatusCode, ApiError> {
     session
-        .require(&iam, Permission::SystemContentSourcesManage)
+        .require_elevated(&iam, Permission::SystemContentSourcesManage)
         .await?;
     settings::remove_key(&state, &session.context, &provider).await?;
     Ok(StatusCode::NO_CONTENT)

@@ -66,6 +66,7 @@ impl Node {
                 upload_id,
                 path: path.to_owned(),
                 size,
+                author: None,
             })
             .await
     }

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT sftp_handle FROM admin_users WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sftp_handle",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "admin_users",
+            "name": "sftp_handle"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e11da5beca2a8012840109f73384a85d9e69ede7e878c6bfdda2ebe90a3626ef"
+}

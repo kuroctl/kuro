@@ -123,6 +123,7 @@ pub async fn get_with_panel(panel: Option<&std::path::Path>, path: &str) -> Test
     let state = AppState {
         setup,
         mail,
+        sftp: kuro_api::sftp::SftpState { pool: pool.clone() },
         iam,
         enrollment: enrollment_settings(),
         links,

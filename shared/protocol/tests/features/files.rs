@@ -56,6 +56,7 @@ fn file_requests_wire_format() {
                 path: path.clone(),
                 content: "motd=Kuro\n".to_owned(),
                 if_sha256: Some("ab12".to_owned()),
+                author: None,
             }),
             json!({ "type": "file.write", "payload": {
                 "server_id": SERVER_ID, "path": path, "content": "motd=Kuro\n", "if_sha256": "ab12"
@@ -82,6 +83,7 @@ fn file_requests_wire_format() {
             ApiMessage::FileDelete(FileDelete {
                 server_id: server_id(),
                 path: "/server/data/world".to_owned(),
+                author: None,
             }),
             json!({ "type": "file.delete", "payload": { "server_id": SERVER_ID, "path": "/server/data/world" } }),
         ),
@@ -99,6 +101,7 @@ fn an_unconditional_write_omits_the_fingerprint() {
         path: "/server/data/new.txt".to_owned(),
         content: String::new(),
         if_sha256: None,
+        author: None,
     }));
 
     assert_wire_format(
@@ -245,6 +248,7 @@ fn an_upload_is_announced_then_sent_in_ordered_chunks() {
         upload_id,
         path: "/server/data/mods/x.jar".to_owned(),
         size: 3,
+        author: None,
     }))
     .unwrap();
     assert_eq!(start["type"], "file.upload");

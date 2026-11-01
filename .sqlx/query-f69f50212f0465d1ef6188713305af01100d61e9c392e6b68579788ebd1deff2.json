@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE nodes\n             SET status = 'online', daemon_version = $2, os = $3, arch = $4,\n                 cpu_cores = $5, memory_bytes = $6, instance_id = $7,\n                 sftp_port = $8, sftp_host_key = $9, link_address = $10,\n                 last_heartbeat_at = now(), updated_at = now()\n             WHERE id = $1 AND status IN ('online', 'offline')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Int4",
+        "Int8",
+        "Uuid",
+        "Int4",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f69f50212f0465d1ef6188713305af01100d61e9c392e6b68579788ebd1deff2"
+}

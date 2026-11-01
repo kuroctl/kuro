@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT file_history_days, file_history_max_mb FROM platform_settings",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "file_history_days",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "file_history_days"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "file_history_max_mb",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "file_history_max_mb"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "ada3639a44c609ca5214dc85149e1308f9e3249f095e311c17aaebb35dcb55b3"
+}

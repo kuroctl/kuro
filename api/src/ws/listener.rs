@@ -53,6 +53,8 @@ pub(super) struct LinkContext {
     pub(super) hello_timeout: Duration,
     pub(super) heartbeat_interval_secs: u64,
     pub(super) heartbeat_timeout_secs: u64,
+    /// Requêtes SFTP des nœuds (ADR-0047) ; absent, `hello.ack` ne l'annonce pas.
+    pub(super) sftp: Option<crate::sftp::SftpState>,
 }
 
 /// État des routes du listener.
@@ -94,6 +96,7 @@ impl DaemonListener {
             hello_timeout: config.hello_timeout(),
             heartbeat_interval_secs: config.heartbeat_interval_secs,
             heartbeat_timeout_secs: config.heartbeat_timeout_secs,
+            sftp: None,
         });
         Ok(Self {
             tcp,
@@ -102,6 +105,14 @@ impl DaemonListener {
             enrollment,
             readiness: Readiness::default(),
         })
+    }
+
+    /// Répond aux requêtes SFTP des nœuds (ADR-0047). À appeler avant [`Self::run`].
+    pub fn with_sftp(mut self, sftp: crate::sftp::SftpState) -> Self {
+        if let Some(link) = Arc::get_mut(&mut self.link) {
+            link.sftp = Some(sftp);
+        }
+        self
     }
 
     pub fn local_addr(&self) -> std::io::Result<SocketAddr> {

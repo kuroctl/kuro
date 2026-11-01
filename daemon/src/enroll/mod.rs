@@ -126,6 +126,7 @@ pub async fn enroll(options: &EnrollOptions) -> Result<Enrolled, EnrollError> {
         },
         servers: crate::config::ServersConfig::default(),
         web: crate::web::WebConfig::default(),
+        sftp: crate::sftp::SftpConfig::default(),
     };
     files.write(
         &response.ca_pem,

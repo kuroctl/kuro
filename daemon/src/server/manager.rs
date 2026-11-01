@@ -151,6 +151,8 @@ struct Inner {
     uploads: Mutex<HashMap<Uuid, upload::Upload>>,
     /// Historique des stats par minute (ADR-0043).
     metrics: metrics::MetricsState,
+    /// Rétention de l'historique des fichiers, réglée par l'API (ADR-0049).
+    history_policy: Mutex<kuro_protocol::api::HistoryPolicy>,
 }
 
 impl Manager {
@@ -210,6 +212,7 @@ impl Manager {
                 content,
                 uploads: Mutex::new(HashMap::new()),
                 metrics: metrics::MetricsState::default(),
+                history_policy: Mutex::new(kuro_protocol::api::HistoryPolicy::default()),
             }),
         };
         (
@@ -717,6 +720,18 @@ impl Manager {
         let dir = self.dir(deploy.server_id);
         let mut ownership = Ownership::new();
         for file in &deploy.files {
+            // Version laissée par le jeu (ou une édition) avant la réécriture (ADR-0049).
+            if let Some(path) = declared_segments(deploy, file) {
+                let capture = crate::fs::history::Capture {
+                    reason: kuro_protocol::daemon::VersionReason::Start,
+                    channel: kuro_protocol::daemon::VersionChannel::Kuro,
+                    author: Some(kuro_protocol::api::FileAuthor {
+                        kind: kuro_protocol::api::AuthorKind::System,
+                        id: None,
+                    }),
+                };
+                self.keep_version(deploy.server_id, &path, capture).await;
+            }
             let Some(written) = dir.write_file(deploy, file)? else {
                 continue;
             };
@@ -860,6 +875,12 @@ impl Inner {
         self.uploads.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    fn history_policy(&self) -> std::sync::MutexGuard<'_, kuro_protocol::api::HistoryPolicy> {
+        self.history_policy
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+    }
+
     fn disk(&self) -> std::sync::MutexGuard<'_, HashMap<Uuid, u64>> {
         self.disk.lock().unwrap_or_else(PoisonError::into_inner)
     }
@@ -899,6 +920,26 @@ impl Drop for BusyGuard {
     }
 }
 
+/// `[service, volume, …]` d'un fichier déclaré : chemin du conteneur ramené sous son volume.
+fn declared_segments(
+    deploy: &ServerDeploy,
+    file: &kuro_protocol::api::server::FileSpec,
+) -> Option<Vec<String>> {
+    let service = deploy.services.iter().find(|s| s.name == file.service)?;
+    service.volumes.iter().find_map(|volume| {
+        let root = volume.path.trim_end_matches('/');
+        let rest = file.path.strip_prefix(&format!("{root}/"))?;
+        let mut segments = vec![service.name.clone(), volume.name.clone()];
+        for part in rest.split('/').filter(|p| !p.is_empty() && *p != ".") {
+            if part == ".." {
+                return None;
+            }
+            segments.push(part.to_owned());
+        }
+        Some(segments)
+    })
+}
+
 fn owner_of(deploy: &ServerDeploy, service: &str) -> Result<(u32, u32), OpError> {
     let service = deploy
         .services
@@ -913,4 +954,50 @@ fn unix_now() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX))
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use kuro_protocol::api::server::{FileContent, FileFormat, FileSpec};
+
+    use super::*;
+
+    fn declared(path: &str) -> FileSpec {
+        FileSpec {
+            service: "server".to_owned(),
+            path: path.to_owned(),
+            format: FileFormat::Properties,
+            content: FileContent::User { content: None },
+        }
+    }
+
+    #[test]
+    fn a_declared_file_is_found_under_its_volume() {
+        let deploy: ServerDeploy = serde_json::from_value(serde_json::json!({
+            "server_id": Uuid::nil(),
+            "services": [{
+                "name": "server", "image": "x", "command": [], "env": {}, "ports": [],
+                "volumes": [{ "name": "data", "path": "/data" }], "writable": [],
+                "user": "1000:1000",
+                "limits": { "memory_bytes": 1, "cpu_millis": 1, "pids": 1 }
+            }],
+            "files": [],
+            "lifecycle": { "service": "server", "stop": { "signal": "SIGTERM" }, "stop_timeout_secs": 1 },
+            "disk_bytes": 0
+        }))
+        .unwrap();
+        assert_eq!(
+            declared_segments(&deploy, &declared("/data/server.properties")),
+            Some(vec![
+                "server".to_owned(),
+                "data".to_owned(),
+                "server.properties".to_owned()
+            ])
+        );
+        assert_eq!(declared_segments(&deploy, &declared("/etc/passwd")), None);
+        assert_eq!(
+            declared_segments(&deploy, &declared("/data/../etc/passwd")),
+            None
+        );
+    }
 }

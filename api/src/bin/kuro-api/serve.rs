@@ -92,7 +92,8 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         server_events.clone(),
     )
     .await
-    .context("starting daemon listener")?;
+    .context("starting daemon listener")?
+    .with_sftp(kuro_api::sftp::SftpState { pool: pool.clone() });
     let iam = IamState::new(pool.clone(), &config.auth)?;
     // Rôles livrés (ADR-0045) : une installation antérieure à leur arrivée les reçoit ici, une
     // seule fois ; une mise en route les crée elle-même.
@@ -223,6 +224,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         enrollment: settings,
         links: relay.clone(),
         servers,
+        sftp: kuro_api::sftp::SftpState { pool: pool.clone() },
         pool,
         prefabs_dir: prefabs::PrefabsDir {
             dir: config.prefabs.dir.clone(),

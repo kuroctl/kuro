@@ -61,6 +61,17 @@ pub struct Owner {
     pub gid: u32,
 }
 
+/// Façon d'ouvrir un fichier en écriture (drapeaux SFTP `READ`, `CREAT`, `TRUNC`, `EXCL`,
+/// `APPEND`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct WriteMode {
+    pub read: bool,
+    pub create: bool,
+    pub truncate: bool,
+    pub exclusive: bool,
+    pub append: bool,
+}
+
 /// Volumes d'un serveur : `<dossier du serveur>/volumes`.
 #[derive(Debug, Clone)]
 pub struct Volumes {
@@ -129,6 +140,69 @@ impl Volumes {
     pub fn delete(&self, path: &[&str]) -> Result<(), VolumeError> {
         let (parent, name) = split(path)?;
         sys::delete(&self.root, &parent, name)
+    }
+
+    /// Entrée désignée par le chemin, sans suivre de lien : un lien est décrit lui-même. Tout
+    /// niveau est accepté, dès le service (`[service]`).
+    pub fn stat(&self, path: &[&str]) -> Result<FileEntry, VolumeError> {
+        let Some((name, parent)) = path.split_last() else {
+            return Err(VolumeError::InvalidPath);
+        };
+        if !kuro_protocol::limits::is_valid_name(name) {
+            return Err(VolumeError::InvalidPath);
+        }
+        sys::stat(&self.root, &parent.join("/"), name)
+    }
+
+    /// Fichier ouvert pour écrire **en place** (SFTP, ADR-0047) : pas de fichier temporaire, le
+    /// client écrit par morceaux à des positions de son choix. Un fichier créé appartient à
+    /// l'utilisateur du service ; rend aussi `true` s'il vient d'être créé.
+    pub fn open_for_write(
+        &self,
+        path: &[&str],
+        mode: WriteMode,
+        owner: Owner,
+    ) -> Result<(std::fs::File, bool), VolumeError> {
+        let (parent, name) = split(path)?;
+        if name.starts_with(TEMP_PREFIX) {
+            return Err(VolumeError::InvalidPath);
+        }
+        sys::open_for_write(&self.root, &parent, name, mode, owner)
+    }
+
+    /// Supprime un fichier ou un lien (`directory` faux), ou un dossier **vide** (`directory`
+    /// vrai) : jamais récursif, contrairement à [`Self::delete`].
+    pub fn remove_entry(&self, path: &[&str], directory: bool) -> Result<(), VolumeError> {
+        let (parent, name) = split(path)?;
+        sys::remove_entry(&self.root, &parent, name, directory)
+    }
+
+    /// Renomme en remplaçant la cible si elle existe (`posix-rename@openssh.com`).
+    pub fn rename_over(&self, from: &[&str], to: &[&str]) -> Result<(), VolumeError> {
+        let (from_parent, from_name) = split(from)?;
+        let (to_parent, to_name) = split(to)?;
+        if to_name.starts_with(TEMP_PREFIX) {
+            return Err(VolumeError::InvalidPath);
+        }
+        sys::rename_over(&self.root, &from_parent, from_name, &to_parent, to_name)
+    }
+
+    /// Droits d'un fichier ou d'un dossier, sans setuid, setgid ni sticky.
+    pub fn set_entry_mode(&self, path: &[&str], mode: u32) -> Result<(), VolumeError> {
+        let (parent, name) = split(path)?;
+        sys::set_entry_mode(&self.root, &parent, name, mode & 0o777)
+    }
+
+    /// Dates d'accès et de modification (secondes Unix), sans suivre de lien.
+    pub fn set_times(&self, path: &[&str], atime: i64, mtime: i64) -> Result<(), VolumeError> {
+        let (parent, name) = split(path)?;
+        sys::set_times(&self.root, &parent, name, atime, mtime)
+    }
+
+    /// Taille d'un fichier ordinaire (tronqué ou complété de zéros).
+    pub fn truncate(&self, path: &[&str], size: u64) -> Result<(), VolumeError> {
+        let (parent, name) = split(path)?;
+        sys::truncate(&self.root, &parent, name, size)
     }
 
     /// Fichier ordinaire ouvert en lecture (archive à extraire).
@@ -246,7 +320,7 @@ mod sys {
     use kuro_protocol::daemon::{FileEntry, FileKind};
     use rustix::fs::{
         AtFlags, Dir, FileType, Gid, Mode, OFlags, ResolveFlags, Uid, fchmod, fchown, fstat,
-        mkdirat, openat, openat2, renameat, statat, unlinkat,
+        ftruncate, mkdirat, openat, openat2, renameat, statat, unlinkat, utimensat,
     };
     use rustix::io::Errno;
 
@@ -504,6 +578,17 @@ mod sys {
         unlinkat(parent, name, AtFlags::REMOVEDIR).map_err(errno)
     }
 
+    pub(super) fn stat(root: &Path, parent: &str, name: &str) -> Result<FileEntry, VolumeError> {
+        let dir = open_dir(root, parent)?;
+        let stat = statat(&dir, name, AtFlags::SYMLINK_NOFOLLOW).map_err(errno)?;
+        Ok(FileEntry {
+            name: name.to_owned(),
+            kind: kind(&stat),
+            size: u64::try_from(int(stat.st_size)).unwrap_or(0),
+            modified_ms: modified_ms(&stat),
+        })
+    }
+
     pub(super) fn open(root_path: &Path, relative: &str) -> Result<File, VolumeError> {
         let root = root(root_path)?;
         let fd = openat2(
@@ -518,6 +603,157 @@ mod sys {
             return Err(VolumeError::InvalidPath);
         }
         Ok(File::from(fd))
+    }
+
+    pub(super) fn open_for_write(
+        root: &Path,
+        parent: &str,
+        name: &str,
+        mode: super::WriteMode,
+        owner: Owner,
+    ) -> Result<(File, bool), VolumeError> {
+        let dir = open_dir(root, parent)?;
+        let mut flags = OFlags::CLOEXEC | OFlags::NOFOLLOW;
+        flags |= if mode.read {
+            OFlags::RDWR
+        } else {
+            OFlags::WRONLY
+        };
+        if mode.append {
+            flags |= OFlags::APPEND;
+        }
+        // Création d'abord exclusive : on sait alors si le fichier est neuf (à donner au service).
+        let created = if mode.create {
+            match openat(
+                &dir,
+                name,
+                flags | OFlags::CREATE | OFlags::EXCL,
+                Mode::from_raw_mode(FILE_MODE),
+            ) {
+                Ok(fd) => {
+                    give(&fd, owner.uid, owner.gid)?;
+                    Some(fd)
+                }
+                Err(Errno::EXIST) if !mode.exclusive => None,
+                Err(error) => return Err(errno(error)),
+            }
+        } else {
+            None
+        };
+        let (fd, new) = match created {
+            Some(fd) => (fd, true),
+            None => {
+                let truncate = if mode.truncate {
+                    OFlags::TRUNC
+                } else {
+                    OFlags::empty()
+                };
+                let fd = openat(&dir, name, flags | truncate, Mode::empty()).map_err(errno)?;
+                (fd, false)
+            }
+        };
+        if kind(&fstat(&fd).map_err(errno)?) != FileKind::File {
+            return Err(VolumeError::InvalidPath);
+        }
+        Ok((File::from(fd), new))
+    }
+
+    pub(super) fn remove_entry(
+        root: &Path,
+        parent: &str,
+        name: &str,
+        directory: bool,
+    ) -> Result<(), VolumeError> {
+        let dir = open_dir(root, parent)?;
+        let flags = if directory {
+            AtFlags::REMOVEDIR
+        } else {
+            AtFlags::empty()
+        };
+        unlinkat(&dir, name, flags).map_err(|error| match error {
+            // Dossier non vide.
+            Errno::NOTEMPTY | Errno::EXIST => VolumeError::AlreadyExists,
+            Errno::ISDIR | Errno::NOTDIR => VolumeError::InvalidPath,
+            other => errno(other),
+        })
+    }
+
+    pub(super) fn rename_over(
+        root: &Path,
+        from_parent: &str,
+        from: &str,
+        to_parent: &str,
+        to: &str,
+    ) -> Result<(), VolumeError> {
+        let source = open_dir(root, from_parent)?;
+        let target = open_dir(root, to_parent)?;
+        renameat(&source, from, &target, to).map_err(|error| match error {
+            Errno::INVAL | Errno::ISDIR | Errno::NOTDIR => VolumeError::InvalidPath,
+            Errno::NOTEMPTY | Errno::EXIST => VolumeError::AlreadyExists,
+            other => errno(other),
+        })
+    }
+
+    /// Fichier ou dossier désigné par `name`, ouvert sans suivre de lien.
+    fn entry(dir: &OwnedFd, name: &str, write: bool) -> Result<OwnedFd, VolumeError> {
+        let stat = statat(dir, name, AtFlags::SYMLINK_NOFOLLOW).map_err(errno)?;
+        let access = match kind(&stat) {
+            FileKind::Directory => OFlags::RDONLY | OFlags::DIRECTORY,
+            FileKind::File if write => OFlags::WRONLY,
+            FileKind::File => OFlags::RDONLY,
+            _ => return Err(VolumeError::InvalidPath),
+        };
+        openat(
+            dir,
+            name,
+            access | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .map_err(errno)
+    }
+
+    pub(super) fn set_entry_mode(
+        root: &Path,
+        parent: &str,
+        name: &str,
+        mode: u32,
+    ) -> Result<(), VolumeError> {
+        let dir = open_dir(root, parent)?;
+        let fd = entry(&dir, name, false)?;
+        fchmod(&fd, Mode::from_raw_mode(mode)).map_err(errno)
+    }
+
+    pub(super) fn set_times(
+        root: &Path,
+        parent: &str,
+        name: &str,
+        atime: i64,
+        mtime: i64,
+    ) -> Result<(), VolumeError> {
+        let dir = open_dir(root, parent)?;
+        let at = |seconds: i64| rustix::fs::Timespec {
+            tv_sec: seconds,
+            tv_nsec: 0,
+        };
+        let times = rustix::fs::Timestamps {
+            last_access: at(atime),
+            last_modification: at(mtime),
+        };
+        utimensat(&dir, name, &times, AtFlags::SYMLINK_NOFOLLOW).map_err(errno)
+    }
+
+    pub(super) fn truncate(
+        root: &Path,
+        parent: &str,
+        name: &str,
+        size: u64,
+    ) -> Result<(), VolumeError> {
+        let dir = open_dir(root, parent)?;
+        let fd = entry(&dir, name, true)?;
+        if kind(&fstat(&fd).map_err(errno)?) != FileKind::File {
+            return Err(VolumeError::InvalidPath);
+        }
+        ftruncate(&fd, size).map_err(errno)
     }
 
     /// Fichier temporaire du dossier parent, renommé à la validation.
@@ -696,6 +932,17 @@ mod sys {
         Ok(entries)
     }
 
+    pub(super) fn stat(root: &Path, parent: &str, name: &str) -> Result<FileEntry, VolumeError> {
+        let path = directory(root, parent)?.join(name);
+        let meta = std::fs::symlink_metadata(&path)?;
+        Ok(FileEntry {
+            name: name.to_owned(),
+            kind: kind(&meta),
+            size: meta.len(),
+            modified_ms: modified_ms(&meta),
+        })
+    }
+
     pub(super) fn read(root: &Path, relative: &str) -> Result<(Vec<u8>, i64), VolumeError> {
         let path = checked(root, relative)?;
         let meta = std::fs::symlink_metadata(&path)?;
@@ -868,6 +1115,130 @@ mod sys {
     }
 
     /// Sans droits Unix (Windows), seul le fichier est vérifié.
+    pub(super) fn open_for_write(
+        root: &Path,
+        parent: &str,
+        name: &str,
+        mode: super::WriteMode,
+        _owner: Owner,
+    ) -> Result<(std::fs::File, bool), VolumeError> {
+        let path = directory(root, parent)?.join(name);
+        let existed = match std::fs::symlink_metadata(&path) {
+            Ok(meta) if meta.is_file() => true,
+            Ok(_) => return Err(VolumeError::InvalidPath),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+            Err(error) => return Err(error.into()),
+        };
+        if existed && mode.exclusive {
+            return Err(VolumeError::AlreadyExists);
+        }
+        if !existed && !mode.create {
+            return Err(VolumeError::NotFound);
+        }
+        let file = std::fs::OpenOptions::new()
+            .read(mode.read)
+            .write(true)
+            .append(mode.append)
+            .truncate(mode.truncate && !mode.append)
+            .create(mode.create)
+            .open(&path)?;
+        Ok((file, !existed))
+    }
+
+    pub(super) fn remove_entry(
+        root: &Path,
+        parent: &str,
+        name: &str,
+        directory_wanted: bool,
+    ) -> Result<(), VolumeError> {
+        let path = directory(root, parent)?.join(name);
+        let meta = std::fs::symlink_metadata(&path)?;
+        match (meta.is_dir(), directory_wanted) {
+            (true, true) => std::fs::remove_dir(&path)?,
+            (false, false) => std::fs::remove_file(&path)?,
+            _ => return Err(VolumeError::InvalidPath),
+        }
+        Ok(())
+    }
+
+    pub(super) fn rename_over(
+        root: &Path,
+        from_parent: &str,
+        from: &str,
+        to_parent: &str,
+        to: &str,
+    ) -> Result<(), VolumeError> {
+        let source = directory(root, from_parent)?.join(from);
+        let target = directory(root, to_parent)?.join(to);
+        std::fs::symlink_metadata(&source)?;
+        std::fs::rename(source, target)?;
+        Ok(())
+    }
+
+    pub(super) fn set_entry_mode(
+        root: &Path,
+        parent: &str,
+        name: &str,
+        _mode: u32,
+    ) -> Result<(), VolumeError> {
+        let path = directory(root, parent)?.join(name);
+        if std::fs::symlink_metadata(&path)?.file_type().is_symlink() {
+            return Err(VolumeError::InvalidPath);
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(_mode))?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn set_times(
+        root: &Path,
+        parent: &str,
+        name: &str,
+        atime: i64,
+        mtime: i64,
+    ) -> Result<(), VolumeError> {
+        let path = directory(root, parent)?.join(name);
+        let meta = std::fs::symlink_metadata(&path)?;
+        if meta.file_type().is_symlink() {
+            return Err(VolumeError::InvalidPath);
+        }
+        let at = |seconds: i64| {
+            std::time::UNIX_EPOCH
+                + std::time::Duration::from_secs(u64::try_from(seconds).unwrap_or(0))
+        };
+        let file = if meta.is_dir() {
+            std::fs::File::open(&path)?
+        } else {
+            std::fs::OpenOptions::new().write(true).open(&path)?
+        };
+        file.set_times(
+            std::fs::FileTimes::new()
+                .set_accessed(at(atime))
+                .set_modified(at(mtime)),
+        )?;
+        Ok(())
+    }
+
+    pub(super) fn truncate(
+        root: &Path,
+        parent: &str,
+        name: &str,
+        size: u64,
+    ) -> Result<(), VolumeError> {
+        let path = directory(root, parent)?.join(name);
+        if !std::fs::symlink_metadata(&path)?.is_file() {
+            return Err(VolumeError::InvalidPath);
+        }
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&path)?
+            .set_len(size)?;
+        Ok(())
+    }
+
     pub(super) fn chmod(
         root: &Path,
         parent: &str,

@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT sftp_enabled FROM platform_settings",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sftp_enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "sftp_enabled"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0231a78ffa8553b6546e7df0b5236af228ef38f3e4e44ca230e077afc828ac10"
+}

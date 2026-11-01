@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT default_memory_mb, max_memory_mb, default_cpu_percent, max_cpu_percent,\n                    default_disk_mb, max_disk_mb, default_backup_limit, max_backup_limit,\n                    audit_retention_days, mcp_enabled, alert_cpu_percent, alert_memory_percent,\n                    alert_minutes, project_name, updated_at\n             FROM platform_settings",
+  "query": "SELECT default_memory_mb, max_memory_mb, default_cpu_percent, max_cpu_percent,\n                    default_disk_mb, max_disk_mb, default_backup_limit, max_backup_limit,\n                    audit_retention_days, mcp_enabled, sftp_enabled, file_history_days,\n                    file_history_max_mb, alert_cpu_percent, alert_memory_percent,\n                    alert_minutes, project_name, updated_at\n             FROM platform_settings FOR UPDATE",
   "describe": {
     "columns": [
       {
@@ -115,6 +115,39 @@
       },
       {
         "ordinal": 10,
+        "name": "sftp_enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "sftp_enabled"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "file_history_days",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "file_history_days"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "file_history_max_mb",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "file_history_max_mb"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
         "name": "alert_cpu_percent",
         "type_info": "Int4",
         "origin": {
@@ -125,7 +158,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 14,
         "name": "alert_memory_percent",
         "type_info": "Int4",
         "origin": {
@@ -136,7 +169,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 15,
         "name": "alert_minutes",
         "type_info": "Int4",
         "origin": {
@@ -147,7 +180,7 @@
         }
       },
       {
-        "ordinal": 13,
+        "ordinal": 16,
         "name": "project_name",
         "type_info": "Text",
         "origin": {
@@ -158,7 +191,7 @@
         }
       },
       {
-        "ordinal": 14,
+        "ordinal": 17,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -186,9 +219,12 @@
       false,
       false,
       false,
+      false,
+      false,
+      false,
       true,
       false
     ]
   },
-  "hash": "25451ed77b4409ee2725204d11012b541eca600bd198a5bcbc774605c088bf6d"
+  "hash": "31f6f4aebb51486f451d34c80d4a08b6482a125e7d40207132911dd04c157d86"
 }

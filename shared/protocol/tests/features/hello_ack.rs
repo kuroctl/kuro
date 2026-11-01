@@ -16,6 +16,8 @@ fn hello_ack_wire_format() {
             node_id: Uuid::parse_str(NODE_ID).unwrap(),
             heartbeat_interval_secs: 15,
             heartbeat_timeout_secs: 45,
+            sftp: false,
+            file_history: None,
         }),
     };
 

@@ -1,9 +1,12 @@
 //! Cas d'usage du domaine `iam`. Les écritures passent toutes par une
 //! [`crate::audit::infra::AuditedTx`] : pas de modification sans événement d'audit.
 
+pub mod elevation;
 mod error;
 pub mod invitations;
 mod login;
+mod mfa;
+pub mod password_reset;
 pub mod roles;
 mod session;
 mod tokens;
@@ -19,8 +22,11 @@ use crate::config::AuthConfig;
 
 pub use error::IamError;
 pub use login::{
-    LoginOutcome, TotpSetup, change_required_password, confirm_totp, login, start_totp_setup,
-    verify_totp,
+    LoginOutcome, TotpConfirmed, TotpSetup, change_required_password, confirm_totp, login,
+    start_totp_setup, verify_totp,
+};
+pub use mfa::{
+    confirm_own_totp, disable_own_totp, regenerate_recovery_codes, start_own_totp_setup,
 };
 pub use roles::{NewRole, RolePatch};
 pub use session::{ROTATION_GRACE, Refreshed, authenticate, logout, refresh};

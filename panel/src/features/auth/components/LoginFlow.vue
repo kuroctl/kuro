@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Connexion en étapes : identifiants, nouveau mot de passe si le sien a été choisi par un autre
-// admin, puis code TOTP ou configuration du TOTP.
+// admin, puis code TOTP (ou code de secours) ou configuration du TOTP, suivie de ses codes de
+// secours.
 import QRCode from 'qrcode'
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -13,6 +14,8 @@ import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 
 import { useAuthApi } from '../auth.api'
+import RecoveryCodes from './RecoveryCodes.vue'
+import TotpCodeInput from './TotpCodeInput.vue'
 import { useSessionStore } from '../session.store'
 
 const props = defineProps<{
@@ -26,7 +29,7 @@ const { login, changeRequiredPassword, verifyTotp, startTotpSetup, confirmTotp }
 const { handleError } = useApiError()
 const session = useSessionStore()
 
-type Step = 'credentials' | 'password' | 'totp' | 'setup'
+type Step = 'credentials' | 'password' | 'totp' | 'setup' | 'codes'
 const step = ref<Step>('credentials')
 const pending = ref(false)
 const fieldErrors = ref<FieldErrors>({})
@@ -38,6 +41,11 @@ const confirmation = ref('')
 const code = ref('')
 const challenge = ref('')
 const setup = ref<{ secret: string; qr: string } | null>(null)
+/** Code de secours saisi à la place du code de l'application. */
+const recovery = ref(false)
+/** Codes de secours délivrés à l'activation, et session à ouvrir une fois qu'ils sont gardés. */
+const recoveryCodes = ref<string[]>([])
+const pendingToken = ref('')
 
 function finish(accessToken: string) {
   session.open(accessToken)
@@ -52,6 +60,7 @@ async function next(result: Schemas['LoginResponse']) {
   if (result.status === 'password_change_required') {
     step.value = 'password'
   } else if (result.status === 'totp_required') {
+    recovery.value = false
     step.value = 'totp'
   } else {
     const totp = await startTotpSetup({ challenge: challenge.value })
@@ -100,12 +109,25 @@ function restart() {
   fieldErrors.value = {}
 }
 
+function toggleRecovery() {
+  recovery.value = !recovery.value
+  code.value = ''
+}
+
 async function submitCode() {
+  // Déjà en cours : le sixième chiffre et le bouton peuvent valider ensemble.
+  if (pending.value) return
   pending.value = true
   try {
     const body = { challenge: challenge.value, code: code.value }
-    const tokens = step.value === 'totp' ? await verifyTotp(body) : await confirmTotp(body)
-    finish(tokens.access_token)
+    if (step.value === 'totp') {
+      finish((await verifyTotp(body)).access_token)
+    } else {
+      const confirmed = await confirmTotp(body)
+      pendingToken.value = confirmed.access_token
+      recoveryCodes.value = confirmed.recovery_codes
+      step.value = 'codes'
+    }
   } catch (error) {
     handleError(error)
     code.value = ''
@@ -130,7 +152,12 @@ async function submitCode() {
             <p v-if="fieldErrors.email" class="text-sm text-destructive">{{ fieldErrors.email }}</p>
           </div>
           <div class="flex flex-col gap-2">
-            <Label for="password">{{ t('auth.password') }}</Label>
+            <div class="flex items-baseline justify-between gap-2">
+              <Label for="password">{{ t('auth.password') }}</Label>
+              <RouterLink to="/password/forgot" class="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                {{ t('passwordReset.forgotLink') }}
+              </RouterLink>
+            </div>
             <Input id="password" v-model="password" type="password" autocomplete="current-password" required />
             <p v-if="fieldErrors.password" class="text-sm text-destructive">{{ fieldErrors.password }}</p>
           </div>
@@ -177,13 +204,22 @@ async function submitCode() {
       </CardContent>
     </template>
 
+    <template v-else-if="step === 'codes'">
+      <CardHeader>
+        <CardTitle class="text-xl">{{ t('auth.recoveryCodes.title') }}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <RecoveryCodes :codes="recoveryCodes" :account="email" @done="finish(pendingToken)" />
+      </CardContent>
+    </template>
+
     <template v-else>
       <CardHeader>
         <CardTitle class="text-xl">
-          {{ step === 'totp' ? t('auth.totp.title') : t('auth.totpSetup.title') }}
+          {{ step === 'setup' ? t('auth.totpSetup.title') : recovery ? t('auth.totp.recoveryTitle') : t('auth.totp.title') }}
         </CardTitle>
         <CardDescription>
-          {{ step === 'totp' ? t('auth.totp.subtitle') : t('auth.totpSetup.subtitle') }}
+          {{ step === 'setup' ? t('auth.totpSetup.subtitle') : recovery ? t('auth.totp.recoverySubtitle') : t('auth.totp.subtitle') }}
         </CardDescription>
       </CardHeader>
       <CardContent class="flex flex-col gap-4">
@@ -195,20 +231,26 @@ async function submitCode() {
           </div>
         </div>
         <form class="flex flex-col gap-4" @submit.prevent="submitCode">
-          <div class="flex flex-col gap-2">
-            <Label for="code">{{ t('auth.totp.code') }}</Label>
+          <div v-if="recovery" class="flex flex-col gap-2">
+            <Label for="recovery-code">{{ t('auth.totp.recoveryCode') }}</Label>
             <Input
-              id="code"
+              id="recovery-code"
               v-model="code"
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              maxlength="6"
-              class="text-center font-mono text-lg tracking-[0.5em]"
+              autocomplete="off"
+              spellcheck="false"
+              class="text-center font-mono"
               required
             />
           </div>
-          <Button type="submit" :disabled="pending || code.length !== 6">
+          <div v-else class="flex flex-col gap-2">
+            <Label for="code">{{ t('auth.totp.code') }}</Label>
+            <TotpCodeInput id="code" v-model="code" :disabled="pending" @complete="submitCode" />
+          </div>
+          <Button type="submit" :disabled="pending || (recovery ? !code.trim() : code.length !== 6)">
             {{ step === 'totp' ? t('auth.totp.submit') : t('auth.totpSetup.submit') }}
+          </Button>
+          <Button v-if="step === 'totp'" type="button" variant="link" size="sm" @click="toggleRecovery">
+            {{ recovery ? t('auth.totp.useApp') : t('auth.totp.useRecovery') }}
           </Button>
           <Button type="button" variant="ghost" @click="step = 'credentials'">{{ t('common.back') }}</Button>
         </form>

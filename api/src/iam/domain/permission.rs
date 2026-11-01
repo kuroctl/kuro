@@ -130,6 +130,7 @@ permissions! {
     ServersActionsRun => "servers.actions.run", Servers, "Lancer les actions déclarées par le prefab (commande dans le conteneur, dans le périmètre choisi par le prefab)", sensitive = true, Available;
     ServersFilesRead => "servers.files.read", Servers, "Lister et lire les fichiers (ils peuvent contenir des secrets : mot de passe RCON…)", sensitive = true, Available;
     ServersFilesWrite => "servers.files.write", Servers, "Écrire et supprimer des fichiers", sensitive = true, Available;
+    ServersFilesSftp => "servers.files.sftp", Servers, "Ouvrir une session SFTP sur un serveur (avec la lecture, et l'écriture si accordée)", sensitive = true, Available;
     ServersBackupsRead => "servers.backups.read", Servers, "Lister les sauvegardes d'un serveur", sensitive = false, Available;
     ServersBackupsCreate => "servers.backups.create", Servers, "Créer, verrouiller ou déverrouiller une sauvegarde", sensitive = false, Available;
     ServersBackupsRestore => "servers.backups.restore", Servers, "Restaurer une sauvegarde (remplace les données)", sensitive = true, Available;
@@ -189,6 +190,7 @@ impl Permission {
                 | Self::ServersReinstall
                 | Self::ServersBackupsRestore
                 | Self::ServersBackupsDelete
+                | Self::ServersFilesSftp
                 | Self::CustomersImpersonate
         )
     }

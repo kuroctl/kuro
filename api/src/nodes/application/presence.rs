@@ -37,6 +37,10 @@ pub struct Presence {
 }
 
 impl Presence {
+    pub fn pool(&self) -> &sqlx::PgPool {
+        self.nodes.pool()
+    }
+
     pub fn new(nodes: NodeRepository, instance: Instance) -> Self {
         Self {
             nodes,

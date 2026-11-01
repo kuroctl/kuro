@@ -25,6 +25,9 @@ pub struct Config {
     /// Proxy des sites web (ADR-0038) : ports publiés, image, certificats.
     #[serde(default)]
     pub web: crate::web::WebConfig,
+    /// Accès SFTP (ADR-0047) ; sans `bind`, coupé.
+    #[serde(default)]
+    pub sftp: crate::sftp::SftpConfig,
 }
 
 /// Serveurs hébergés par le nœud (ADR-0013).

@@ -11,6 +11,7 @@ import { useI18n } from 'vue-i18n'
 
 import { formatCores } from '@/shared/lib/format'
 
+import { ElevationCancelled } from './http'
 import type { ErrorCode, FieldProblem, Problem } from './types'
 
 /** Message traduit par nom de champ. */
@@ -44,6 +45,8 @@ export function useApiError() {
   }
 
   function handleError(error: unknown, formFields: readonly string[] = []): FieldErrors {
+    // Confirmation d'identité abandonnée (ADR-0050) : rien n'a eu lieu, rien à signaler.
+    if (error instanceof ElevationCancelled) return {}
     if (!isAxiosError(error)) {
       toast.error(t('errors.unknown'))
       return {}

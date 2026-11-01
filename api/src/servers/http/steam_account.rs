@@ -66,7 +66,7 @@ pub async fn put(
     Json(request): Json<SteamAccountRequest>,
 ) -> Result<StatusCode, ApiError> {
     session
-        .require(&iam, Permission::SystemSteamAccountsManage)
+        .require_elevated(&iam, Permission::SystemSteamAccountsManage)
         .await?;
     steam_account::set(
         &state,
@@ -88,7 +88,7 @@ pub async fn delete(
     session: AdminSession,
 ) -> Result<StatusCode, ApiError> {
     session
-        .require(&iam, Permission::SystemSteamAccountsManage)
+        .require_elevated(&iam, Permission::SystemSteamAccountsManage)
         .await?;
     steam_account::remove(&state, &session.context).await?;
     Ok(StatusCode::NO_CONTENT)

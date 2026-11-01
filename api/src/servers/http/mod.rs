@@ -30,6 +30,7 @@ use crate::servers::application::ServersState;
         servers::update_resources, servers::suspend, servers::unsuspend, servers::power, servers::reinstall, servers::delete, console::ticket, console::command, actions::run,
         metrics::history,
         files::list, files::read, files::write, files::mkdir, files::rename, files::delete,
+        files::history, files::version, files::restore, files::deleted,
         backups::list, backups::create, backups::update, backups::restore, backups::delete,
         backups::download_ticket, backups::download, content::slots, content::list,
         content::search, content::categories, content::project, content::versions, content::install, content::update, content::toggle,
@@ -116,6 +117,13 @@ where
         )
         .route("/servers/{id}/files/directories", post(files::mkdir))
         .route("/servers/{id}/files/rename", post(files::rename))
+        .route("/servers/{id}/files/history", get(files::history))
+        .route("/servers/{id}/files/deleted", get(files::deleted))
+        .route("/servers/{id}/files/history/{version}", get(files::version))
+        .route(
+            "/servers/{id}/files/history/{version}/restore",
+            post(files::restore),
+        )
         // Envoi d'un fichier entier : aussi long que le téléversement, hors délai global.
         .route(
             "/servers/{id}/files/upload",

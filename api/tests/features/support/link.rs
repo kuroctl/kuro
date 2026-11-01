@@ -106,7 +106,8 @@ impl TestApi {
         let listener =
             DaemonListener::bind(&config, presence, enrollment, links.clone(), events.clone())
                 .await
-                .unwrap();
+                .unwrap()
+                .with_sftp(kuro_api::sftp::SftpState { pool: pool.clone() });
         let addr = listener.local_addr().unwrap();
 
         let shutdown = CancellationToken::new();
@@ -189,6 +190,7 @@ impl TestApi {
             log: LogConfig::default(),
             servers: kuro_daemon::config::ServersConfig::default(),
             web: Default::default(),
+            sftp: Default::default(),
         }
     }
 

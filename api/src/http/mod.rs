@@ -64,7 +64,8 @@ pub fn router(state: AppState) -> Router {
         .merge(dns::http::routes())
         .merge(content::http::routes())
         .merge(crate::notifications::http::routes())
-        .merge(crate::mail::http::routes());
+        .merge(crate::mail::http::routes())
+        .merge(crate::sftp::http::routes());
     let routes = Router::new()
         .nest("/api", system::http::routes())
         .nest("/api", crate::setup::http::routes())

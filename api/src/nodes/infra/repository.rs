@@ -380,6 +380,7 @@ impl NodeRepository {
             "UPDATE nodes
              SET status = 'online', daemon_version = $2, os = $3, arch = $4,
                  cpu_cores = $5, memory_bytes = $6, instance_id = $7,
+                 sftp_port = $8, sftp_host_key = $9, link_address = $10,
                  last_heartbeat_at = now(), updated_at = now()
              WHERE id = $1 AND status IN ('online', 'offline')",
             id.as_uuid(),
@@ -389,6 +390,9 @@ impl NodeRepository {
             i32::try_from(host.cpu_cores).unwrap_or(i32::MAX),
             i64::try_from(host.memory_bytes).unwrap_or(i64::MAX),
             instance.as_uuid(),
+            host.sftp.as_ref().map(|(port, _)| i32::from(*port)),
+            host.sftp.as_ref().map(|(_, key)| key.as_str()),
+            host.link_address.as_deref(),
         )
         .execute(&self.pool)
         .await?;

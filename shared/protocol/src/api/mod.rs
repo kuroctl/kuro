@@ -6,7 +6,9 @@ mod error;
 pub mod file;
 mod hello_ack;
 pub mod install;
+pub mod node;
 pub mod server;
+pub mod sftp;
 
 use serde::{Deserialize, Serialize};
 
@@ -19,16 +21,19 @@ pub use content::{
 };
 pub use error::{ErrorCode, ProtocolError};
 pub use file::{
-    FileDelete, FileList, FileMkdir, FileRead, FileRename, FileUpload, FileUploadChunk, FileWrite,
+    AuthorKind, FileAuthor, FileDelete, FileHistory, FileHistoryDeleted, FileList, FileMkdir,
+    FileRead, FileRename, FileRestore, FileUpload, FileUploadChunk, FileVersionRead, FileWrite,
 };
 pub use hello_ack::HelloAck;
 pub use install::{
     InstallMode, InstallSpec, InstallStep, ServerInstall, SteamLogin, SteamPlatform,
 };
+pub use node::{HistoryPolicy, NodeSettings};
 pub use server::{
     ServerAction, ServerCommand, ServerDelete, ServerDeploy, ServerLimits, ServerPower,
     ServerSuspend, ServerSync, ServerWatch, WebRoute,
 };
+pub use sftp::{SftpAuditAck, SftpGrant, SftpLeases};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload")]
@@ -73,6 +78,16 @@ pub enum ApiMessage {
     FileUpload(FileUpload),
     #[serde(rename = "file.upload.chunk")]
     FileUploadChunk(FileUploadChunk),
+    #[serde(rename = "file.history")]
+    FileHistory(FileHistory),
+    #[serde(rename = "file.version.read")]
+    FileVersionRead(FileVersionRead),
+    #[serde(rename = "file.restore")]
+    FileRestore(FileRestore),
+    #[serde(rename = "file.history.deleted")]
+    FileHistoryDeleted(FileHistoryDeleted),
+    #[serde(rename = "node.settings")]
+    NodeSettings(NodeSettings),
     #[serde(rename = "backup.create")]
     BackupCreate(BackupCreate),
     #[serde(rename = "backup.restore")]
@@ -89,4 +104,10 @@ pub enum ApiMessage {
     ContentRemove(ContentRemove),
     #[serde(rename = "content.toggle")]
     ContentToggle(ContentToggle),
+    #[serde(rename = "sftp.grant")]
+    SftpGrant(SftpGrant),
+    #[serde(rename = "sftp.leases")]
+    SftpLeases(SftpLeases),
+    #[serde(rename = "sftp.audit.ack")]
+    SftpAuditAck(SftpAuditAck),
 }

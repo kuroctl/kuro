@@ -197,7 +197,7 @@ pub async fn restore(
     Json(request): Json<RestoreBackupRequest>,
 ) -> Result<StatusCode, ApiError> {
     session
-        .require(&iam, Permission::ServersBackupsRestore)
+        .require_elevated(&iam, Permission::ServersBackupsRestore)
         .await?;
     let mode = match request.mode {
         RestoreModeDto::Overwrite => RestoreMode::Overwrite,
@@ -219,7 +219,7 @@ pub async fn delete(
     Path((id, backup_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
     session
-        .require(&iam, Permission::ServersBackupsDelete)
+        .require_elevated(&iam, Permission::ServersBackupsDelete)
         .await?;
     backups::delete(&state, &session.context, id, backup_id).await?;
     Ok(StatusCode::NO_CONTENT)

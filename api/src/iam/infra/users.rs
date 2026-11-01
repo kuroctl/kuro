@@ -132,6 +132,25 @@ impl UserRepository {
         Ok(())
     }
 
+    /// Second facteur vérifié hors connexion (gestion du TOTP depuis le compte) : compteur
+    /// d'échecs remis à zéro, dernier pas TOTP mémorisé, date de connexion inchangée.
+    pub async fn record_second_factor(
+        conn: &mut PgConnection,
+        id: Uuid,
+        totp_step: Option<i64>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            "UPDATE admin_users
+             SET failed_attempts = 0, totp_last_step = COALESCE($2, totp_last_step)
+             WHERE id = $1",
+            id,
+            totp_step,
+        )
+        .execute(conn)
+        .await?;
+        Ok(())
+    }
+
     pub async fn set_pending_totp(
         conn: &mut PgConnection,
         id: Uuid,
@@ -193,6 +212,25 @@ impl UserRepository {
             id,
             password_hash,
             change_required,
+        )
+        .execute(conn)
+        .await?;
+        Ok(())
+    }
+
+    /// Mot de passe choisi par le titulaire du compte hors connexion (lien « mot de passe
+    /// oublié ») : le verrouillage éventuel est **gardé**.
+    pub async fn replace_password(
+        conn: &mut PgConnection,
+        id: Uuid,
+        password_hash: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            "UPDATE admin_users
+             SET password_hash = $2, password_change_required = false, updated_at = now()
+             WHERE id = $1",
+            id,
+            password_hash,
         )
         .execute(conn)
         .await?;

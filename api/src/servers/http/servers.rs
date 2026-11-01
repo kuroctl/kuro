@@ -481,7 +481,9 @@ pub async fn reinstall(
     Path(id): Path<Uuid>,
     Json(request): Json<ReinstallRequest>,
 ) -> Result<StatusCode, ApiError> {
-    session.require(&iam, Permission::ServersReinstall).await?;
+    session
+        .require_elevated(&iam, Permission::ServersReinstall)
+        .await?;
     let mode = match request.mode {
         ReinstallModeDto::Reinstall => InstallMode::Reinstall,
         ReinstallModeDto::Reset => InstallMode::Reset,
@@ -502,7 +504,9 @@ pub async fn delete(
     session: AdminSession,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
-    session.require(&iam, Permission::ServersDelete).await?;
+    session
+        .require_elevated(&iam, Permission::ServersDelete)
+        .await?;
     servers::delete(&state, &session.context, id).await?;
     Ok(StatusCode::ACCEPTED)
 }

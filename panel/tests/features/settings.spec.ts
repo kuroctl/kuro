@@ -22,6 +22,9 @@ const settings: Schemas['SettingsDto'] = {
   alert_memory_percent: 90,
   alert_minutes: 5,
   mcp_enabled: false,
+  sftp_enabled: false,
+  file_history_days: 30,
+  file_history_max_mb: 100,
   mcp_url: 'https://kuro.test/mcp',
   updated_at: '2026-10-27T10:00:00Z',
 }
@@ -166,4 +169,27 @@ describe('project settings', () => {
 
     expect(await screen.findByText('Vous n’avez pas accès aux paramètres du projet.')).toBeTruthy()
   })
+
+  it('sends a new file history retention', async () => {
+    let body: unknown
+    server.use(
+      ...signedIn(),
+      http.get(`${API}/settings`, () => HttpResponse.json(settings)),
+      http.patch(`${API}/settings`, async ({ request }) => {
+        body = await request.json()
+        return HttpResponse.json({ ...settings, file_history_days: 7 })
+      }),
+    )
+    const { user } = await renderApp('/settings')
+
+    expect(await screen.findByText('Historique des fichiers')).toBeTruthy()
+    const days = screen.getByLabelText('Conservation des versions (jours)')
+    await user.clear(days)
+    await user.type(days, '7')
+    await user.tab()
+    await user.click(await screen.findByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => expect(body).toEqual({ file_history_days: 7 }))
+  })
 })
+

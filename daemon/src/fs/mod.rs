@@ -8,6 +8,7 @@
 //! processus du serveur ne peut substituer un lien entre la vérification et l'écriture. Les
 //! fichiers modifiés depuis le panel, serveur en marche, passent par [`volumes`] (`openat2`).
 
+pub mod history;
 pub mod managed;
 pub mod volumes;
 

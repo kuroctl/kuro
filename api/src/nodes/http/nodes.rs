@@ -229,7 +229,9 @@ pub async fn revoke(
     Path(id): Path<Uuid>,
     Json(request): Json<RevokeNodeRequest>,
 ) -> Result<Json<NodeDto>, ApiError> {
-    session.require(&iam, Permission::NodesRevoke).await?;
+    session
+        .require_elevated(&iam, Permission::NodesRevoke)
+        .await?;
     let node =
         lifecycle::revoke(&pool, &session.context, links.as_ref(), id, request.reason).await?;
     Ok(Json(node.into()))
@@ -248,7 +250,9 @@ pub async fn delete(
     session: AdminSession,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
-    session.require(&iam, Permission::NodesDelete).await?;
+    session
+        .require_elevated(&iam, Permission::NodesDelete)
+        .await?;
     lifecycle::delete(&pool, &session.context, links.as_ref(), id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

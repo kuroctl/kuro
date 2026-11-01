@@ -18,6 +18,9 @@ pub enum ErrorCode {
     UnexpectedMessage,
     /// Nœud révoqué ou supprimé : le daemon cesse de se reconnecter (réenrôlement nécessaire).
     NodeRevoked,
+    /// Requête du nœud (`sftp.*`) non traitée : erreur interne, ou service absent de l'API. Le
+    /// nœud refuse ce qui en dépendait et réessaiera plus tard ; le lien reste ouvert.
+    Unavailable,
     /// Code introduit par une version plus récente de l'API.
     #[serde(other)]
     Unknown,

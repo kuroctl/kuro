@@ -15,6 +15,15 @@ struct Cli {
     /// Fichier de configuration TOML.
     #[arg(long, env = "KURO_DAEMON_CONFIG", default_value = config::DEFAULT_PATH)]
     config: PathBuf,
+    #[command(subcommand)]
+    command: Option<Command>,
+}
+
+#[derive(Debug, clap::Subcommand)]
+enum Command {
+    /// Processus SFTP (ADR-0047), lancé par `kuro-sftp.service` sous son propre utilisateur :
+    /// sans socket Docker, il ne parle qu'au daemon.
+    Sftp,
 }
 
 #[tokio::main]
@@ -22,6 +31,9 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let config = Config::load(&cli.config).context("loading configuration")?;
     kuro_runtime::telemetry::init(&config.log)?;
+    if let Some(Command::Sftp) = cli.command {
+        return sftp_worker(&config).await;
+    }
     // Le confinement des fichiers des volumes n'est garanti que sous Linux (ADR-0015).
     #[cfg(not(target_os = "linux"))]
     if !config.servers.allow_insecure_fs {
@@ -80,10 +92,100 @@ async fn main() -> anyhow::Result<()> {
         let manager = manager.clone();
         async move { manager.collect_metrics().await }
     });
+    let (mut requests, endpoint) = start_sftp_bridge(&config, &manager, &shutdown)?;
     let mut servers = Servers { manager, outgoing };
 
     // Seule une révocation arrête le lien : le service s'arrête en erreur, visible dans systemd.
-    link::run(&config, Some(&mut servers), &shutdown).await?;
+    link::run_with(
+        &config,
+        Some(&mut servers),
+        requests.as_mut(),
+        endpoint,
+        &shutdown,
+    )
+    .await?;
     tracing::info!("daemon stopped");
     Ok(())
+}
+
+/// Côté daemon du SFTP (ADR-0047) : clé d'hôte, file d'audit, socket du processus SFTP. Rend la
+/// file des requêtes vers l'API et le point d'accès annoncé dans `hello`.
+#[cfg(unix)]
+fn start_sftp_bridge(
+    config: &Config,
+    manager: &Manager,
+    shutdown: &CancellationToken,
+) -> anyhow::Result<(
+    Option<link::ApiRequestQueue>,
+    Option<kuro_protocol::daemon::SftpEndpoint>,
+)> {
+    use std::sync::Arc;
+
+    use kuro_daemon::sftp::{bridge, hostkey, spool::Spool};
+
+    let Some(port) = config.sftp.announced_port() else {
+        return Ok((None, None));
+    };
+    let key = hostkey::ensure(&config.sftp.host_key).context("sftp host key")?;
+    let spool = Arc::new(Spool::open(&config.sftp.spool).context("sftp audit spool")?);
+    let (api, requests) = link::channel();
+    tokio::spawn(bridge::forward_audit(
+        Arc::clone(&spool),
+        api.clone(),
+        shutdown.clone(),
+    ));
+    tokio::spawn({
+        let sftp = config.sftp.clone();
+        let manager = manager.clone();
+        let shutdown = shutdown.clone();
+        async move {
+            if let Err(error) = bridge::serve(&sftp, Some(manager), api, spool, shutdown).await {
+                tracing::error!(%error, "sftp bridge stopped");
+            }
+        }
+    });
+    let endpoint = kuro_protocol::daemon::SftpEndpoint {
+        port,
+        host_key_sha256: hostkey::fingerprint(&key),
+    };
+    tracing::info!(port, fingerprint = %endpoint.host_key_sha256, "sftp enabled");
+    Ok((Some(requests), Some(endpoint)))
+}
+
+#[cfg(not(unix))]
+fn start_sftp_bridge(
+    config: &Config,
+    _manager: &Manager,
+    _shutdown: &CancellationToken,
+) -> anyhow::Result<(
+    Option<link::ApiRequestQueue>,
+    Option<kuro_protocol::daemon::SftpEndpoint>,
+)> {
+    if config.sftp.bind.is_some() {
+        tracing::warn!("sftp is only served on Linux: sftp.bind ignored");
+    }
+    Ok((None, None))
+}
+
+#[cfg(target_os = "linux")]
+async fn sftp_worker(config: &Config) -> anyhow::Result<()> {
+    let shutdown = CancellationToken::new();
+    tokio::spawn({
+        let shutdown = shutdown.clone();
+        async move {
+            kuro_runtime::shutdown::signal().await;
+            shutdown.cancel();
+        }
+    });
+    kuro_daemon::sftp::worker::run(config, shutdown)
+        .await
+        .context("sftp worker")?;
+    tracing::info!("sftp worker stopped");
+    Ok(())
+}
+
+/// Le confinement des chemins repose sur `openat2` (ADR-0015) : pas de SFTP ailleurs.
+#[cfg(not(target_os = "linux"))]
+async fn sftp_worker(_config: &Config) -> anyhow::Result<()> {
+    anyhow::bail!("the sftp worker only runs on Linux")
 }

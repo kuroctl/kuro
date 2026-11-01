@@ -4,22 +4,24 @@
 //! lire, classer et transmettre, pour que heartbeats, console et états continuent pendant une
 //! opération longue (suppression récursive, lecture de sauvegarde, dossier énorme).
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
 use kuro_protocol::api::{ErrorCode, HelloAck};
 use kuro_protocol::daemon::server::{CommandErrorCode, CommandResult};
-use kuro_protocol::daemon::{Heartbeat, Hello};
+use kuro_protocol::daemon::{Heartbeat, Hello, SftpEndpoint};
 use kuro_protocol::{
     ApiMessage, DaemonMessage, Envelope, MessageId, PROTOCOL_VERSION, decode, encode,
 };
-use tokio::sync::{Semaphore, mpsc};
+use tokio::sync::{Semaphore, mpsc, oneshot};
 use tokio::time::{Instant, MissedTickBehavior, timeout};
 use tokio_tungstenite::tungstenite::{Bytes, Message, Utf8Bytes};
 use tokio_util::sync::CancellationToken;
 
 use super::backoff::Backoff;
+use super::requests::{ApiRequest, ApiRequestQueue, RequestError};
 use super::{LinkError, WsStream, host};
 use crate::server::{CommandError, Manager, Servers};
 
@@ -36,17 +38,23 @@ pub(super) async fn run(
     shutdown: &CancellationToken,
     backoff: &mut Backoff,
     mut servers: Option<&mut Servers>,
+    mut requests: Option<&mut ApiRequestQueue>,
+    sftp: Option<SftpEndpoint>,
 ) -> Result<(), LinkError> {
     let hello = Envelope::new(DaemonMessage::Hello(Hello {
         protocol_version: PROTOCOL_VERSION,
         daemon_version: env!("CARGO_PKG_VERSION").to_owned(),
         host: host::host_info(),
+        sftp,
     }));
     send(&mut ws, &hello).await?;
     let ack = timeout(HELLO_ACK_TIMEOUT, wait_ack(&mut ws, hello.id))
         .await
         .map_err(|_| LinkError::Timeout("waiting for hello.ack"))??;
     tracing::info!(node_id = %ack.node_id, "api link established");
+    if let (Some(policy), Some(servers)) = (ack.file_history, servers.as_deref()) {
+        servers.manager.apply_history_policy(policy);
+    }
     backoff.reset();
 
     let mut ticker = tokio::time::interval(Duration::from_secs(ack.heartbeat_interval_secs.max(1)));
@@ -54,6 +62,10 @@ pub(super) async fn run(
     ticker.tick().await;
     let unresponsive_after = Duration::from_secs(ack.heartbeat_timeout_secs);
     let mut last_seen = Instant::now();
+    // Requêtes du daemon envoyées, en attente de leur réponse ; perdues avec la session.
+    let api_answers_sftp = ack.sftp;
+    let mut pending: HashMap<MessageId, oneshot::Sender<Result<ApiMessage, RequestError>>> =
+        HashMap::new();
 
     // Commandes de cette session : exécutées dans leurs tâches, réponses rendues par ce canal.
     // Une commande encore en cours à la fin de la session va à son terme (le drapeau `busy` du
@@ -87,6 +99,20 @@ pub(super) async fn run(
             Some(reply) = replies.recv() => {
                 send(&mut ws, &reply).await?;
             }
+            request = next_request(&mut requests) => {
+                let ApiRequest { message, reply, deadline } = request;
+                if deadline <= Instant::now() {
+                    let _ = reply.send(Err(RequestError::Timeout));
+                } else if !api_answers_sftp {
+                    // API antérieure à l'ADR-0047 : un type inconnu fermerait le lien.
+                    let _ = reply.send(Err(RequestError::Unavailable));
+                } else {
+                    let envelope = Envelope::new(message);
+                    send(&mut ws, &envelope).await?;
+                    pending.retain(|_, waiting| !waiting.is_closed());
+                    pending.insert(envelope.id, reply);
+                }
+            }
             frame = ws.next() => {
                 last_seen = Instant::now();
                 match frame {
@@ -95,6 +121,12 @@ pub(super) async fn run(
                     Some(Ok(Message::Text(text))) => match classify(&text) {
                         Inbound::Stop(error) => return Err(error),
                         Inbound::Command(envelope) => commands.spawn(*envelope),
+                        Inbound::Reply(request, outcome) => match pending.remove(&request) {
+                            Some(waiting) => {
+                                let _ = waiting.send(*outcome);
+                            }
+                            None => tracing::debug!(?outcome, "reply to no pending request"),
+                        },
                         Inbound::Ignored => {}
                     },
                     Some(Ok(_)) => {}
@@ -128,7 +160,20 @@ enum Inbound {
     Stop(LinkError),
     /// Commande à exécuter, qui recevra un `command.result` ou une réponse portant des données.
     Command(Box<Envelope<ApiMessage>>),
+    /// Réponse de l'API à une requête du daemon (`sftp.*`), ou refus de cette requête.
+    Reply(MessageId, Box<Result<ApiMessage, RequestError>>),
     Ignored,
+}
+
+/// Prochaine requête du daemon vers l'API ; en attente indéfinie s'il n'y en a pas.
+async fn next_request(requests: &mut Option<&mut ApiRequestQueue>) -> ApiRequest {
+    match requests {
+        Some(requests) => match requests.queue.recv().await {
+            Some(request) => request,
+            None => std::future::pending().await,
+        },
+        None => std::future::pending().await,
+    }
 }
 
 /// Prochain message à transmettre : les `server.state` et fins de sauvegarde d'abord, puis la
@@ -162,6 +207,19 @@ fn classify(text: &Utf8Bytes) -> Inbound {
     match &envelope.message {
         ApiMessage::Error(error) if error.code == ErrorCode::NodeRevoked => {
             Inbound::Stop(LinkError::Revoked)
+        }
+        ApiMessage::Error(error) if let Some(request) = envelope.reply_to => Inbound::Reply(
+            request,
+            Box::new(Err(RequestError::Rejected(format!(
+                "{:?}: {}",
+                error.code, error.message
+            )))),
+        ),
+        ApiMessage::SftpGrant(_) | ApiMessage::SftpLeases(_) | ApiMessage::SftpAuditAck(_) => {
+            match envelope.reply_to {
+                Some(request) => Inbound::Reply(request, Box::new(Ok(envelope.message))),
+                None => Inbound::Ignored,
+            }
         }
         ApiMessage::Error(error) => {
             tracing::warn!(code = ?error.code, message = %error.message, "api reported an error");
@@ -271,7 +329,13 @@ async fn execute(message: ApiMessage, m: &Manager) -> Result<Option<DaemonMessag
             .await
             .map(|content| Some(DaemonMessage::FileContent(content))),
         ApiMessage::FileWrite(write) => m
-            .file_write(write.server_id, &write.path, write.content, write.if_sha256)
+            .file_write_as(
+                write.server_id,
+                &write.path,
+                write.content,
+                write.if_sha256,
+                write.author,
+            )
             .await
             .map(|()| None),
         ApiMessage::FileMkdir(mkdir) => m
@@ -283,7 +347,7 @@ async fn execute(message: ApiMessage, m: &Manager) -> Result<Option<DaemonMessag
             .await
             .map(|()| None),
         ApiMessage::FileDelete(delete) => m
-            .file_delete(delete.server_id, &delete.path)
+            .file_delete_as(delete.server_id, &delete.path, delete.author)
             .await
             .map(|()| None),
         ApiMessage::BackupCreate(create) => m.backup_create(create).await.map(|()| None),
@@ -304,11 +368,40 @@ async fn execute(message: ApiMessage, m: &Manager) -> Result<Option<DaemonMessag
             .await
             .map(|chunk| Some(DaemonMessage::BackupChunk(chunk))),
         ApiMessage::FileUpload(upload) => m.file_upload(upload).await.map(|()| None),
+        ApiMessage::FileHistory(history) => m
+            .file_history(history.server_id, &history.path)
+            .await
+            .map(|versions| Some(DaemonMessage::FileVersions(versions))),
+        ApiMessage::FileVersionRead(read) => m
+            .file_version_read(read.server_id, &read.path, read.version)
+            .await
+            .map(|content| Some(DaemonMessage::FileContent(content))),
+        ApiMessage::FileHistoryDeleted(deleted) => m
+            .file_history_deleted(deleted.server_id, &deleted.dir)
+            .await
+            .map(|files| Some(DaemonMessage::DeletedFiles(files))),
+        ApiMessage::NodeSettings(settings) => {
+            m.apply_history_policy(settings.file_history);
+            Ok(None)
+        }
+        ApiMessage::FileRestore(restore) => m
+            .file_restore(
+                restore.server_id,
+                &restore.path,
+                restore.version,
+                restore.author,
+            )
+            .await
+            .map(|()| None),
         ApiMessage::FileUploadChunk(chunk) => m.file_upload_chunk(chunk).await.map(|()| None),
         ApiMessage::ContentInstall(install) => m.content_install(install).await.map(|()| None),
         ApiMessage::ContentRemove(remove) => m.content_remove(remove).await.map(|()| None),
         ApiMessage::ContentToggle(toggle) => m.content_toggle(toggle).await.map(|()| None),
-        ApiMessage::HelloAck(_) | ApiMessage::Error(_) => Ok(None),
+        ApiMessage::HelloAck(_)
+        | ApiMessage::Error(_)
+        | ApiMessage::SftpGrant(_)
+        | ApiMessage::SftpLeases(_)
+        | ApiMessage::SftpAuditAck(_) => Ok(None),
     }
 }
 

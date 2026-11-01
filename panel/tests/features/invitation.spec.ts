@@ -23,7 +23,7 @@ describe('admin invitations', () => {
         body = await request.json()
         return HttpResponse.json({ status: 'authenticated', ...accessToken() })
       }),
-      http.get(`${API}/me`, () => HttpResponse.json({ user: admin(), permissions: [], all_permissions: true })),
+      http.get(`${API}/me`, () => HttpResponse.json({ user: admin(), permissions: [], all_permissions: true, totp_required: false, recovery_codes_remaining: 0 })),
     )
     const { user, router } = await renderApp('/invitation/kuro_inv_abc')
 

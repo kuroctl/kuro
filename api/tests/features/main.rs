@@ -17,5 +17,6 @@ mod rate_limit;
 mod servers;
 mod settings;
 mod setup;
+mod sftp;
 mod support;
 mod system_health;

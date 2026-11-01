@@ -234,7 +234,9 @@ pub async fn delete(
     session: AdminSession,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
-    let authority = session.require(&state, Permission::IamUsersDelete).await?;
+    let authority = session
+        .require_elevated(&state, Permission::IamUsersDelete)
+        .await?;
     users::delete(&state, &authority, &session.context, id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -250,7 +252,9 @@ pub async fn set_roles(
     Path(id): Path<Uuid>,
     Json(request): Json<SetRolesRequest>,
 ) -> Result<Json<AdminUserDto>, ApiError> {
-    let authority = session.require(&state, Permission::IamRolesAssign).await?;
+    let authority = session
+        .require_elevated(&state, Permission::IamRolesAssign)
+        .await?;
     let user =
         users::set_roles(&state, &authority, &session.context, id, &request.role_ids).await?;
     Ok(Json(user.into()))
@@ -267,7 +271,7 @@ pub async fn reset_password(
     Json(request): Json<ResetPasswordRequest>,
 ) -> Result<StatusCode, ApiError> {
     let authority = session
-        .require(&state, Permission::IamUsersCredentials)
+        .require_elevated(&state, Permission::IamUsersCredentials)
         .await?;
     users::reset_password(&state, &authority, &session.context, id, &request.password).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -283,7 +287,7 @@ pub async fn reset_totp(
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
     let authority = session
-        .require(&state, Permission::IamUsersCredentials)
+        .require_elevated(&state, Permission::IamUsersCredentials)
         .await?;
     users::reset_totp(&state, &authority, &session.context, id).await?;
     Ok(StatusCode::NO_CONTENT)

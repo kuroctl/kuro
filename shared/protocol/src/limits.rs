@@ -93,3 +93,12 @@ pub const UPLOAD_CHUNK_BYTES: usize = 512 * 1024;
 
 /// Taille maximale d'un fichier envoyé depuis le panel.
 pub const MAX_UPLOAD_BYTES: u64 = 256 * 1024 * 1024;
+
+/// Durée d'un bail SFTP (ADR-0047) : un droit retiré prend effet dans ce délai au plus.
+pub const SFTP_LEASE_SECS: u32 = 60;
+
+/// Événements d'audit SFTP par message `sftp.audit`.
+pub const MAX_SFTP_AUDIT_BATCH: usize = 256;
+
+/// Taille maximale d'une version de client SSH reprise dans l'audit.
+pub const MAX_SSH_CLIENT_VERSION_BYTES: usize = 128;

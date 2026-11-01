@@ -8,6 +8,17 @@ pub struct Hello {
     /// Version du binaire `kuro-daemon`.
     pub daemon_version: String,
     pub host: HostInfo,
+    /// Accès SFTP du nœud (ADR-0047), absent s'il n'est pas configuré.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sftp: Option<SftpEndpoint>,
+}
+
+/// Port SFTP du nœud et empreinte de sa clé d'hôte, montrées dans le panel.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SftpEndpoint {
+    pub port: u16,
+    /// `SHA256:…`, comme l'affichent OpenSSH, FileZilla et WinSCP.
+    pub host_key_sha256: String,
 }
 
 /// Capacité de l'hôte, utilisée pour le placement des serveurs.

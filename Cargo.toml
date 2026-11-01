@@ -84,6 +84,10 @@ zstd = { version = "0.14.3", default-features = false }
 lzma-rust2 = { version = "0.24.0", default-features = false, features = ["xz", "std"] }
 # Daemon (Linux) : `openat2` pour les fichiers des serveurs (ADR-0015).
 rustix = { version = "1.1.5", features = ["fs"] }
+# SFTP (ADR-0047) : SSH en Rust, backend `ring` (ni aws-lc-rs ni la crate `rsa`).
+ring = "0.17.14"
+russh = { version = "0.65.0", default-features = false, features = ["ring"] }
+russh-sftp = "3.0.1"
 testcontainers = { version = "0.27.3", features = ["reusable-containers"] }
 testcontainers-modules = { version = "0.15.0", features = ["postgres"] }
 tower = { version = "0.5.3", features = ["util"] }

@@ -168,6 +168,7 @@ impl TestAdmin {
             readiness: readiness.clone(),
             setup: setup.clone(),
             mail: mail.clone(),
+            sftp: kuro_api::sftp::SftpState { pool: pool.clone() },
         });
         Self {
             pool,
@@ -318,8 +319,25 @@ impl TestAdmin {
         .await
     }
 
-    /// Connexion par mot de passe (TOTP non exigé).
+    /// Connexion par mot de passe (TOTP non exigé), session élevée (ADR-0050) : les actions
+    /// protégées passent, comme juste après une confirmation d'identité. Les tests de
+    /// l'élévation partent de [`Self::login_unelevated`].
     pub async fn login(&self, account: &Account) -> Session {
+        let session = self.login_unelevated(account).await;
+        let elevated = self
+            .call(
+                Method::POST,
+                "/me/elevate",
+                Some(&session.access_token),
+                Some(json!({ "password": PASSWORD })),
+            )
+            .await;
+        assert_eq!(elevated.status, StatusCode::OK, "{}", elevated.json);
+        session
+    }
+
+    /// Connexion par mot de passe (TOTP non exigé), sans élévation.
+    pub async fn login_unelevated(&self, account: &Account) -> Session {
         let response = self.login_with(&account.email, PASSWORD).await;
         assert_eq!(response.status, StatusCode::OK, "{}", response.json);
         assert_eq!(

@@ -44,6 +44,9 @@ Element.prototype.hasPointerCapture ??= () => false
 Element.prototype.releasePointerCapture ??= () => {}
 Element.prototype.setPointerCapture ??= () => {}
 Element.prototype.scrollIntoView ??= () => {}
+// Saisie des codes TOTP (`vue-input-otp`) : repère un gestionnaire de mots de passe posé sur le
+// champ par `elementFromPoint`, absent de jsdom.
+document.elementFromPoint ??= () => null
 // URL locales des images (`blob:`) : jsdom ne les crée pas.
 URL.createObjectURL ??= (blob: Blob) => `blob:test/${blob.size}`
 URL.revokeObjectURL ??= () => {}

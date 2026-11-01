@@ -103,7 +103,9 @@ pub async fn reissue(
     session: AdminSession,
     Path(id): Path<Uuid>,
 ) -> Result<Json<NodeTicketDto>, ApiError> {
-    session.require(&iam, Permission::NodesEnrollment).await?;
+    session
+        .require_elevated(&iam, Permission::NodesEnrollment)
+        .await?;
     let ticket = reissue_token(&pool, &session.context, id, settings.token_ttl).await?;
     Ok(Json(ticket_dto(ticket, &settings)))
 }

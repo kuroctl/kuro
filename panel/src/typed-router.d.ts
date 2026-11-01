@@ -80,6 +80,20 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/password/forgot': RouteRecordInfo<
+      '/password/forgot',
+      '/password/forgot',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/password/reset/[token]': RouteRecordInfo<
+      '/password/reset/[token]',
+      '/password/reset/:token',
+      { token: ParamValue<true> },
+      { token: ParamValue<false> },
+      | never
+    >,
     '/prefabs/': RouteRecordInfo<
       '/prefabs/',
       '/prefabs',
@@ -400,6 +414,22 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | never
+    }
+    'src/pages/password/forgot.vue': {
+      routes:
+        | '/password/forgot'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/password/reset/[token].vue': {
+      routes:
+        | '/password/reset/[token]'
+      views:
+        | never
+      pathParamNames:
+        | 'token'
     }
     'src/pages/prefabs/index.vue': {
       routes:

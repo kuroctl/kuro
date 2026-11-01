@@ -5,3 +5,5 @@
 mod ctl_config_check;
 mod ctl_enroll;
 mod servers;
+#[cfg(target_os = "linux")]
+mod sftp;

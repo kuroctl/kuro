@@ -6,7 +6,8 @@
 //!
 //! `enroll` obtient le certificat du nœud, `link` maintient la connexion à l'API, `server`
 //! exécute ses commandes avec l'adaptateur `docker` et les fichiers de `fs` (ADR-0013).
-//! `stats` arrive avec sa tranche (ADR-0004).
+//! `sftp` sert les fichiers en SFTP par un processus séparé (ADR-0047). `stats` arrive avec
+//! sa tranche (ADR-0004).
 
 pub mod backup;
 pub mod config;
@@ -16,5 +17,6 @@ pub mod fs;
 pub mod install;
 pub mod link;
 pub mod server;
+pub mod sftp;
 pub mod stats;
 pub mod web;

@@ -211,6 +211,7 @@ pub const DEFAULT_ROLES: [DefaultRole; 3] = [
             Permission::ServersActionsRun,
             Permission::ServersFilesRead,
             Permission::ServersFilesWrite,
+            Permission::ServersFilesSftp,
             Permission::ServersBackupsRead,
             Permission::ServersBackupsCreate,
             Permission::ServersBackupsRestore,

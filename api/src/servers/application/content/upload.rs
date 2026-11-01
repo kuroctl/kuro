@@ -62,7 +62,12 @@ pub async fn upload<E: std::fmt::Display>(
         })
         .ok_or(ServersError::Unprocessable(ErrorCode::ContentNotSupported))?;
     let path = format!("{}/{file_name}", volume_path.trim_end_matches('/'));
-    let uploaded = super::super::files::upload_raw(state, server_id, &path, size, body).await?;
+    let author = context.actor.id.map(|id| kuro_protocol::api::FileAuthor {
+        kind: kuro_protocol::api::AuthorKind::Admin,
+        id: Some(id),
+    });
+    let uploaded =
+        super::super::files::upload_raw(state, server_id, &path, size, author, body).await?;
 
     let id = Uuid::now_v7();
     let name = file_name.trim_end_matches(".jar");

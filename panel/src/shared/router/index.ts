@@ -8,9 +8,10 @@ import { fetchSetupStatus } from '@/features/setup/setup.queries'
 /** Routes accessibles sans session, affichées hors de la coque du panel. */
 export const PUBLIC_PATHS = ['/login', '/setup']
 
-/** Route publique : celles ci-dessus, et le lien d'invitation (ADR-0046). */
+/** Route publique : celles ci-dessus, le lien d'invitation (ADR-0046) et le mot de passe oublié
+ * (ADR-0049). */
 export function isPublicPath(path: string): boolean {
-  return PUBLIC_PATHS.includes(path) || path.startsWith('/invitation/')
+  return PUBLIC_PATHS.includes(path) || path.startsWith('/invitation/') || path.startsWith('/password/')
 }
 
 /** Routes qui exigent une session mais s'affichent hors de la coque (consentement OAuth). */

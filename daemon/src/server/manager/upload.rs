@@ -23,6 +23,9 @@ const IDLE: Duration = Duration::from_secs(120);
 /// Envoi en cours.
 pub(super) struct Upload {
     server_id: Uuid,
+    /// `[service, volume, …]` : version remplacée gardée à la validation (ADR-0049).
+    path: Vec<String>,
+    author: Option<kuro_protocol::api::FileAuthor>,
     pending: NewFile,
     hasher: Sha256,
     written: u64,
@@ -80,6 +83,7 @@ impl Manager {
                 return Err(CommandError::Busy);
             }
         }
+        let path = segments.clone();
         let pending = super::files::blocking(move || {
             let path: Vec<&str> = segments.iter().map(String::as_str).collect();
             volumes.mkdir_all(&path[..path.len() - 1], owner)?;
@@ -90,6 +94,8 @@ impl Manager {
             upload.upload_id,
             Upload {
                 server_id: upload.server_id,
+                path,
+                author: upload.author,
                 pending,
                 hasher: Sha256::new(),
                 written: 0,
@@ -142,6 +148,12 @@ impl Manager {
             return Err(CommandError::Conflict);
         }
         let server_id = upload.server_id;
+        let capture = crate::fs::history::Capture {
+            reason: kuro_protocol::daemon::VersionReason::Write,
+            channel: kuro_protocol::daemon::VersionChannel::Web,
+            author: upload.author,
+        };
+        self.keep_version(server_id, &upload.path, capture).await;
         super::files::blocking(move || upload.pending.commit()).await?;
         self.measure_later(server_id);
         Ok(())

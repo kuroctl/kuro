@@ -26,6 +26,7 @@ pub mod prefabs;
 pub mod servers;
 pub mod settings;
 pub mod setup;
+pub mod sftp;
 pub mod state;
 pub mod studio;
 pub mod system;

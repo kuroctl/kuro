@@ -15,6 +15,9 @@ pub use crate::settings::infra::PlatformSettings;
 
 /// Conservation du journal d'audit : 30 jours au moins, pour ne pas le vider par erreur.
 pub const RETENTION_DAYS: RangeInclusive<i32> = 30..=3650;
+/// Historique des fichiers (ADR-0049) : 0 jour le coupe.
+pub const FILE_HISTORY_DAYS: RangeInclusive<i32> = 0..=365;
+pub const FILE_HISTORY_MB: RangeInclusive<i32> = 1..=10240;
 /// Seuils d'alerte des stats (ADR-0043) : en % de l'allocation, et durée en minutes.
 pub const ALERT_PERCENT: RangeInclusive<i32> = 50..=100;
 pub const ALERT_MINUTES: RangeInclusive<i32> = 1..=60;
@@ -48,6 +51,9 @@ pub struct SettingsPatch {
     pub max_backup_limit: Option<Option<i32>>,
     pub audit_retention_days: Option<i32>,
     pub mcp_enabled: Option<bool>,
+    pub sftp_enabled: Option<bool>,
+    pub file_history_days: Option<i32>,
+    pub file_history_max_mb: Option<i32>,
     pub alert_cpu_percent: Option<i32>,
     pub alert_memory_percent: Option<i32>,
     pub alert_minutes: Option<i32>,
@@ -86,6 +92,9 @@ pub async fn update(
         max_backup_limit,
         audit_retention_days,
         mcp_enabled,
+        sftp_enabled,
+        file_history_days,
+        file_history_max_mb,
         alert_cpu_percent,
         alert_memory_percent,
         alert_minutes,
@@ -154,6 +163,21 @@ pub async fn update(
         "mcp_enabled",
         json!(current.mcp_enabled),
         json!(next.mcp_enabled),
+    );
+    record(
+        "sftp_enabled",
+        json!(current.sftp_enabled),
+        json!(next.sftp_enabled),
+    );
+    record(
+        "file_history_days",
+        json!(current.file_history_days),
+        json!(next.file_history_days),
+    );
+    record(
+        "file_history_max_mb",
+        json!(current.file_history_max_mb),
+        json!(next.file_history_max_mb),
     );
     record(
         "alert_cpu_percent",
@@ -246,6 +270,18 @@ fn validate(settings: &PlatformSettings) -> Result<(), SettingsError> {
         if !ALERT_PERCENT.contains(&value) {
             errors.push(out_of_range(field.to_owned(), &ALERT_PERCENT));
         }
+    }
+    if !FILE_HISTORY_DAYS.contains(&settings.file_history_days) {
+        errors.push(out_of_range(
+            "file_history_days".to_owned(),
+            &FILE_HISTORY_DAYS,
+        ));
+    }
+    if !FILE_HISTORY_MB.contains(&settings.file_history_max_mb) {
+        errors.push(out_of_range(
+            "file_history_max_mb".to_owned(),
+            &FILE_HISTORY_MB,
+        ));
     }
     if !ALERT_MINUTES.contains(&settings.alert_minutes) {
         errors.push(out_of_range("alert_minutes".to_owned(), &ALERT_MINUTES));

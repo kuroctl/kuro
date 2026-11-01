@@ -129,7 +129,7 @@ describe('admin sign-in', () => {
       ),
       http.post(`${API}/auth/totp/confirm`, async ({ request }) => {
         confirmed = await request.json()
-        return HttpResponse.json(accessToken())
+        return HttpResponse.json({ ...accessToken(), recovery_codes: ['abcd-efgh-ijkl', 'mnop-qrst-uvwx'] })
       }),
       http.get(`${API}/me`, () => HttpResponse.json(profile)),
     )
@@ -138,11 +138,45 @@ describe('admin sign-in', () => {
 
     expect(await screen.findByAltText('QR code de configuration')).toBeTruthy()
     expect(screen.getByText('JBSWY3DPEHPK3PXP')).toBeTruthy()
-    await user.type(screen.getByLabelText('Code'), '654321')
-    await user.click(screen.getByRole('button', { name: 'Activer' }))
+    // Le champ prend le focus seul, et le sixième chiffre valide sans passer par le bouton.
+    const input = screen.getByLabelText('Code')
+    await waitFor(() => expect(document.activeElement).toBe(input))
+    await user.keyboard('654321')
+
+    // Les codes de secours sont montrés une fois, avant d'entrer dans le panel.
+    expect(await screen.findByText('abcd-efgh-ijkl')).toBeTruthy()
+    expect(confirmed).toEqual({ challenge: 'challenge-2', code: '654321' })
+    const done = screen.getByRole('button', { name: 'Terminer' })
+    expect(done).toHaveProperty('disabled', true)
+    expect(router.currentRoute.value.path).toBe('/login')
+    await user.click(screen.getByRole('checkbox'))
+    await user.click(done)
 
     await waitFor(() => expect(router.currentRoute.value.path).toBe('/servers'))
-    expect(confirmed).toEqual({ challenge: 'challenge-2', code: '654321' })
+  })
+
+  it('accepts a recovery code instead of the TOTP code', async () => {
+    let verified: unknown
+    server.use(
+      ...anonymous(),
+      http.post(`${API}/auth/login`, () =>
+        HttpResponse.json({ status: 'totp_required', challenge: 'challenge-r', expires_in: 300 }),
+      ),
+      http.post(`${API}/auth/totp/verify`, async ({ request }) => {
+        verified = await request.json()
+        return HttpResponse.json(accessToken())
+      }),
+      http.get(`${API}/me`, () => HttpResponse.json(profile)),
+    )
+    const { router, user } = await renderApp('/login')
+    await fillCredentials(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Utiliser un code de secours' }))
+    await user.type(screen.getByLabelText('Code de secours'), 'abcd-efgh-ijkl')
+    await user.click(screen.getByRole('button', { name: 'Vérifier' }))
+
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/servers'))
+    expect(verified).toEqual({ challenge: 'challenge-r', code: 'abcd-efgh-ijkl' })
   })
 
   it('makes an admin replace a password chosen by someone else before the TOTP', async () => {

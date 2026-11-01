@@ -27,6 +27,9 @@ const settings: Schemas['SettingsDto'] = {
   alert_memory_percent: 90,
   alert_minutes: 5,
   mcp_enabled: false,
+  sftp_enabled: false,
+  file_history_days: 30,
+  file_history_max_mb: 100,
   mcp_url: 'https://kuro.test/mcp',
   updated_at: '2026-10-27T10:00:00Z',
 }

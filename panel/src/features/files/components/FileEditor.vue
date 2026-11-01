@@ -25,6 +25,7 @@ import { useFileContent } from '../files.queries'
 import { formatOf } from '../language'
 import { basename } from '../paths'
 import CodeEditor from './CodeEditor.vue'
+import FileHistory from './FileHistory.vue'
 
 const props = defineProps<{ server: string; path: string; format?: string; description?: string }>()
 const emit = defineEmits<{ close: [] }>()
@@ -101,6 +102,14 @@ onBeforeRouteUpdate(confirmLeave)
         <p v-if="description" class="truncate text-xs text-muted-foreground">{{ description }}</p>
       </div>
       <Badge v-if="dirty" variant="secondary">{{ t('files.editor.unsaved') }}</Badge>
+      <FileHistory
+        :server="server"
+        :path="path"
+        :format="effectiveFormat"
+        :current-content="() => editor?.content() ?? file?.content ?? ''"
+        :dirty="dirty"
+        @restored="reload"
+      />
       <Button size="sm" variant="ghost" :disabled="isFetching || saving" @click="reload">
         <RotateCw />{{ t('files.editor.reload') }}
       </Button>

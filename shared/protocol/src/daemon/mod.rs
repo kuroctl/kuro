@@ -7,19 +7,24 @@ pub mod file;
 mod heartbeat;
 mod hello;
 pub mod server;
+pub mod sftp;
 
 use serde::{Deserialize, Serialize};
 
 pub use backup::{BackupChunk, BackupDone, BackupInfo, BackupListing, BackupOutcome, BackupState};
 pub use console::{ConsoleLine, ConsoleOutput, ServerMetrics, ServerStats};
 pub use content::{ContentDone, ContentOutcome, ExtractedPackage, MAX_DESCRIPTION_BYTES};
-pub use file::{FileContent, FileEntry, FileKind, FileListing};
+pub use file::{
+    DeletedFile, DeletedFiles, FileContent, FileEntry, FileKind, FileListing, FileVersion,
+    FileVersions, VersionChannel, VersionReason,
+};
 pub use heartbeat::Heartbeat;
-pub use hello::{Hello, HostInfo};
+pub use hello::{Hello, HostInfo, SftpEndpoint};
 pub use server::{
     ActionResult, CertificateState, CommandResult, ProxyState, ServerDisk, ServerStateReport,
     WebStatus,
 };
+pub use sftp::{SftpAudit, SftpAuth, SftpLease};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload")]
@@ -44,6 +49,10 @@ pub enum DaemonMessage {
     FileListing(FileListing),
     #[serde(rename = "file.content")]
     FileContent(FileContent),
+    #[serde(rename = "file.versions")]
+    FileVersions(FileVersions),
+    #[serde(rename = "file.deleted_list")]
+    DeletedFiles(DeletedFiles),
     #[serde(rename = "backup.done")]
     BackupDone(BackupDone),
     #[serde(rename = "backup.listing")]
@@ -54,4 +63,10 @@ pub enum DaemonMessage {
     ContentDone(ContentDone),
     #[serde(rename = "action.result")]
     ActionResult(ActionResult),
+    #[serde(rename = "sftp.auth")]
+    SftpAuth(SftpAuth),
+    #[serde(rename = "sftp.lease")]
+    SftpLease(SftpLease),
+    #[serde(rename = "sftp.audit")]
+    SftpAudit(SftpAudit),
 }

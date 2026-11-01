@@ -5,6 +5,7 @@ import { createPinia } from 'pinia'
 import type { App } from 'vue'
 import type { RouterHistory } from 'vue-router'
 
+import { connectElevationToHttp } from '@/features/auth/elevation.store'
 import { connectSessionToHttp } from '@/features/auth/session.store'
 import { applyLocale, i18n, type Locale } from '@/shared/i18n'
 import { queryClient } from '@/shared/query/client'
@@ -21,5 +22,6 @@ export function installApp(app: App, history?: RouterHistory) {
   connectSessionToHttp(() => {
     void router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
   })
+  connectElevationToHttp()
   return router
 }

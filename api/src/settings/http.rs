@@ -34,6 +34,7 @@ where
     IamState: FromRef<S>,
     PgPool: FromRef<S>,
     Option<OAuthState>: FromRef<S>,
+    crate::servers::application::ServersState: FromRef<S>,
 {
     Router::new().route("/settings", get(get_settings).patch(update_settings))
 }
@@ -76,6 +77,13 @@ pub struct SettingsDto {
     pub audit_retention_days: i32,
     /// Serveur MCP ouvert aux agents IA (ADR-0023) ; coupé, ses jetons sont refusés.
     pub mcp_enabled: bool,
+    /// Accès SFTP aux fichiers des serveurs (ADR-0047) ; coupé, toute connexion est refusée.
+    pub sftp_enabled: bool,
+    /// Durée de conservation d'une version d'un fichier (ADR-0049), 0 à 365 jours ; 0 coupe
+    /// l'historique et efface ce qui était gardé.
+    pub file_history_days: i32,
+    /// Place prise au plus par l'historique d'un serveur (1 à 10 240 Mio).
+    pub file_history_max_mb: i32,
     /// URL à donner au client IA (`<mcp.public_url>/mcp`) ; absente si le MCP n'est pas
     /// configuré sur ce serveur, auquel cas l'activer reste sans effet.
     pub mcp_url: Option<String>,
@@ -107,6 +115,9 @@ impl SettingsDto {
             max_backup_limit: s.max_backup_limit,
             audit_retention_days: s.audit_retention_days,
             mcp_enabled: s.mcp_enabled,
+            sftp_enabled: s.sftp_enabled,
+            file_history_days: s.file_history_days,
+            file_history_max_mb: s.file_history_max_mb,
             mcp_url: oauth.map(OAuthState::resource),
             alert_cpu_percent: s.alert_cpu_percent,
             alert_memory_percent: s.alert_memory_percent,
@@ -139,6 +150,9 @@ pub struct UpdatePlatformSettingsRequest {
     pub max_backup_limit: Option<Option<i32>>,
     pub audit_retention_days: Option<i32>,
     pub mcp_enabled: Option<bool>,
+    pub sftp_enabled: Option<bool>,
+    pub file_history_days: Option<i32>,
+    pub file_history_max_mb: Option<i32>,
     pub alert_cpu_percent: Option<i32>,
     pub alert_memory_percent: Option<i32>,
     pub alert_minutes: Option<i32>,
@@ -176,6 +190,7 @@ pub async fn update_settings(
     State(iam): State<IamState>,
     State(pool): State<PgPool>,
     State(oauth): State<Option<OAuthState>>,
+    State(servers): State<crate::servers::application::ServersState>,
     session: AdminSession,
     Json(request): Json<UpdatePlatformSettingsRequest>,
 ) -> Result<Json<SettingsDto>, ApiError> {
@@ -193,13 +208,27 @@ pub async fn update_settings(
         max_backup_limit: request.max_backup_limit,
         audit_retention_days: request.audit_retention_days,
         mcp_enabled: request.mcp_enabled,
+        sftp_enabled: request.sftp_enabled,
+        file_history_days: request.file_history_days,
+        file_history_max_mb: request.file_history_max_mb,
         alert_cpu_percent: request.alert_cpu_percent,
         alert_memory_percent: request.alert_memory_percent,
         alert_minutes: request.alert_minutes,
         project_name: request.project_name,
     };
-    Ok(Json(SettingsDto::new(
-        settings::update(&pool, &session.context, patch).await?,
-        oauth.as_ref(),
-    )))
+    let history_changed =
+        request_touches_history(request.file_history_days, request.file_history_max_mb);
+    let settings = settings::update(&pool, &session.context, patch).await?;
+    if history_changed {
+        crate::servers::application::files::send_history_policy(
+            &servers,
+            settings.file_history_days,
+            settings.file_history_max_mb,
+        );
+    }
+    Ok(Json(SettingsDto::new(settings, oauth.as_ref())))
+}
+
+fn request_touches_history(days: Option<i32>, max_mb: Option<i32>) -> bool {
+    days.is_some() || max_mb.is_some()
 }
