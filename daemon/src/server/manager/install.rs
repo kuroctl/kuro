@@ -26,7 +26,8 @@ use crate::install::extract::Budget;
 use crate::install::{InstallError, download, extract};
 
 /// SteamCMD : utilisateur `steam` (uid 1000, celui des services par défaut), épinglé par empreinte.
-pub(crate) const STEAMCMD_IMAGE: &str = "docker.io/cm2network/steamcmd:steam-bookworm@sha256:6420fb40313fc00ee0d7fe1ae02c4c32f2b085980f5795b7171022d3409e29fb";
+/// Copie de `cm2network/steamcmd:steam-bookworm` dans le miroir de Kuro (ADR-0048), même digest.
+pub(crate) const STEAMCMD_IMAGE: &str = "ghcr.io/kuroctl/mirror/cm2network/steamcmd@sha256:6420fb40313fc00ee0d7fe1ae02c4c32f2b085980f5795b7171022d3409e29fb";
 const STEAMCMD: &str = "/home/steam/steamcmd/steamcmd.sh";
 /// Script de connexion de SteamCMD (ADR-0033), déposé dans le conteneur d'installation : le mot
 /// de passe n'apparaît ni dans les arguments, ni dans l'environnement, ni sur l'hôte.
