@@ -34,9 +34,14 @@ pub fn node_tool(name: &str) -> Command {
 }
 
 /// Lance une commande jusqu'au bout, sortie affichée telle quelle ; échoue si elle échoue.
-pub async fn run(mut command: Command, what: &str) -> anyhow::Result<()> {
+pub async fn run(command: Command, what: &str) -> anyhow::Result<()> {
+    run_in(command, &root(), what).await
+}
+
+/// Comme [`run`], depuis `dir` (le workspace d'une extension, par exemple).
+pub async fn run_in(mut command: Command, dir: &Path, what: &str) -> anyhow::Result<()> {
     let status = command
-        .current_dir(root())
+        .current_dir(dir)
         .stdin(Stdio::null())
         .status()
         .await

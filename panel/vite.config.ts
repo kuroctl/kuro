@@ -26,8 +26,9 @@ export default defineConfig({
       dts: extensions.length === 0 ? 'src/typed-router.d.ts' : (process.env.KURO_PANEL_TYPED_ROUTER ?? false),
     }),
     vue(),
+    // Avant Tailwind : il doit lire les `@source` des dossiers d'extensions.
+    kuroPanelExtensions(extensions, root),
     tailwindcss(),
-    kuroPanelExtensions(extensions),
   ],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },

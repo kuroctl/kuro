@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { Boxes } from '@lucide/vue'
 import { describe, expect, it } from 'vitest'
 
-import { kuroPanelExtensions, parseExtensions } from '../../build/extensions'
+import { isBare, kuroPanelExtensions, parseExtensions } from '../../build/extensions'
 import { extensionMessages, type PanelExtension, withExtensions } from '@/shared/extensions'
 import type { Section } from '@/shared/layout/sections'
 
@@ -61,11 +61,21 @@ describe('KURO_PANEL_EXTENSIONS', () => {
 
 describe('tailwind sources', () => {
   it('declares the extension folders to Tailwind in the main stylesheet only', () => {
-    const plugin = kuroPanelExtensions([{ name: 'shop', dir: '/ext/shop' }])
-    const transform = plugin.transform as (code: string, id: string) => string | undefined
+    type Transform = (code: string, id: string) => string | undefined
+    const handler = (plugin: ReturnType<typeof kuroPanelExtensions>) => (plugin.transform as { handler: Transform }).handler
+    const transform = handler(kuroPanelExtensions([{ name: 'shop', dir: '/ext/shop' }], '/kuro/panel'))
 
     expect(transform('@import "tailwindcss";', '/kuro/panel/src/assets/main.css')).toContain('@source "/ext/shop";')
     expect(transform('a{}', '/kuro/panel/src/other.css')).toBeUndefined()
-    expect((kuroPanelExtensions([]).transform as typeof transform)('x', '/p/src/assets/main.css')).toBeUndefined()
+    expect(handler(kuroPanelExtensions([], '/p'))('x', '/p/src/assets/main.css')).toBeUndefined()
+  })
+})
+
+describe('bare imports of an extension', () => {
+  it('recognizes package imports only', () => {
+    for (const id of ['vue', '@lucide/vue', 'vue-i18n/dist/x.js']) expect(isBare(id), id).toBe(true)
+    for (const id of ['./x', '../x', '/abs', 'C:/x', '@/shared/ui', 'virtual:kuro-panel-extensions', '\0x']) {
+      expect(isBare(id), id).toBe(false)
+    }
   })
 })

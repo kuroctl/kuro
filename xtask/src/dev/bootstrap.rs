@@ -27,10 +27,9 @@ use kuro_api::pki::infra::PkiFiles;
 use kuro_daemon::enroll::{EnrollOptions, enroll as enroll_node};
 use sqlx::PgPool;
 use tokio::io::AsyncWriteExt;
-use tokio::process::Command;
 
 use super::{API_CONFIG, step};
-use crate::workspace::{self, binary, root};
+use crate::workspace::{self, root};
 
 const NODE_DIR: &str = "dev-node";
 pub const NODE_CONFIG: &str = "dev-node/daemon.toml";
@@ -70,7 +69,7 @@ impl fmt::Debug for PendingEnrollment {
 
 pub async fn prepare(config: &Config, setup: bool) -> anyhow::Result<Prepared> {
     step("checking the dev PKI");
-    let mut pki = Command::new(binary("kuro-api"));
+    let mut pki = super::target::get().command();
     pki.args(["--config", API_CONFIG, "pki", "init"])
         .args(["--name", "localhost", "--name", "127.0.0.1"])
         .stdout(Stdio::null());
@@ -187,7 +186,8 @@ async fn ensure_admin(pool: &PgPool) -> anyhow::Result<String> {
 
     step("creating the dev admin account");
     let password: String = opaque::generate("")?.chars().take(24).collect();
-    let mut child = Command::new(binary("kuro-api"))
+    let mut child = super::target::get()
+        .command()
         .args([
             "--config",
             API_CONFIG,

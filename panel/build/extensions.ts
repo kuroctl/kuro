@@ -12,6 +12,15 @@ export interface ExtensionDir {
 }
 
 const NAME = /^[a-z][a-z0-9_]{0,31}$/
+
+/** Chemin à barres obliques, pour comparer des chemins Windows et POSIX. */
+const normalize = (path: string) => path.replaceAll('\\', '/')
+
+/** Import d'un paquet (`vue`, `@scope/pkg/sub`), ni relatif, ni absolu, ni alias, ni virtuel. */
+export function isBare(id: string): boolean {
+  return !/^(\.|\/|[a-zA-Z]:|\0|@\/|virtual:)/.test(id)
+}
+
 const VIRTUAL = 'virtual:kuro-panel-extensions'
 const RESOLVED = `\0${VIRTUAL}`
 
@@ -49,18 +58,30 @@ export function routesFolders(extensions: ExtensionDir[]) {
  * extensions déclarés à Tailwind (`@source`) : hors du panel, leurs classes ne seraient pas
  * générées sinon.
  */
-export function kuroPanelExtensions(extensions: ExtensionDir[]): Plugin {
+export function kuroPanelExtensions(extensions: ExtensionDir[], root: string): Plugin {
+  const dirs = extensions.map((extension) => normalize(extension.dir))
+  const inExtension = (file: string | undefined) => !!file && dirs.some((dir) => normalize(file).startsWith(`${dir}/`))
   return {
     name: 'kuro-panel-extensions',
-    // Avant Tailwind, pour qu'il lise les `@source` ajoutés.
+    // Avant Tailwind (à placer avant lui dans `plugins`), pour qu'il lise les `@source` ajoutés.
     enforce: 'pre',
-    resolveId(id) {
-      return id === VIRTUAL ? RESOLVED : undefined
+    async resolveId(id, importer, options) {
+      if (id === VIRTUAL) return RESOLVED
+      // Import nu (`vue`, `@lucide/vue`…) d'un fichier d'extension : l'extension est hors du
+      // panel, sans `node_modules` ; il se résout depuis le panel, avec les mêmes versions.
+      if (!isBare(id) || !inExtension(importer)) return undefined
+      return this.resolve(id, join(root, 'src', 'main.ts'), { ...options, skipSelf: true })
     },
-    transform(code, id) {
-      if (extensions.length === 0 || !id.replaceAll('\\', '/').endsWith('/src/assets/main.css')) return undefined
-      const sources = extensions.map((extension) => `@source ${JSON.stringify(extension.dir.replaceAll('\\', '/'))};`)
-      return `${code}\n${sources.join('\n')}\n`
+    // Priorité `pre` au niveau du crochet : Tailwind transforme le CSS avec la même priorité ;
+    // placé avant lui dans `plugins`, ce crochet passe le premier.
+    transform: {
+      order: 'pre',
+      handler(code, id) {
+        if (extensions.length === 0 || !normalize(id).split('?')[0]!.endsWith('/src/assets/main.css')) return undefined
+        const sources = extensions.map((extension) => `@source ${JSON.stringify(normalize(extension.dir))};`)
+        // Juste après l'import de Tailwind, avant toute règle.
+        return code.replace(/(@import\s+['"]tailwindcss['"];?)/, `$1\n${sources.join('\n')}`)
+      },
     },
     load(id) {
       if (id !== RESOLVED) return undefined

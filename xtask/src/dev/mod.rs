@@ -10,8 +10,10 @@
 mod bootstrap;
 mod procs;
 mod reload;
+pub mod target;
 
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::{Context, bail};
@@ -40,10 +42,27 @@ pub struct DevArgs {
     /// mise en route s'affiche (ADR-0045) ; le jeton est repris dans le récapitulatif.
     #[arg(long)]
     setup: bool,
+    /// Workspace Cargo de l'API, quand ce n'est pas celui de Kuro : un dépôt qui compile Kuro
+    /// avec des extensions (ADR-0051), Kuro étant son sous-module.
+    #[arg(long, value_name = "DIR")]
+    api_workspace: Option<PathBuf>,
+    /// Binaire de l'API, et paquet du même nom (`kuro-cloud`…).
+    #[arg(long, value_name = "NAME", default_value = "kuro-api")]
+    api_bin: String,
+    /// Base de dev à utiliser (créée si besoin) à la place de celle de la configuration : un
+    /// autre environnement dans le même Postgres.
+    #[arg(long, value_name = "NAME")]
+    database: Option<String>,
+    /// Sources en plus dont une modification recompile et relance l'API (répétable).
+    #[arg(long = "watch", value_name = "PATH")]
+    watch: Vec<PathBuf>,
+    /// Extension du panel admin, `<nom>=<dossier>` (répétable) : `KURO_PANEL_EXTENSIONS`.
+    #[arg(long = "panel-extension", value_name = "NAME=DIR")]
+    panel_extensions: Vec<String>,
 }
 
 fn api_command(config_path: &std::path::Path) -> Command {
-    let mut api = Command::new(binary("kuro-api"));
+    let mut api = target::get().command();
     api.arg("--config")
         .arg(config_path)
         // Les prefabs officiels sont réimportés dès que le dossier `prefabs/` change.
@@ -80,7 +99,12 @@ fn daemon_command() -> Command {
 
 pub async fn run(args: DevArgs) -> anyhow::Result<()> {
     let config_path = root().join(API_CONFIG);
-    let config = Config::load(Some(&config_path)).context("loading api/config.example.toml")?;
+    let mut config = Config::load(Some(&config_path)).context("loading api/config.example.toml")?;
+    let api = api_target(&args, &config)?;
+    if let Some(url) = &api.database_url {
+        config.database.url = url.clone();
+    }
+    target::set(api);
     let panel_addr = SocketAddr::from(([127, 0, 0, 1], PANEL_PORT));
     let mut ports = vec![config.http.bind, config.daemon.bind];
     if !args.no_panel {
@@ -94,19 +118,14 @@ pub async fn run(args: DevArgs) -> anyhow::Result<()> {
     compose.args(["compose", "-f", COMPOSE_FILE, "up", "-d", "--wait"]);
     workspace::run(compose, "docker compose").await?;
     ensure_env_file()?;
+    if let Some(name) = &args.database {
+        ensure_database(&config_path, name).await?;
+    }
 
-    step("building kuro-api and kuro-daemon");
-    let mut build = Command::new("cargo");
-    build.args([
-        "build",
-        "--quiet",
-        "-p",
-        "kuro-api",
-        "-p",
-        "kuro-daemon",
-        "--bins",
-    ]);
-    workspace::run(build, "cargo build").await?;
+    step(&format!("building {} and kuro-daemon", target::get().bin));
+    if !reload::build().await {
+        bail!("cargo build failed");
+    }
 
     let prepared = bootstrap::prepare(&config, args.setup).await?;
     if !args.no_panel && !root().join("panel/node_modules").exists() {
@@ -131,6 +150,10 @@ pub async fn run(args: DevArgs) -> anyhow::Result<()> {
     if !args.no_panel {
         // Vite lancé directement par node : un seul process, arrêté proprement avec les autres.
         let mut panel = Command::new("node");
+        // Pages des extensions compilées avec le panel (ADR-0051 § 8).
+        if let Some(extensions) = target::get().panel_env() {
+            panel.env("KURO_PANEL_EXTENSIONS", extensions);
+        }
         panel
             .args(["node_modules/vite/bin/vite.js", "--strictPort", "--port"])
             .arg(PANEL_PORT.to_string())
@@ -150,6 +173,16 @@ pub async fn run(args: DevArgs) -> anyhow::Result<()> {
         "  api     http://{} (OpenAPI: /api/openapi.json)",
         config.http.bind
     );
+    if !target::get().in_kuro() {
+        println!(
+            "  binary  {} (Kuro with extensions), database {}",
+            target::get().bin,
+            args.database.as_deref().unwrap_or("from the configuration")
+        );
+    }
+    if let Some(extensions) = target::get().panel_env() {
+        println!("  panel extensions  {extensions}");
+    }
     println!("  admin   {}", prepared.admin_hint);
     println!(
         "  mail    Mailpit http://localhost:8025 (SMTP 127.0.0.1:1025, chiffrement « aucun »)"
@@ -226,6 +259,54 @@ async fn supervise(
             }
         }
     }
+}
+
+/// API de ce lancement, d'après les options : `kuro-api` de Kuro par défaut.
+fn api_target(args: &DevArgs, config: &Config) -> anyhow::Result<target::ApiTarget> {
+    let mut api = target::ApiTarget::kuro();
+    if let Some(dir) = &args.api_workspace {
+        api.workspace = target::absolute(dir)?;
+    }
+    api.bin = args.api_bin.clone();
+    api.database_url = args
+        .database
+        .as_deref()
+        .map(|name| target::with_database(&config.database.url, name))
+        .transpose()?;
+    api.watch = args
+        .watch
+        .iter()
+        .map(|path| target::absolute(path))
+        .collect::<anyhow::Result<_>>()?;
+    api.panel_extensions = args
+        .panel_extensions
+        .iter()
+        .map(|entry| target::panel_extension(entry))
+        .collect::<anyhow::Result<_>>()?;
+    Ok(api)
+}
+
+/// Base `name` créée dans le Postgres de dev si elle n'existe pas (la base de la configuration
+/// sert de point d'entrée). `name` est déjà vérifiée (`target::with_database`).
+async fn ensure_database(config_path: &std::path::Path, name: &str) -> anyhow::Result<()> {
+    let config = Config::load(Some(config_path))?;
+    let pool = kuro_api::db::connect(&config.database)
+        .await
+        .context("connecting to the dev Postgres")?;
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)")
+            .bind(name)
+            .fetch_one(&pool)
+            .await?;
+    if !exists {
+        step(&format!("creating the database {name}"));
+        // Identifiant vérifié (minuscules, chiffres, `_`) : pas de paramètre possible ici.
+        sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE DATABASE {name}")))
+            .execute(&pool)
+            .await?;
+    }
+    pool.close().await;
+    Ok(())
 }
 
 /// Message de l'outil, distinct des sorties des process.

@@ -33,9 +33,12 @@ pub struct SourceWatch {
 }
 
 fn api_sources() -> Vec<PathBuf> {
-    ["api/src", "api/migrations", "api/Cargo.toml", ".sqlx"]
+    let mut sources = ["api/src", "api/migrations", "api/Cargo.toml", ".sqlx"]
         .map(|path| root().join(path))
-        .to_vec()
+        .to_vec();
+    // Sources d'une extension compilée avec Kuro (`--watch`).
+    sources.extend(super::target::get().watch.iter().cloned());
+    sources
 }
 
 fn daemon_sources() -> Vec<PathBuf> {
@@ -141,24 +144,54 @@ fn park(path: &Path) -> Option<Parked> {
     })
 }
 
+/// Compile l'API et le daemon : un seul `cargo build` dans le workspace de Kuro, ou deux quand
+/// l'API vient du workspace d'une extension.
+pub async fn build() -> bool {
+    let api = super::target::get();
+    let cargo = |packages: &[&str]| {
+        let mut build = Command::new("cargo");
+        build.args(["build", "--quiet"]);
+        for package in packages {
+            build.args(["-p", package]);
+        }
+        build.arg("--bins");
+        build
+    };
+    if api.in_kuro() {
+        return workspace::run(cargo(&[&api.bin, "kuro-daemon"]), "cargo build")
+            .await
+            .is_ok();
+    }
+    workspace::run(cargo(&["kuro-daemon"]), "cargo build (daemon)")
+        .await
+        .is_ok()
+        && workspace::run_in(
+            extension_build(cargo(&[&api.bin])),
+            &api.workspace,
+            "cargo build (api)",
+        )
+        .await
+        .is_ok()
+}
+
+/// Hors du workspace de Kuro, sa configuration Cargo ne s'applique pas : les requêtes de
+/// `kuro-api` se vérifient quand même contre son cache `.sqlx/` (comme `.cargo/config.toml` de
+/// Kuro), sauf choix contraire de l'appelant.
+fn extension_build(mut build: Command) -> Command {
+    if std::env::var_os("SQLX_OFFLINE").is_none() {
+        build.env("SQLX_OFFLINE", "true");
+    }
+    build
+}
+
 /// Recompile l'API et le daemon. `false` si la compilation échoue : les binaires en cours sont
 /// alors remis en place.
 pub async fn rebuild() -> bool {
-    let parked: Vec<Parked> = ["kuro-api", "kuro-daemon"]
+    let parked: Vec<Parked> = [super::target::get().binary(), binary("kuro-daemon")]
         .iter()
-        .filter_map(|name| park(&binary(name)))
+        .filter_map(|path| park(path))
         .collect();
-    let mut build = Command::new("cargo");
-    build.args([
-        "build",
-        "--quiet",
-        "-p",
-        "kuro-api",
-        "-p",
-        "kuro-daemon",
-        "--bins",
-    ]);
-    let built = workspace::run(build, "cargo build").await.is_ok();
+    let built = build().await;
     for binary in parked {
         if built || !binary.original.exists() {
             if !built {
