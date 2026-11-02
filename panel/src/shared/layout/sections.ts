@@ -5,7 +5,8 @@ import extensions from 'virtual:kuro-panel-extensions'
 
 import { withExtensions } from '@/shared/extensions'
 
-export interface SubnavItem {
+/** Page du sous-menu. */
+export interface SubnavPage {
   label: string
   icon: LucideIcon
   to?: string
@@ -13,7 +14,30 @@ export interface SubnavItem {
   soon?: boolean
   /** Entrée affichée seulement avec cette permission. */
   permission?: string
+  children?: never
 }
+
+/** Page d'un groupe : sans icône, le groupe porte la sienne. */
+export interface SubnavChild {
+  label: string
+  to: string
+  /** Page affichée seulement avec cette permission. */
+  permission?: string
+}
+
+/** Groupe repliable de pages (une catégorie du sous-menu), rendu comme les groupes de `NavEntry`.
+ * Il disparaît quand aucune de ses pages n'est visible, et s'ouvre sur la page active. */
+export interface SubnavGroup {
+  label: string
+  icon: LucideIcon
+  children: SubnavChild[]
+  to?: never
+  /** Groupe affiché seulement avec cette permission (en plus de celles de ses pages). */
+  permission?: string
+}
+
+/** Entrée du sous-menu : une page, ou un groupe de pages. Une liste de pages seules reste valable. */
+export type SubnavItem = SubnavPage | SubnavGroup
 
 export type BuiltinSectionKey = 'servers' | 'prefabs' | 'users' | 'settings' | 'account'
 
@@ -63,7 +87,6 @@ const builtin: Section[] = [
     title: 'subnav.users.title',
     items: [
       { label: 'subnav.users.admins', icon: UserCog, to: '/users' },
-      { label: 'subnav.users.customers', icon: Users, soon: true },
       { label: 'subnav.users.roles', icon: ShieldCheck, to: '/users/roles' },
     ],
   },

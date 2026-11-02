@@ -1,6 +1,7 @@
 // Extensions du panel admin (ADR-0051 § 8) : l'extension de démonstration `demo`
 // (`tests/fixtures/panel-extension`) ajoute une section au rail, une entrée aux Utilisateurs et
-// une page sous `/demo/`, avec ses traductions ; sa section suit sa permission.
+// des pages sous `/demo/`, avec ses traductions ; sa section suit sa permission, et son sous-menu
+// range une page dans un groupe.
 import { screen } from '@testing-library/vue'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
@@ -39,6 +40,45 @@ describe('panel extensions', () => {
 
     await screen.findAllByRole('link', { name: 'Serveurs' })
     expect(screen.queryByRole('link', { name: 'Démo' })).toBeNull()
+  })
+
+  it('shows the groups of its menu, each page with its permission', async () => {
+    server.use(...signedIn())
+    server.use(withPermissions(['demo.notes.read']))
+    const { user, router } = await renderApp('/demo/notes')
+
+    expect(await screen.findByRole('button', { name: 'Classement' })).toBeTruthy()
+    expect(screen.queryByRole('link', { name: 'Secret' })).toBeNull()
+
+    await user.click(screen.getByRole('link', { name: 'Archives' }))
+
+    expect(await screen.findByRole('heading', { name: 'Archives de la démo' })).toBeTruthy()
+    expect(router.currentRoute.value.path).toBe('/demo/notes/archive')
+    expect(screen.getByRole('link', { name: 'Archives' }).getAttribute('data-active')).toBe('true')
+    expect(screen.getByRole('link', { name: 'Notes' }).getAttribute('data-active')).not.toBe('true')
+  })
+
+  it('opens the folded group of the page reached', async () => {
+    server.use(...signedIn())
+    const { user, router } = await renderApp('/demo/notes')
+
+    await user.click(await screen.findByRole('button', { name: 'Classement' }))
+    expect(screen.queryByRole('link', { name: 'Archives' })).toBeNull()
+
+    await router.push('/demo/notes/archive')
+
+    expect(await screen.findByRole('link', { name: 'Archives' })).toBeTruthy()
+  })
+
+  it('finds the pages of a group with the menu search', async () => {
+    server.use(...signedIn())
+    const { user } = await renderApp('/demo/notes')
+
+    await user.click(await screen.findByRole('button', { name: 'Classement' }))
+    await user.type(screen.getByRole('searchbox', { name: 'Rechercher' }), 'archi')
+
+    expect(await screen.findByRole('link', { name: 'Archives' })).toBeTruthy()
+    expect(screen.queryByRole('link', { name: 'Notes' })).toBeNull()
   })
 
   it('speaks the language of the panel', async () => {

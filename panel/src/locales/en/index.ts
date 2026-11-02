@@ -40,7 +40,6 @@ export default {
     users: {
       title: 'Users',
       admins: 'Admins',
-      customers: 'Customers',
       roles: 'Roles',
     },
     settings: {

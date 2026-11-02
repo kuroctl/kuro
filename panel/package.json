@@ -11,6 +11,9 @@
     "typecheck": "vue-tsc --build",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:features": "vitest run tests/features",
+    "test:changed": "vitest run --changed",
     "gen:api": "cargo run -q -p kuro-api -- openapi > openapi.json && openapi-typescript openapi.json --empty-objects-unknown -o src/shared/api/schema.d.ts"
   },
   "dependencies": {

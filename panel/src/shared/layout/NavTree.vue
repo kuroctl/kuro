@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // Arbre du menu latéral : pages à icône, groupes repliables (+ / −) dont les pages sont reliées
-// par un trait. Les groupes sont ouverts par défaut ; une recherche les ouvre tous.
+// par un trait. Les groupes sont ouverts par défaut ; une recherche les ouvre tous, et le groupe
+// de la page active se rouvre quand on y arrive.
 import { Minus, Plus } from '@lucide/vue'
-import { reactive } from 'vue'
+import { reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { Badge } from '@/shared/ui/badge'
@@ -17,7 +18,7 @@ import {
 
 import type { NavEntry } from './nav'
 
-defineProps<{ entries: NavEntry[]; searching?: boolean }>()
+const props = defineProps<{ entries: NavEntry[]; searching?: boolean }>()
 const { t } = useI18n()
 
 // Groupes repliés par l'utilisateur, gardés d'une page à l'autre.
@@ -27,6 +28,12 @@ function setOpen(key: string, open: boolean) {
   if (open) folded.delete(key)
   else folded.add(key)
 }
+
+watch(
+  () => props.entries.filter((entry) => entry.children?.some((child) => child.active)).map((entry) => entry.key),
+  (keys) => keys.forEach((key) => folded.delete(key)),
+  { immediate: true },
+)
 </script>
 
 <template>

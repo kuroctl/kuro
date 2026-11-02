@@ -39,7 +39,6 @@ export default {
     users: {
       title: 'Utilisateurs',
       admins: 'Admins',
-      customers: 'Clients',
       roles: 'Rôles',
     },
     settings: {

@@ -28,6 +28,14 @@ describe('navigation of the extensions', () => {
     expect(merged.find((s) => s.key === 'users')?.items.map((i) => i.to)).toEqual(['/shop/customers'])
   })
 
+  it('adds groups of pages to the sections of Kuro', () => {
+    const group = { label: 'ext.shop.billing', icon: Boxes, children: [{ label: 'ext.shop.invoices', to: '/shop/invoices' }] }
+
+    const merged = withExtensions(builtin, [{ name: 'shop', items: { users: [group] } }])
+
+    expect(merged.find((s) => s.key === 'users')?.items).toEqual([group])
+  })
+
   it('leaves the navigation untouched without extension', () => {
     expect(withExtensions(builtin, [])).toEqual(builtin)
   })

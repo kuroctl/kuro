@@ -4,6 +4,9 @@
 //
 // Une extension fournit `extension.ts` (`export default definePanelExtension({ … })`) et un
 // dossier `pages/`, monté sous `/<nom>/…`. Ses textes sont sous `ext.<nom>.*`.
+//
+// Un sous-menu (`Section.items`, `items`) est une liste de pages, où des pages peuvent se ranger en
+// groupes repliables (ADR-0052) : `{ label, icon, children: [{ label, to, permission? }, …] }`.
 import type { BuiltinSectionKey, Section, SubnavItem } from '@/shared/layout/sections'
 
 export interface PanelExtensionManifest {
