@@ -1,6 +1,7 @@
 //! Régions : emplacement physique des nœuds.
 
 use axum::http::{Method, StatusCode};
+use kuro_api::nodes::application::regions;
 use serde_json::{Value, json};
 
 use crate::support::admin::{Session, TestAdmin};
@@ -56,6 +57,68 @@ async fn region_lifecycle_is_audited() {
             Some(id)
         );
     }
+}
+
+#[tokio::test]
+async fn a_region_can_be_disabled_and_enabled_again() {
+    let admin = TestAdmin::start().await;
+    let session = root(&admin).await;
+    let token = Some(session.access_token.as_str());
+    let region = create_region(&admin, &session, "eu-west").await;
+    let id = region["id"].as_str().unwrap();
+    assert_eq!(region["enabled"], true);
+
+    let disabled = admin
+        .call(
+            Method::PATCH,
+            &format!("/regions/{id}"),
+            token,
+            Some(json!({ "enabled": false })),
+        )
+        .await;
+    assert_eq!(disabled.status, StatusCode::OK, "{}", disabled.json);
+    assert_eq!(disabled.json["enabled"], false);
+    assert_eq!(disabled.json["name"], "Europe Ouest");
+    let event = admin.last_audit("region.updated").await;
+    assert_eq!(event.target_id.as_deref(), Some(id));
+    assert_eq!(event.details["enabled"], false);
+    assert_eq!(event.details["name_changed"], false);
+
+    // Le cas d'usage lu par les extensions (Kuro Cloud) renvoie l'état.
+    let listed = regions::list(&admin.pool).await.unwrap();
+    assert!(!listed[0].enabled);
+
+    let enabled = admin
+        .call(
+            Method::PATCH,
+            &format!("/regions/{id}"),
+            token,
+            Some(json!({ "enabled": true })),
+        )
+        .await;
+    assert_eq!(enabled.json["enabled"], true);
+    let listed = admin.call(Method::GET, "/regions", token, None).await;
+    assert_eq!(listed.json[0]["enabled"], true);
+}
+
+#[tokio::test]
+async fn an_empty_region_patch_is_refused() {
+    let admin = TestAdmin::start().await;
+    let session = root(&admin).await;
+    let region = create_region(&admin, &session, "eu-west").await;
+    let id = region["id"].as_str().unwrap();
+
+    let response = admin
+        .call(
+            Method::PATCH,
+            &format!("/regions/{id}"),
+            Some(&session.access_token),
+            Some(json!({})),
+        )
+        .await;
+
+    assert_eq!(response.status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(response.json["code"], "empty_patch");
 }
 
 #[tokio::test]

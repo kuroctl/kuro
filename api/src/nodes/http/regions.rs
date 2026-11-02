@@ -37,6 +37,9 @@ pub struct RegionDto {
     /// Centre de la région sur la carte.
     pub latitude: f64,
     pub longitude: f64,
+    /// Proposée aux extensions qui vendent des serveurs. Une région désactivée garde ses nœuds
+    /// et ses serveurs.
+    pub enabled: bool,
     pub nodes: NodeCountsDto,
     #[serde(with = "time::serde::rfc3339")]
     #[schema(value_type = String, format = DateTime)]
@@ -51,6 +54,7 @@ impl From<RegionRecord> for RegionDto {
             name: region.name,
             latitude: region.latitude,
             longitude: region.longitude,
+            enabled: region.enabled,
             nodes: NodeCountsDto {
                 total: region.nodes_total,
                 online: region.nodes_online,
@@ -82,6 +86,8 @@ pub struct UpdateRegionRequest {
     /// Les deux ensemble.
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
+    /// Active ou désactive la région.
+    pub enabled: Option<bool>,
 }
 
 /// Régions et nombre de nœuds par état. Permission : `nodes.read`.
@@ -144,7 +150,7 @@ pub async fn create(
     Ok((StatusCode::CREATED, Json(region.into())))
 }
 
-/// Modifie le nom ou le centre d'une région (le slug est fixe). Permission : `nodes.regions.manage`.
+/// Modifie le nom, le centre ou l'état d'une région (le slug est fixe). Permission : `nodes.regions.manage`.
 #[utoipa::path(patch, path = "/api/admin/v1/regions/{id}", tag = "admin-nodes", security(("bearer" = [])),
     params(("id" = Uuid, Path)), request_body = UpdateRegionRequest,
     responses((status = 200, body = RegionDto), (status = 403, body = Problem),
@@ -175,6 +181,7 @@ pub async fn update(
     let patch = RegionPatch {
         name: request.name,
         coordinates,
+        enabled: request.enabled,
     };
     Ok(Json(
         regions::update(&pool, &session.context, id, patch)

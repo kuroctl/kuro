@@ -1,5 +1,6 @@
 //! Régions : emplacement physique des nœuds. Le slug est fixe (référencé par la CLI et les
-//! scripts) ; le nom et le centre sur la carte sont modifiables.
+//! scripts) ; le nom, le centre sur la carte et l'état (activée ou non, ADR-0053) sont
+//! modifiables.
 
 use serde_json::json;
 use sqlx::PgPool;
@@ -25,6 +26,8 @@ pub struct NewRegion {
 pub struct RegionPatch {
     pub name: Option<String>,
     pub coordinates: Option<(f64, f64)>,
+    /// Une région désactivée n'est plus proposée aux extensions qui vendent des serveurs.
+    pub enabled: Option<bool>,
 }
 
 pub async fn list(pool: &PgPool) -> Result<Vec<RegionRecord>, NodesError> {
@@ -114,7 +117,7 @@ pub async fn update(
                 ErrorCode::InvalidCoordinates,
             ))
         })?;
-    if name.is_none() && center.is_none() {
+    if name.is_none() && center.is_none() && patch.enabled.is_none() {
         return Err(NodesError::Unprocessable(ErrorCode::EmptyPatch));
     }
 
@@ -122,14 +125,25 @@ pub async fn update(
     RegionRepository::get(&mut tx, id)
         .await?
         .ok_or(NodesError::NotFound)?;
-    RegionRepository::update(&mut tx, id, name, center.map(|c| (c.latitude, c.longitude))).await?;
+    RegionRepository::update(
+        &mut tx,
+        id,
+        name,
+        center.map(|c| (c.latitude, c.longitude)),
+        patch.enabled,
+    )
+    .await?;
     let region = RegionRepository::get(&mut tx, id)
         .await?
         .ok_or(NodesError::NotFound)?;
     tx.commit(
         AuditEvent::success(AuditAction::RegionUpdated)
             .target("region", id)
-            .details(json!({ "name_changed": name.is_some(), "center_changed": center.is_some() })),
+            .details(json!({
+                "name_changed": name.is_some(),
+                "center_changed": center.is_some(),
+                "enabled": patch.enabled,
+            })),
     )
     .await?;
     Ok(region)

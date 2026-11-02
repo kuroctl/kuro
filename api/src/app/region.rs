@@ -50,9 +50,14 @@ pub async fn run(command: Command, config: &Config) -> anyhow::Result<()> {
         Command::List => {
             for region in regions::list(&pool).await? {
                 println!(
-                    "{:<16} {:<24} {:>3} nodes ({} online, {} offline, {} pending)",
+                    "{:<16} {:<24} {:<8} {:>3} nodes ({} online, {} offline, {} pending)",
                     region.slug,
                     region.name,
+                    if region.enabled {
+                        "enabled"
+                    } else {
+                        "disabled"
+                    },
                     region.nodes_total,
                     region.nodes_online,
                     region.nodes_offline,

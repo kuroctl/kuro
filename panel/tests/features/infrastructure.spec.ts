@@ -21,6 +21,7 @@ const region: Schemas['RegionDto'] = {
   name: 'Europe Ouest',
   latitude: 48.85,
   longitude: 2.35,
+  enabled: true,
   nodes: { total: 1, online: 1, offline: 0, pending: 0, revoked: 0 },
   created_at: '2026-10-01T00:00:00Z',
 }
@@ -273,6 +274,25 @@ describe('regions', () => {
     expect(await screen.findByText('La région contient encore des nœuds.')).toBeTruthy()
   })
 
+  it('disables a region from its switch', async () => {
+    setup()
+    let body: unknown
+    server.use(
+      http.patch(`${API}/regions/${REGION_ID}`, async ({ request }) => {
+        body = await request.json()
+        return HttpResponse.json({ ...region, enabled: false })
+      }),
+    )
+    const { user } = await renderApp('/servers/regions')
+
+    const toggle = await screen.findByRole('switch', { name: 'Région Europe Ouest activée' })
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    await user.click(toggle)
+
+    await waitFor(() => expect(body).toEqual({ enabled: false }))
+    expect(await screen.findByText('Région Europe Ouest désactivée.')).toBeTruthy()
+  })
+
   it('offers no change without the regions permission', async () => {
     setup()
     server.use(http.get(`${API}/me`, () => HttpResponse.json({ ...profile, all_permissions: false, permissions: ['nodes.read'] })))
@@ -281,6 +301,7 @@ describe('regions', () => {
     expect(await screen.findByText('Europe Ouest')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Nouvelle région' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Actions sur Europe Ouest' })).toBeNull()
+    expect((screen.getByRole('switch', { name: 'Région Europe Ouest activée' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })
 

@@ -978,7 +978,7 @@ export interface paths {
         delete: operations["delete"];
         options?: never;
         head?: never;
-        /** Modifie le nom ou le centre d'une région (le slug est fixe). Permission : `nodes.regions.manage`. */
+        /** Modifie le nom, le centre ou l'état d'une région (le slug est fixe). Permission : `nodes.regions.manage`. */
         patch: operations["update"];
         trace?: never;
     };
@@ -4255,6 +4255,11 @@ export interface components {
         RegionDto: {
             /** Format: date-time */
             created_at: string;
+            /**
+             * @description Proposée aux extensions qui vendent des serveurs. Une région désactivée garde ses nœuds
+             *     et ses serveurs.
+             */
+            enabled: boolean;
             /** Format: uuid */
             id: string;
             /**
@@ -4985,6 +4990,8 @@ export interface components {
             sftp_enabled?: boolean | null;
         };
         UpdateRegionRequest: {
+            /** @description Active ou désactive la région. */
+            enabled?: boolean | null;
             /**
              * Format: double
              * @description Les deux ensemble.

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT r.id, r.slug, r.name, r.latitude, r.longitude, r.created_at,\n                      count(n.id) AS \"nodes_total!\",\n                      count(n.id) FILTER (WHERE n.status = 'online') AS \"nodes_online!\",\n                      count(n.id) FILTER (WHERE n.status = 'offline') AS \"nodes_offline!\",\n                      count(n.id) FILTER (WHERE n.status = 'pending') AS \"nodes_pending!\",\n                      count(n.id) FILTER (WHERE n.status = 'revoked') AS \"nodes_revoked!\"\n               FROM regions r LEFT JOIN nodes n ON n.region_id = r.id\n               WHERE r.id = $1\n               GROUP BY r.id",
+  "query": "SELECT r.id, r.slug, r.name, r.latitude, r.longitude, r.enabled, r.created_at,\n                      count(n.id) AS \"nodes_total!\",\n                      count(n.id) FILTER (WHERE n.status = 'online') AS \"nodes_online!\",\n                      count(n.id) FILTER (WHERE n.status = 'offline') AS \"nodes_offline!\",\n                      count(n.id) FILTER (WHERE n.status = 'pending') AS \"nodes_pending!\",\n                      count(n.id) FILTER (WHERE n.status = 'revoked') AS \"nodes_revoked!\"\n               FROM regions r LEFT JOIN nodes n ON n.region_id = r.id\n               GROUP BY r.id\n               ORDER BY r.name",
   "describe": {
     "columns": [
       {
@@ -60,6 +60,17 @@
       },
       {
         "ordinal": 5,
+        "name": "enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "regions",
+            "name": "enabled"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -70,42 +81,41 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "nodes_total!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "nodes_online!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "nodes_offline!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "nodes_pending!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "nodes_revoked!",
         "type_info": "Int8",
         "origin": "Expression"
       }
     ],
     "parameters": {
-      "Left": [
-        "Uuid"
-      ]
+      "Left": []
     },
     "nullable": [
+      false,
       false,
       false,
       false,
@@ -119,5 +129,5 @@
       null
     ]
   },
-  "hash": "358c90ac5eec1dba11efeae06f4d15a9152deae30ec6360add7dd09f0c554154"
+  "hash": "276b6dfb2b0f1ff5a661f6253fc91343ec82109ed57d5966a451853d3797e65e"
 }

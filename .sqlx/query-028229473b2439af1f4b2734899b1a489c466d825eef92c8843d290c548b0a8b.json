@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE regions SET name = COALESCE($2, name),\n                                latitude = COALESCE($3, latitude),\n                                longitude = COALESCE($4, longitude),\n                                enabled = COALESCE($5, enabled),\n                                updated_at = now()\n             WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Float8",
+        "Float8",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "028229473b2439af1f4b2734899b1a489c466d825eef92c8843d290c548b0a8b"
+}

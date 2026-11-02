@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Régions : emplacements physiques des nœuds, leur centre sur la carte et l'état de leurs
-// nœuds. Seule une région vide peut être supprimée (l'API reste seule juge). Liste en mode
+// nœuds. Seule une région vide peut être supprimée (l'API reste seule juge). Une région
+// désactivée n'est plus proposée aux extensions qui vendent des serveurs (ADR-0053). Liste en mode
 // local (ADR-0025) : recherche ici, tri et pagination par la table, état dans l'URL.
 import { Globe, MoreHorizontal, Pencil, Plus, Trash2 } from '@lucide/vue'
 import { createColumnHelper } from '@tanstack/vue-table'
@@ -36,6 +37,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/ui/dropdown-menu'
 import { Empty } from '@/shared/ui/empty'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { Switch } from '@/shared/ui/switch'
 
 const { t, n } = useI18n()
 const { can } = usePermissions()
@@ -48,6 +50,8 @@ const editing = ref<Region>()
 const dialog = ref(false)
 const deleting = ref<Region>()
 const pending = ref(false)
+/** Région dont l'état est en cours d'enregistrement. */
+const toggling = ref<string>()
 
 function openDialog(region?: Region) {
   editing.value = region
@@ -67,6 +71,20 @@ async function remove() {
   } finally {
     pending.value = false
     deleting.value = undefined
+  }
+}
+
+/** Active ou désactive une région, enregistré dès le changement. */
+async function toggle(region: Region, enabled: boolean) {
+  toggling.value = region.id
+  try {
+    await api.update(region.id, { enabled })
+    toast.success(t(enabled ? 'regions.enabled.on' : 'regions.enabled.off', { name: region.name }))
+    await invalidate()
+  } catch (error) {
+    handleError(error)
+  } finally {
+    toggling.value = undefined
   }
 }
 
@@ -104,6 +122,18 @@ const columns = column.columns([
     meta: { title: t('regions.fields.center'), class: 'font-mono text-xs text-muted-foreground' },
     header: () => t('regions.fields.center'),
     cell: ({ row }) => `${coordinate(row.original.latitude)}, ${coordinate(row.original.longitude)}`,
+  }),
+  column.accessor('enabled', {
+    id: 'enabled',
+    meta: { title: t('regions.fields.enabled') },
+    header: () => t('regions.fields.enabled'),
+    cell: ({ row }) =>
+      h(Switch, {
+        modelValue: row.original.enabled,
+        disabled: !can('nodes.regions.manage') || toggling.value === row.original.id,
+        'aria-label': t('regions.enabled.label', { name: row.original.name }),
+        'onUpdate:modelValue': (enabled: boolean) => toggle(row.original, enabled),
+      }),
   }),
   // Colonne toujours présente (les permissions arrivent après la création de la table) : vide
   // sans le droit de gérer les régions.

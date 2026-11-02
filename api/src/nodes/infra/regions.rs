@@ -10,6 +10,8 @@ pub struct RegionRecord {
     pub name: String,
     pub latitude: f64,
     pub longitude: f64,
+    /// Proposée aux extensions qui vendent des serveurs (ADR-0053).
+    pub enabled: bool,
     pub nodes_total: i64,
     pub nodes_online: i64,
     pub nodes_offline: i64,
@@ -48,17 +50,20 @@ impl RegionRepository {
         id: Uuid,
         name: Option<&str>,
         coordinates: Option<(f64, f64)>,
+        enabled: Option<bool>,
     ) -> Result<(), sqlx::Error> {
         sqlx::query!(
             "UPDATE regions SET name = COALESCE($2, name),
                                 latitude = COALESCE($3, latitude),
                                 longitude = COALESCE($4, longitude),
+                                enabled = COALESCE($5, enabled),
                                 updated_at = now()
              WHERE id = $1",
             id,
             name,
             coordinates.map(|(latitude, _)| latitude),
             coordinates.map(|(_, longitude)| longitude),
+            enabled,
         )
         .execute(conn)
         .await?;
@@ -75,7 +80,7 @@ impl RegionRepository {
     pub async fn list(conn: &mut PgConnection) -> Result<Vec<RegionRecord>, sqlx::Error> {
         sqlx::query_as!(
             RegionRecord,
-            r#"SELECT r.id, r.slug, r.name, r.latitude, r.longitude, r.created_at,
+            r#"SELECT r.id, r.slug, r.name, r.latitude, r.longitude, r.enabled, r.created_at,
                       count(n.id) AS "nodes_total!",
                       count(n.id) FILTER (WHERE n.status = 'online') AS "nodes_online!",
                       count(n.id) FILTER (WHERE n.status = 'offline') AS "nodes_offline!",
@@ -95,7 +100,7 @@ impl RegionRepository {
     ) -> Result<Option<RegionRecord>, sqlx::Error> {
         sqlx::query_as!(
             RegionRecord,
-            r#"SELECT r.id, r.slug, r.name, r.latitude, r.longitude, r.created_at,
+            r#"SELECT r.id, r.slug, r.name, r.latitude, r.longitude, r.enabled, r.created_at,
                       count(n.id) AS "nodes_total!",
                       count(n.id) FILTER (WHERE n.status = 'online') AS "nodes_online!",
                       count(n.id) FILTER (WHERE n.status = 'offline') AS "nodes_offline!",
