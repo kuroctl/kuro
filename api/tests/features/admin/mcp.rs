@@ -575,7 +575,7 @@ async fn an_agent_browses_a_store_and_installs_a_version() {
     let (token, _) = agent(&fixture, "prefabs.read prefabs.manage").await;
     let store = &fixture.admin.store;
     let entry = store.publish_folder("terraria", |m| {
-        m.replace("version: 1.0.0", "version: 9.0.0")
+        m.replace("version: 1.1.0", "version: 9.0.0")
     });
     store.publish(&kuro_prefab::store::StoreIndex::new(
         "2026-10-30T12:00:00Z".to_owned(),

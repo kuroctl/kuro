@@ -21,12 +21,12 @@ fn minecraft(version: &str, edit: impl Fn(String) -> String) -> Vec<u8> {
     let manifest = std::fs::read_to_string(dir.join("prefab.yaml"))
         .unwrap()
         .replace("\r\n", "\n")
-        .replace("version: 1.4.0", &format!("version: {version}"))
+        .replace("version: 1.5.0", &format!("version: {version}"))
         .replace("motd", "welcome")
         .replace("2026.10.1-java25", "2026.11.1-java25")
         .replace(
             "lifecycle:\n",
-            "migrations:\n  - { from: \"<1.5.0\", rename: { motd: welcome } }\nlifecycle:\n",
+            "migrations:\n  - { from: \"<1.6.0\", rename: { motd: welcome } }\nlifecycle:\n",
         );
     writer.start_file("prefab.yaml", options).unwrap();
     writer.write_all(edit(manifest).as_bytes()).unwrap();
@@ -62,7 +62,7 @@ struct Setup {
     id: String,
 }
 
-/// Serveur `minecraft-java` 1.4.0 en marche, et une version 1.5.0 importée.
+/// Serveur `minecraft-java` 1.5.0 en marche, et une version 1.6.0 importée.
 async fn setup() -> Setup {
     let platform = Platform::start().await;
     let mut daemon = platform.online_node("node-1", "25565-25570").await;
@@ -75,7 +75,7 @@ async fn setup() -> Setup {
     let id = server["id"].as_str().unwrap().to_owned();
     daemon.report(&id, "running").await;
     platform.wait_for_state(&id, "running").await;
-    import(&platform, minecraft("1.5.0", |m| m)).await;
+    import(&platform, minecraft("1.6.0", |m| m)).await;
     Setup {
         platform,
         daemon,
@@ -96,13 +96,13 @@ async fn the_preview_shows_migrated_settings_and_changed_images() {
         .await;
     assert_eq!(
         available.json,
-        json!({ "current": "1.4.0", "available": ["1.5.0"] })
+        json!({ "current": "1.5.0", "available": ["1.6.0"] })
     );
 
     let preview = platform
         .call(
             Method::GET,
-            &format!("/servers/{}/upgrade?to=1.5.0", setup.id),
+            &format!("/servers/{}/upgrade?to=1.6.0", setup.id),
             None,
         )
         .await;
@@ -126,7 +126,7 @@ async fn the_preview_shows_migrated_settings_and_changed_images() {
     let same = platform
         .call(
             Method::GET,
-            &format!("/servers/{}/upgrade?to=1.4.0", setup.id),
+            &format!("/servers/{}/upgrade?to=1.5.0", setup.id),
             None,
         )
         .await;
@@ -142,7 +142,7 @@ async fn an_upgrade_migrates_the_settings_and_redeploys() {
         setup.platform.call(
             Method::POST,
             &path,
-            Some(json!({ "to": "1.5.0", "backup": false })),
+            Some(json!({ "to": "1.6.0", "backup": false })),
         ),
         setup.daemon.accept(),
     );
@@ -158,13 +158,13 @@ async fn an_upgrade_migrates_the_settings_and_redeploys() {
         .platform
         .call(Method::GET, &format!("/servers/{}", setup.id), None)
         .await;
-    assert_eq!(server.json["prefab"]["version"], "1.5.0");
+    assert_eq!(server.json["prefab"]["version"], "1.6.0");
     assert_eq!(server.json["settings"]["welcome"], "Bienvenue");
     assert!(server.json["settings"].get("motd").is_none());
     let event = setup.platform.admin.last_audit("server.upgraded").await;
     assert_eq!(event.outcome, "success");
-    assert_eq!(event.details["from"], "1.4.0");
-    assert_eq!(event.details["to"], "1.5.0");
+    assert_eq!(event.details["from"], "1.5.0");
+    assert_eq!(event.details["to"], "1.6.0");
     assert!(!event.details.to_string().contains("Bienvenue"));
 }
 
@@ -176,7 +176,7 @@ async fn the_backup_is_awaited_before_anything_changes() {
         .call(
             Method::POST,
             &format!("/servers/{}/upgrade", setup.id),
-            Some(json!({ "to": "1.5.0", "backup": true })),
+            Some(json!({ "to": "1.6.0", "backup": true })),
         )
         .await;
     assert_eq!(started.status, StatusCode::ACCEPTED, "{}", started.json);
@@ -187,7 +187,7 @@ async fn the_backup_is_awaited_before_anything_changes() {
         .platform
         .call(Method::GET, &format!("/servers/{}", setup.id), None)
         .await;
-    assert_eq!(before.json["prefab"]["version"], "1.4.0");
+    assert_eq!(before.json["prefab"]["version"], "1.5.0");
 
     setup
         .daemon
@@ -211,10 +211,10 @@ async fn the_backup_is_awaited_before_anything_changes() {
 #[tokio::test]
 async fn a_setting_no_longer_valid_blocks_the_upgrade() {
     let setup = setup().await;
-    // 1.6.0 retire la difficulté `hard`, celle du serveur.
+    // 1.7.0 retire la difficulté `hard`, celle du serveur.
     import(
         &setup.platform,
-        minecraft("1.6.0", |m| {
+        minecraft("1.7.0", |m| {
             m.replace("[peaceful, easy, normal, hard]", "[peaceful, easy, normal]")
         }),
     )
@@ -223,7 +223,7 @@ async fn a_setting_no_longer_valid_blocks_the_upgrade() {
         .platform
         .call(
             Method::GET,
-            &format!("/servers/{}/upgrade?to=1.6.0", setup.id),
+            &format!("/servers/{}/upgrade?to=1.7.0", setup.id),
             None,
         )
         .await;
@@ -236,7 +236,7 @@ async fn a_setting_no_longer_valid_blocks_the_upgrade() {
         .call(
             Method::POST,
             &format!("/servers/{}/upgrade", setup.id),
-            Some(json!({ "to": "1.6.0" })),
+            Some(json!({ "to": "1.7.0" })),
         )
         .await;
     assert_eq!(refused.status, StatusCode::CONFLICT);
@@ -248,7 +248,7 @@ async fn a_draft_version_is_an_upgrade_on_a_test_node_only() {
     let setup = setup().await;
     import(
         &setup.platform,
-        minecraft("1.6.0", |m| {
+        minecraft("1.7.0", |m| {
             m.replace(
                 "lifecycle:\n",
                 "x-status: \"draft: new runtime image\"\nlifecycle:\n",
@@ -256,7 +256,7 @@ async fn a_draft_version_is_an_upgrade_on_a_test_node_only() {
         }),
     )
     .await;
-    let path = format!("/servers/{}/upgrade?to=1.6.0", setup.id);
+    let path = format!("/servers/{}/upgrade?to=1.7.0", setup.id);
 
     let preview = setup.platform.call(Method::GET, &path, None).await;
     assert_eq!(
@@ -297,7 +297,7 @@ async fn upgrading_needs_its_permission_and_the_backup_one() {
                     Method::POST,
                     &format!("/servers/{id}/upgrade"),
                     Some(&token),
-                    Some(json!({ "to": "1.5.0", "backup": backup })),
+                    Some(json!({ "to": "1.6.0", "backup": backup })),
                 )
                 .await
         }
@@ -318,7 +318,7 @@ async fn all_older_servers_of_a_prefab_are_upgraded_together() {
     let mut setup = setup().await;
     let candidates = setup
         .platform
-        .call(Method::GET, "/prefabs/minecraft-java/1.5.0/upgrades", None)
+        .call(Method::GET, "/prefabs/minecraft-java/1.6.0/upgrades", None)
         .await;
     assert_eq!(candidates.status, StatusCode::OK, "{}", candidates.json);
     let list = candidates.json.as_array().unwrap();
@@ -331,7 +331,7 @@ async fn all_older_servers_of_a_prefab_are_upgraded_together() {
         setup.platform.call(
             Method::POST,
             "/servers/upgrade",
-            Some(json!({ "servers": [setup.id, unknown], "to": "1.5.0" })),
+            Some(json!({ "servers": [setup.id, unknown], "to": "1.6.0" })),
         ),
         setup.daemon.accept(),
     );

@@ -565,7 +565,7 @@ fn minecraft_version(version: &str, edit: impl Fn(String) -> String) -> Vec<u8> 
     let manifest = std::fs::read_to_string(dir.join("prefab.yaml"))
         .unwrap()
         .replace("\r\n", "\n")
-        .replace("version: 1.4.0", &format!("version: {version}"));
+        .replace("version: 1.5.0", &format!("version: {version}"));
     writer.start_file("prefab.yaml", options).unwrap();
     writer.write_all(edit(manifest).as_bytes()).unwrap();
     for lang in ["en", "fr"] {
@@ -596,11 +596,11 @@ async fn import(setup: &Setup, bytes: Vec<u8>) {
 #[tokio::test]
 async fn an_upgrade_step_backs_up_then_moves_to_the_latest_published_version() {
     let mut setup = server("running").await;
-    // 1.5.0 publiée, 1.6.0 en brouillon : seule la publiée est choisie d'office.
-    import(&setup, minecraft_version("1.5.0", |m| m)).await;
+    // 1.6.0 publiée, 1.7.0 en brouillon : seule la publiée est choisie d'office.
+    import(&setup, minecraft_version("1.6.0", |m| m)).await;
     import(
         &setup,
-        minecraft_version("1.6.0", |m| {
+        minecraft_version("1.7.0", |m| {
             m.replace("tags: [", "x-status: \"draft: later\"\ntags: [")
         }),
     )
@@ -645,12 +645,12 @@ async fn an_upgrade_step_backs_up_then_moves_to_the_latest_published_version() {
         .platform
         .call(Method::GET, &format!("/servers/{}", setup.id), None)
         .await;
-    assert_eq!(server.json["prefab"]["version"], "1.5.0");
+    assert_eq!(server.json["prefab"]["version"], "1.6.0");
     let history = runs(&setup, &schedule).await;
     assert_eq!(history[0]["outcome"], "succeeded", "{history:?}");
     let upgraded = setup.platform.admin.last_audit("server.upgraded").await;
     assert_eq!(upgraded.outcome, "success");
-    assert_eq!(upgraded.details["to"], "1.5.0");
+    assert_eq!(upgraded.details["to"], "1.6.0");
     assert_eq!(upgraded.details["backup"], true);
 
     // Déjà à jour : la tâche réussit sans rien envoyer au nœud.
@@ -679,7 +679,7 @@ async fn an_upgrade_step_names_its_blocker_and_needs_the_upgrade_permission() {
     // Seule version plus récente : un brouillon, hors nœud de test.
     import(
         &setup,
-        minecraft_version("1.6.0", |m| {
+        minecraft_version("1.7.0", |m| {
             m.replace("tags: [", "x-status: \"draft: later\"\ntags: [")
         }),
     )
@@ -699,7 +699,7 @@ async fn an_upgrade_step_names_its_blocker_and_needs_the_upgrade_permission() {
 
     let schedule = create(
         &setup,
-        definition(json!([{ "action": "upgrade", "value": "1.6.0" }])),
+        definition(json!([{ "action": "upgrade", "value": "1.7.0" }])),
     )
     .await;
     run_due(&setup, next_run(&schedule)).await;

@@ -20,6 +20,7 @@ mod link;
 mod manage;
 pub mod metrics;
 mod owner;
+pub mod owner_settings;
 pub mod scheduler;
 pub mod schedules;
 pub mod search;

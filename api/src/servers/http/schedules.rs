@@ -84,7 +84,7 @@ pub struct RunDto {
     pub reason: Option<String>,
 }
 
-fn run_dto(run: RunRecord) -> RunDto {
+pub(super) fn run_dto(run: RunRecord) -> RunDto {
     RunDto {
         id: run.id,
         trigger: if run.trigger == "manual" {
@@ -146,7 +146,7 @@ fn step_dto(step: &crate::servers::domain::schedule::Step) -> StepDto {
     }
 }
 
-fn dto(view: ScheduleView) -> ScheduleDto {
+pub(super) fn dto(view: ScheduleView) -> ScheduleDto {
     ScheduleDto {
         id: view.schedule.id,
         name: view.schedule.name,

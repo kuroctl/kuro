@@ -10,7 +10,7 @@ use zip::write::SimpleFileOptions;
 
 use crate::support::platform::{FakeDaemon, Platform};
 
-/// `minecraft-java` en 1.5.0, qui demande 3 Go au moins et en recommande 4.
+/// `minecraft-java` en 1.6.0, qui demande 3 Go au moins et en recommande 4.
 fn minecraft_with_needs() -> Vec<u8> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs/minecraft-java");
     let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
@@ -19,7 +19,7 @@ fn minecraft_with_needs() -> Vec<u8> {
     let manifest = std::fs::read_to_string(dir.join("prefab.yaml"))
         .unwrap()
         .replace("\r\n", "\n")
-        .replace("version: 1.4.0", "version: 1.5.0")
+        .replace("version: 1.5.0", "version: 1.6.0")
         .replacen(
             "requires:\n  kuro: \">=0.2\"\n",
             "requires:\n  kuro: \">=0.2\"\n  resources:\n    memory_mb: { min: 3072, recommended: 4096 }\n",
@@ -65,7 +65,7 @@ fn create_body(daemon: &FakeDaemon, memory_mb: i32) -> Value {
         "name": "Survie",
         "node_id": daemon.node.id.as_uuid(),
         "prefab_id": "minecraft-java",
-        "prefab_version": "1.5.0",
+        "prefab_version": "1.6.0",
         "memory_mb": memory_mb,
     })
 }
@@ -85,21 +85,21 @@ async fn the_catalog_shows_the_needs_and_a_minimum_above_a_ceiling() {
         .await;
     let after = platform.call(Method::GET, "/prefabs", None).await;
 
-    let needs = version(&before.json, "1.5.0");
+    let needs = version(&before.json, "1.6.0");
     assert_eq!(
         needs["resources"],
         json!({ "memory_mb": { "min": 3072, "recommended": 4096 } })
     );
     assert_eq!(needs["deployable"], true);
     assert_eq!(needs["over_ceiling"], json!([]));
-    assert_eq!(version(&before.json, "1.4.0")["resources"], json!({}));
+    assert_eq!(version(&before.json, "1.5.0")["resources"], json!({}));
     assert_eq!(settings.status, StatusCode::OK, "{}", settings.json);
-    assert_eq!(version(&after.json, "1.5.0")["deployable"], false);
+    assert_eq!(version(&after.json, "1.6.0")["deployable"], false);
     assert_eq!(
-        version(&after.json, "1.5.0")["over_ceiling"],
+        version(&after.json, "1.6.0")["over_ceiling"],
         json!(["memory_mb"])
     );
-    assert_eq!(version(&after.json, "1.4.0")["deployable"], true);
+    assert_eq!(version(&after.json, "1.5.0")["deployable"], true);
 }
 
 #[tokio::test]
@@ -155,7 +155,7 @@ async fn lowering_a_server_below_its_minimum_is_refused() {
 async fn an_upgrade_to_a_version_needing_more_memory_is_blocked() {
     let platform = Platform::start().await;
     let mut daemon = platform.online_node("node-1", "25565-25570").await;
-    // Déployé en 1.4.0 avec 2 Go, sans minimum.
+    // Déployé en 1.5.0 avec 2 Go, sans minimum.
     let (server, _) = platform.deploy_minecraft(&mut daemon, json!({})).await;
     let id = server["id"].as_str().unwrap().to_owned();
     daemon.report(&id, "offline").await;
@@ -165,7 +165,7 @@ async fn an_upgrade_to_a_version_needing_more_memory_is_blocked() {
     let preview = platform
         .call(
             Method::GET,
-            &format!("/servers/{id}/upgrade?to=1.5.0"),
+            &format!("/servers/{id}/upgrade?to=1.6.0"),
             None,
         )
         .await;

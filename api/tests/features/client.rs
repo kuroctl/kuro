@@ -1,5 +1,7 @@
 //! Espace client (ADR-0051, tranche 3) : un fournisseur d'identité d'extension, le propriétaire
-//! qui ne voit et ne pilote que ses serveurs, les refus audités, le serveur suspendu.
+//! qui ne voit et ne pilote que ses serveurs, les refus audités, le serveur suspendu ; sa console
+//! et ses métriques (ADR-0054) ; ses fichiers (ADR-0055) ; ses sauvegardes et ses tâches
+//! planifiées (ADR-0056) ; ses réglages et la réinstallation (ADR-0057).
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
@@ -14,8 +16,9 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::support::admin::TestAdmin;
+use crate::support::browser::{Browser, serve};
 use crate::support::db;
-use crate::support::http::TestResponse;
+use crate::support::http::{PANEL_ORIGIN, TestResponse};
 use crate::support::platform::{FakeDaemon, Platform};
 
 const ALICE: &str = "shop:alice";
@@ -295,4 +298,474 @@ async fn two_extensions_cannot_both_provide_the_identity() {
         result,
         Err(ExtensionError::IdentityTwice { first, second }) if first == "shop" && second == "other"
     ));
+}
+
+/// Serveur de `owner` en marche, et le REST servi sur un vrai port (WebSocket de console).
+async fn running_server_of(
+    platform: &Platform,
+    daemon: &mut FakeDaemon,
+    owner: &str,
+) -> (String, std::net::SocketAddr) {
+    let id = server_of(platform, daemon, json!(owner)).await;
+    daemon.report(&id, "running").await;
+    platform.wait_for_state(&id, "running").await;
+    (id, serve(platform.admin.router()).await)
+}
+
+#[tokio::test]
+async fn an_owner_opens_the_console_of_their_server_and_sends_a_command() {
+    let platform = Platform::start_with_extensions(vec![shop()]).await;
+    let mut daemon = platform.online_node("node-1", "25565-25570").await;
+    let (alice, addr) = running_server_of(&platform, &mut daemon, ALICE).await;
+
+    let ticket = client(
+        &platform,
+        Method::POST,
+        &format!("/servers/{alice}/console/ticket"),
+        Some("alice-token"),
+        None,
+    )
+    .await;
+    assert_eq!(ticket.status, StatusCode::CREATED, "{}", ticket.json);
+    assert_eq!(ticket.json["expires_in_secs"], 30);
+    let opened = platform.admin.last_audit("server.console_opened").await;
+    assert_eq!(opened.actor_kind, "owner");
+    assert_eq!(opened.details["owner_ref"], ALICE);
+
+    let mut browser = Browser::open_at(addr, "client", &alice, PANEL_ORIGIN)
+        .await
+        .unwrap();
+    browser.auth(ticket.json["ticket"].as_str().unwrap()).await;
+    assert_eq!(browser.next_of("state").await["state"], "running");
+    assert_eq!(daemon.accept().await["type"], "server.watch");
+
+    let command_path = format!("/servers/{alice}/command");
+    let (sent, command) = tokio::join!(
+        client(
+            &platform,
+            Method::POST,
+            &command_path,
+            Some("alice-token"),
+            Some(json!({ "line": "say Bonjour" })),
+        ),
+        daemon.accept(),
+    );
+    assert_eq!(sent.status, StatusCode::ACCEPTED, "{}", sent.json);
+    assert_eq!(command["type"], "server.command");
+    assert_eq!(command["payload"]["line"], "say Bonjour");
+    let audited = platform.admin.last_audit("server.command").await;
+    assert_eq!(audited.actor_kind, "owner");
+    browser.close().await;
+}
+
+#[tokio::test]
+async fn an_owner_reaches_neither_the_console_nor_the_metrics_of_another_owner() {
+    let platform = Platform::start_with_extensions(vec![shop()]).await;
+    let mut daemon = platform.online_node("node-1", "25565-25570").await;
+    let (bob, _) = running_server_of(&platform, &mut daemon, BOB).await;
+
+    for (method, path, body) in [
+        (Method::POST, format!("/servers/{bob}/console/ticket"), None),
+        (
+            Method::POST,
+            format!("/servers/{bob}/command"),
+            Some(json!({ "line": "stop" })),
+        ),
+        (Method::GET, format!("/servers/{bob}/metrics"), None),
+    ] {
+        let response = client(&platform, method, &path, Some("alice-token"), body).await;
+        assert_eq!(response.status, StatusCode::NOT_FOUND, "{path}");
+    }
+}
+
+#[tokio::test]
+async fn an_owner_reads_the_metrics_of_their_server() {
+    let platform = Platform::start_with_extensions(vec![shop()]).await;
+    let mut daemon = platform.online_node("node-1", "25565-25570").await;
+    let alice = server_of(&platform, &mut daemon, json!(ALICE)).await;
+
+    let metrics = client(
+        &platform,
+        Method::GET,
+        &format!("/servers/{alice}/metrics?range=7d"),
+        Some("alice-token"),
+        None,
+    )
+    .await;
+    assert_eq!(metrics.status, StatusCode::OK, "{}", metrics.json);
+    assert_eq!(metrics.json["range"], "7d");
+    assert_eq!(metrics.json["step_secs"], 3600);
+    let wrong = client(
+        &platform,
+        Method::GET,
+        &format!("/servers/{alice}/metrics?range=1y"),
+        Some("alice-token"),
+        None,
+    )
+    .await;
+    assert_eq!(wrong.status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn a_suspended_server_gives_its_owner_no_console() {
+    let platform = Platform::start_with_extensions(vec![shop()]).await;
+    let mut daemon = platform.online_node("node-1", "25565-25570").await;
+    let alice = server_of(&platform, &mut daemon, json!(ALICE)).await;
+    let suspend = format!("/servers/{alice}/suspend");
+    let (suspended, _) = tokio::join!(platform.call(Method::POST, &suspend, None), daemon.accept());
+    assert_eq!(suspended.status, StatusCode::OK, "{}", suspended.json);
+
+    let ticket = client(
+        &platform,
+        Method::POST,
+        &format!("/servers/{alice}/console/ticket"),
+        Some("alice-token"),
+        None,
+    )
+    .await;
+
+    assert_eq!(ticket.status, StatusCode::CONFLICT);
+    assert_eq!(ticket.json["code"], "server_suspended");
+}
+
+/// Appel du propriétaire pendant que le nœud répond `kind` / `payload` à la requête de fichier.
+async fn file_exchange(
+    platform: &Platform,
+    daemon: &mut FakeDaemon,
+    method: Method,
+    path: &str,
+    body: Option<Value>,
+    kind: &str,
+    payload: Value,
+) -> (TestResponse, Value) {
+    tokio::join!(
+        client(platform, method, path, Some("alice-token"), body),
+        async {
+            let request = daemon.next_file_request().await;
+            daemon.answer(&request, kind, payload).await;
+            request
+        }
+    )
+}
+
+#[tokio::test]
+async fn an_owner_browses_reads_and_writes_the_files_of_their_server() {
+    let platform = Platform::start_with_extensions(vec![shop()]).await;
+    let mut daemon = platform.online_node("node-1", "25565-25570").await;
+    let (alice, _) = running_server_of(&platform, &mut daemon, ALICE).await;
+
+    let (listed, request) = file_exchange(
+        &platform,
+        &mut daemon,
+        Method::GET,
+        &format!("/servers/{alice}/files?path=/server/data"),
+        None,
+        "file.listing",
+        json!({ "entries": [{ "name": "server.properties", "kind": "file", "size": 10, "modified_ms": 1000 }] }),
+    )
+    .await;
+    assert_eq!(listed.status, StatusCode::OK, "{}", listed.json);
+    assert_eq!(request["type"], "file.list");
+    assert_eq!(listed.json["entries"][0]["name"], "server.properties");
+
+    let (read, _) = file_exchange(
+        &platform,
+        &mut daemon,
+        Method::GET,
+        &format!("/servers/{alice}/files/content?path=/server/data/server.properties"),
+        None,
+        "file.content",
+        json!({ "content": "motd=Kuro\n", "size": 10, "modified_ms": 1000, "sha256": "ab12" }),
+    )
+    .await;
+    assert_eq!(read.status, StatusCode::OK, "{}", read.json);
+    assert_eq!(read.json["sha256"], "ab12");
+
+    let (written, request) = file_exchange(
+        &platform,
+        &mut daemon,
+        Method::PUT,
+        &format!("/servers/{alice}/files/content"),
+        Some(json!({ "path": "/server/data/server.properties", "content": "motd=Alice\n", "if_sha256": "ab12" })),
+        "command.result",
+        json!({ "status": "ok" }),
+    )
+    .await;
+    assert_eq!(written.status, StatusCode::NO_CONTENT, "{}", written.json);
+    assert_eq!(request["payload"]["if_sha256"], "ab12");
+    // Historique : un client, sans identifiant (le propriétaire n'a pas d'uuid).
+    assert_eq!(request["payload"]["author"]["kind"], "customer");
+    assert!(request["payload"]["author"].get("id").is_none());
+    let event = platform.admin.last_audit("server.file_written").await;
+    assert_eq!(event.actor_kind, "owner");
+    assert_eq!(event.details["owner_ref"], ALICE);
+}
+
+#[tokio::test]
+async fn an_owner_reaches_no_file_of_another_owner() {
+    let platform = Platform::start_with_extensions(vec![shop()]).await;
+    let mut daemon = platform.online_node("node-1", "25565-25570").await;
+    let (bob, _) = running_server_of(&platform, &mut daemon, BOB).await;
+
+    for (method, path, body) in [
+        (Method::GET, format!("/servers/{bob}/files?path=/"), None),
+        (
+            Method::GET,
+            format!("/servers/{bob}/files/content?path=/server/data/a.txt"),
+            None,
+        ),
+        (
+            Method::PUT,
+            format!("/servers/{bob}/files/content"),
+            Some(json!({ "path": "/server/data/a.txt", "content": "x" })),
+        ),
+        (
+            Method::DELETE,
+            format!("/servers/{bob}/files?path=/server/data/a.txt"),
+            None,
+        ),
+        (
+            Method::GET,
+            format!("/servers/{bob}/files/history?path=/server/data/a.txt"),
+            None,
+        ),
+    ] {
+        let response = client(&platform, method, &path, Some("alice-token"), body).await;
+        assert_eq!(response.status, StatusCode::NOT_FOUND, "{path}");
+    }
+}
+
+#[tokio::test]
+async fn a_suspended_server_gives_its_owner_no_file() {
+    let platform = Platform::start_with_extensions(vec![shop()]).await;
+    let mut daemon = platform.online_node("node-1", "25565-25570").await;
+    let alice = server_of(&platform, &mut daemon, json!(ALICE)).await;
+    let suspend = format!("/servers/{alice}/suspend");
+    let (suspended, _) = tokio::join!(platform.call(Method::POST, &suspend, None), daemon.accept());
+    assert_eq!(suspended.status, StatusCode::OK, "{}", suspended.json);
+
+    let listed = client(
+        &platform,
+        Method::GET,
+        &format!("/servers/{alice}/files?path=/"),
+        Some("alice-token"),
+        None,
+    )
+    .await;
+
+    assert_eq!(listed.status, StatusCode::CONFLICT);
+    assert_eq!(listed.json["code"], "server_suspended");
+}
+
+#[tokio::test]
+async fn an_owner_backs_up_their_server_and_lists_the_backups() {
+    let platform = Platform::start_with_extensions(vec![shop()]).await;
+    let mut daemon = platform.online_node("node-1", "25565-25570").await;
+    let alice = server_of(&platform, &mut daemon, json!(ALICE)).await;
+    let backups = format!("/servers/{alice}/backups");
+
+    let (created, command) = tokio::join!(
+        client(
+            &platform,
+            Method::POST,
+            &backups,
+            Some("alice-token"),
+            Some(json!({ "name": "Avant la mise à jour" })),
+        ),
+        daemon.accept_backup(),
+    );
+    assert_eq!(created.status, StatusCode::ACCEPTED, "{}", created.json);
+    assert_eq!(created.json["state"], "creating");
+    assert_eq!(command["type"], "backup.create");
+    let event = platform.admin.last_audit("server.backup_created").await;
+    assert_eq!(event.actor_kind, "owner");
+    assert_eq!(event.details["owner_ref"], ALICE);
+
+    let listed = client(&platform, Method::GET, &backups, Some("alice-token"), None).await;
+    assert_eq!(listed.status, StatusCode::OK, "{}", listed.json);
+    assert_eq!(listed.json["backups"][0]["name"], "Avant la mise à jour");
+    assert!(listed.json["limit"].is_number());
+
+    let bob = client(&platform, Method::GET, &backups, Some("bob-token"), None).await;
+    assert_eq!(bob.status, StatusCode::NOT_FOUND);
+}
+
+fn schedule(action: &str, value: Option<&str>) -> Value {
+    json!({
+        "name": "Nuit",
+        "cron": "0 4 * * *",
+        "timezone": "Europe/Paris",
+        "steps": [{ "action": action, "value": value }],
+    })
+}
+
+#[tokio::test]
+async fn an_owner_schedules_only_what_the_client_space_allows() {
+    let platform = Platform::start_with_extensions(vec![shop()]).await;
+    let mut daemon = platform.online_node("node-1", "25565-25570").await;
+    let alice = server_of(&platform, &mut daemon, json!(ALICE)).await;
+    let schedules = format!("/servers/{alice}/schedules");
+
+    let created = client(
+        &platform,
+        Method::POST,
+        &schedules,
+        Some("alice-token"),
+        Some(schedule("backup", None)),
+    )
+    .await;
+    assert_eq!(created.status, StatusCode::CREATED, "{}", created.json);
+    assert_eq!(created.json["enabled"], true);
+    assert!(created.json["next_run_at"].is_string());
+
+    // Action du prefab, mise à jour : pas (encore) dans l'espace client.
+    for (action, value) in [("action", Some("whitelist")), ("upgrade", None)] {
+        let refused = client(
+            &platform,
+            Method::POST,
+            &schedules,
+            Some("alice-token"),
+            Some(schedule(action, value)),
+        )
+        .await;
+        assert_eq!(refused.status, StatusCode::FORBIDDEN, "{action}");
+    }
+
+    let id = created.json["id"].as_str().unwrap();
+    let mut disabled = schedule("power", Some("restart"));
+    disabled["enabled"] = json!(false);
+    let updated = client(
+        &platform,
+        Method::PUT,
+        &format!("{schedules}/{id}"),
+        Some("alice-token"),
+        Some(disabled),
+    )
+    .await;
+    assert_eq!(updated.status, StatusCode::OK, "{}", updated.json);
+    assert_eq!(updated.json["enabled"], false);
+    assert_eq!(updated.json["steps"][0]["value"], "restart");
+
+    let listed = client(
+        &platform,
+        Method::GET,
+        &schedules,
+        Some("alice-token"),
+        None,
+    )
+    .await;
+    assert_eq!(listed.json.as_array().unwrap().len(), 1);
+    let bob = client(&platform, Method::GET, &schedules, Some("bob-token"), None).await;
+    assert_eq!(bob.status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn an_owner_sees_and_changes_only_the_settings_open_to_customers() {
+    let platform = Platform::start_with_extensions(vec![shop()]).await;
+    let mut daemon = platform.online_node("node-1", "25565-25570").await;
+    let alice = server_of(&platform, &mut daemon, json!(ALICE)).await;
+    let settings = format!("/servers/{alice}/settings");
+
+    let read = client(
+        &platform,
+        Method::GET,
+        &format!("{settings}?lang=fr"),
+        Some("alice-token"),
+        None,
+    )
+    .await;
+    assert_eq!(read.status, StatusCode::OK, "{}", read.json);
+    let fields: Vec<&Value> = read.json["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|group| group["fields"].as_array().unwrap())
+        .collect();
+    let keys: Vec<&str> = fields.iter().map(|f| f["key"].as_str().unwrap()).collect();
+    assert!(
+        keys.contains(&"motd") && keys.contains(&"difficulty"),
+        "{keys:?}"
+    );
+    // Fixés par la formule, secrets, mode hors ligne : jamais pour le client.
+    for hidden in ["max_players", "rcon_password", "online_mode"] {
+        assert!(!keys.contains(&hidden), "{hidden}");
+        assert!(read.json["values"].get(hidden).is_none(), "{hidden}");
+    }
+    let motd = fields.iter().find(|f| f["key"] == "motd").unwrap();
+    assert_eq!(motd["label"], "Message d'accueil");
+    let difficulty = fields.iter().find(|f| f["key"] == "difficulty").unwrap();
+    assert_eq!(
+        difficulty["options"][3],
+        json!({ "value": "hard", "label": "Difficile" })
+    );
+    let loader = fields.iter().find(|f| f["key"] == "loader").unwrap();
+    assert_eq!(loader["editable"], false);
+    assert_eq!(read.json["values"]["motd"], "A Kuro server");
+
+    let (changed, _) = tokio::join!(
+        client(
+            &platform,
+            Method::PATCH,
+            &settings,
+            Some("alice-token"),
+            Some(json!({ "settings": { "motd": "Chez Alice" } })),
+        ),
+        daemon.accept(),
+    );
+    assert_eq!(changed.status, StatusCode::OK, "{}", changed.json);
+    assert_eq!(changed.json["values"]["motd"], "Chez Alice");
+    let event = platform.admin.last_audit("server.settings_updated").await;
+    assert_eq!(event.actor_kind, "owner");
+    assert_eq!(event.details["changed"], json!(["motd"]));
+
+    // Hors de sa vue, ou fixé au déploiement : refusé, rien n'est envoyé au nœud.
+    for (key, value) in [("max_players", json!(200)), ("loader", json!("paper"))] {
+        let refused = client(
+            &platform,
+            Method::PATCH,
+            &settings,
+            Some("alice-token"),
+            Some(json!({ "settings": { key: value } })),
+        )
+        .await;
+        assert_eq!(refused.status, StatusCode::UNPROCESSABLE_ENTITY, "{key}");
+        assert_eq!(
+            refused.json["fields"][0]["field"],
+            format!("settings.{key}"),
+            "{}",
+            refused.json
+        );
+        assert_eq!(refused.json["fields"][0]["code"], "setting_not_editable");
+    }
+
+    let bob = client(&platform, Method::GET, &settings, Some("bob-token"), None).await;
+    assert_eq!(bob.status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn an_owner_reinstalls_their_server_keeping_its_data() {
+    let platform = Platform::start_with_extensions(vec![shop()]).await;
+    let mut daemon = platform.online_node("node-1", "25565-25570").await;
+    let alice = server_of(&platform, &mut daemon, json!(ALICE)).await;
+    let reinstall = format!("/servers/{alice}/reinstall");
+
+    let (accepted, command) = tokio::join!(
+        client(
+            &platform,
+            Method::POST,
+            &reinstall,
+            Some("alice-token"),
+            None
+        ),
+        daemon.accept(),
+    );
+
+    assert_eq!(accepted.status, StatusCode::ACCEPTED, "{}", accepted.json);
+    assert_eq!(command["type"], "server.install");
+    assert_eq!(command["payload"]["mode"], "reinstall");
+    let event = platform.admin.last_audit("server.reinstalled").await;
+    assert_eq!(event.actor_kind, "owner");
+    assert_eq!(event.details["mode"], "reinstall");
+    let bob = client(&platform, Method::POST, &reinstall, Some("bob-token"), None).await;
+    assert_eq!(bob.status, StatusCode::NOT_FOUND);
 }

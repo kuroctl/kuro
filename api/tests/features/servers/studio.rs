@@ -167,7 +167,7 @@ async fn copying_an_official_version_keeps_its_files_bumps_the_version_and_takes
         .call(
             Method::POST,
             "/studio/drafts",
-            Some(json!({ "from": { "id": "terraria", "version": "1.0.0" } })),
+            Some(json!({ "from": { "id": "terraria", "version": "1.1.0" } })),
         )
         .await;
 
@@ -175,14 +175,14 @@ async fn copying_an_official_version_keeps_its_files_bumps_the_version_and_takes
     let manifest = copied.json["files"]["prefab.yaml"].as_str().unwrap();
     // Fichier d'origine : commentaires compris.
     assert!(manifest.contains("# Terraria"), "{manifest}");
-    assert!(manifest.contains("\nversion: 1.0.1\n"), "{manifest}");
-    assert_eq!(copied.json["prefab_version"], "1.0.1");
+    assert!(manifest.contains("\nversion: 1.1.1\n"), "{manifest}");
+    assert_eq!(copied.json["prefab_version"], "1.1.1");
     assert_eq!(
         (
             copied.json["base_id"].clone(),
             copied.json["base_version"].clone()
         ),
-        (json!("terraria"), json!("1.0.0"))
+        (json!("terraria"), json!("1.1.0"))
     );
     assert_eq!(copied.json["assets"], json!(["cover", "icon", "thumbnail"]));
     assert_eq!(
@@ -191,7 +191,7 @@ async fn copying_an_official_version_keeps_its_files_bumps_the_version_and_takes
         copied.json["check"]
     );
     let event = platform.admin.last_audit("prefab_draft.created").await;
-    assert_eq!(event.details["from"], "terraria@1.0.0");
+    assert_eq!(event.details["from"], "terraria@1.1.0");
 }
 
 /// Archive du prefab officiel `terraria` en version `version`.
@@ -201,7 +201,7 @@ fn terraria_archive(version: &str) -> Vec<u8> {
     let options = zip::write::SimpleFileOptions::default();
     let manifest = std::fs::read_to_string(dir.join("prefab.yaml"))
         .unwrap()
-        .replace("version: 1.0.0", &format!("version: {version}"));
+        .replace("version: 1.1.0", &format!("version: {version}"));
     writer.start_file("prefab.yaml", options).unwrap();
     writer.write_all(manifest.as_bytes()).unwrap();
     for lang in ["en", "fr"] {

@@ -19,7 +19,7 @@ fn terraria(version: &str) -> Vec<u8> {
     let options = SimpleFileOptions::default();
     let manifest = std::fs::read_to_string(dir.join("prefab.yaml"))
         .unwrap()
-        .replace("version: 1.0.0", &format!("version: {version}"));
+        .replace("version: 1.1.0", &format!("version: {version}"));
     writer.start_file("prefab.yaml", options).unwrap();
     writer.write_all(manifest.as_bytes()).unwrap();
     for entry in std::fs::read_dir(dir.join("locales")).unwrap() {
@@ -67,7 +67,7 @@ async fn an_archive_is_imported_as_a_new_version_and_audited() {
     assert_eq!(
         versions,
         vec![
-            (json!("1.0.0"), json!("official")),
+            (json!("1.1.0"), json!("official")),
             (json!("2.0.0"), json!("uploaded"))
         ]
     );
@@ -149,11 +149,11 @@ async fn a_version_in_use_cannot_be_deleted_but_an_unused_one_can() {
     assert_eq!(servers.json[0]["name"], "Survie");
 
     let deleted = platform
-        .call(Method::DELETE, "/prefabs/terraria/1.0.0", None)
+        .call(Method::DELETE, "/prefabs/terraria/1.1.0", None)
         .await;
     assert_eq!(deleted.status, StatusCode::NO_CONTENT);
     let gone = platform
-        .call(Method::GET, "/prefabs/terraria/1.0.0", None)
+        .call(Method::GET, "/prefabs/terraria/1.1.0", None)
         .await;
     assert_eq!(gone.status, StatusCode::NOT_FOUND);
     let event = platform.admin.last_audit("prefab.deleted").await;
@@ -187,7 +187,7 @@ async fn reading_the_catalog_is_not_managing_it() {
     let deleted = admin
         .call(
             Method::DELETE,
-            "/prefabs/terraria/1.0.0",
+            "/prefabs/terraria/1.1.0",
             Some(&token),
             None,
         )
@@ -264,7 +264,7 @@ async fn a_watched_folder_is_imported_as_soon_as_it_changes() {
     let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(15);
     loop {
         let found = platform
-            .call(Method::GET, "/prefabs/watched/1.0.0", None)
+            .call(Method::GET, "/prefabs/watched/1.1.0", None)
             .await;
         if found.status == StatusCode::OK {
             break;
@@ -310,7 +310,7 @@ async fn reloading_ignores_fields_added_to_the_model_and_adds_images_even_on_con
     let reloaded = platform.call(Method::POST, "/prefabs/reload", None).await;
 
     assert_eq!(reloaded.status, StatusCode::OK, "{}", reloaded.json);
-    assert_eq!(reloaded.json["conflicts"], json!(["terraria@1.0.0"]));
+    assert_eq!(reloaded.json["conflicts"], json!(["terraria@1.1.0"]));
     let unchanged = reloaded.json["unchanged"].as_array().unwrap();
     assert!(
         unchanged.contains(&json!("wordpress@1.2.0")),
@@ -320,7 +320,7 @@ async fn reloading_ignores_fields_added_to_the_model_and_adds_images_even_on_con
     assert!(
         added
             .iter()
-            .any(|entry| entry.as_str().unwrap().starts_with("terraria@1.0.0")),
+            .any(|entry| entry.as_str().unwrap().starts_with("terraria@1.1.0")),
         "{added:?}"
     );
 }
@@ -345,7 +345,7 @@ async fn images_are_brought_to_the_convention_and_revalidated_by_the_browser() {
     let platform = Platform::start().await;
     sqlx::query(
         "UPDATE prefab_assets SET data = $1
-         WHERE prefab_id = 'terraria' AND prefab_version = '1.0.0' AND kind = 'icon'",
+         WHERE prefab_id = 'terraria' AND prefab_version = '1.1.0' AND kind = 'icon'",
     )
     .bind(oversized_png(1000, 800))
     .execute(&platform.api.pool)
@@ -355,7 +355,7 @@ async fn images_are_brought_to_the_convention_and_revalidated_by_the_browser() {
     let optimized = platform
         .call(
             Method::POST,
-            "/prefabs/terraria/1.0.0/assets/optimize",
+            "/prefabs/terraria/1.1.0/assets/optimize",
             None,
         )
         .await;
@@ -382,12 +382,12 @@ async fn images_are_brought_to_the_convention_and_revalidated_by_the_browser() {
 
     // L'image servie est la nouvelle, revalidée par son empreinte.
     let served = platform
-        .call(Method::GET, "/prefabs/terraria/1.0.0/assets/icon", None)
+        .call(Method::GET, "/prefabs/terraria/1.1.0/assets/icon", None)
         .await;
     assert_eq!(served.status, StatusCode::OK);
     assert_eq!(served.headers["cache-control"], "private, no-cache");
     let etag = served.headers["etag"].clone();
-    let request = axum::http::Request::get("/api/admin/v1/prefabs/terraria/1.0.0/assets/icon")
+    let request = axum::http::Request::get("/api/admin/v1/prefabs/terraria/1.1.0/assets/icon")
         .header("authorization", format!("Bearer {}", platform.token))
         .header("if-none-match", etag)
         .body(axum::body::Body::empty())
@@ -399,7 +399,7 @@ async fn images_are_brought_to_the_convention_and_revalidated_by_the_browser() {
     let again = platform
         .call(
             Method::POST,
-            "/prefabs/terraria/1.0.0/assets/optimize",
+            "/prefabs/terraria/1.1.0/assets/optimize",
             None,
         )
         .await;
@@ -424,7 +424,7 @@ async fn optimizing_images_requires_the_manage_permission() {
     let refused = admin
         .call(
             Method::POST,
-            "/prefabs/terraria/1.0.0/assets/optimize",
+            "/prefabs/terraria/1.1.0/assets/optimize",
             Some(&token),
             None,
         )
@@ -455,7 +455,7 @@ async fn declaring_the_steam_game_of_a_published_prefab_is_not_a_conflict() {
     assert_eq!(reloaded.json["conflicts"], json!([]));
     let unchanged = reloaded.json["unchanged"].as_array().unwrap();
     assert!(
-        unchanged.contains(&json!("terraria@1.0.0")),
+        unchanged.contains(&json!("terraria@1.1.0")),
         "{unchanged:?}"
     );
 }
@@ -476,7 +476,7 @@ async fn the_search_groups_versions_by_prefab_and_pages_the_results() {
     assert_eq!(found.json["items"][0]["names"]["fr"], "Terraria");
     assert_eq!(
         found.json["items"][0]["versions"],
-        json!(["2.0.0", "1.0.0"])
+        json!(["2.0.0", "1.1.0"])
     );
 
     // Sans recherche : tout le catalogue, trié par id, page par page.

@@ -63,7 +63,16 @@ pub async fn history(
     Query(query): Query<MetricsQuery>,
 ) -> Result<Json<MetricsDto>, ApiError> {
     session.require(&iam, Permission::ServersRead).await?;
-    let range = match query.range.as_deref() {
+    Ok(Json(load(&state, id, query.range.as_deref()).await?))
+}
+
+/// Historique d'une plage (`24h` par défaut) ; partagé avec l'espace client (ADR-0054).
+pub(super) async fn load(
+    state: &ServersState,
+    id: Uuid,
+    range: Option<&str>,
+) -> Result<MetricsDto, ApiError> {
+    let range = match range {
         None => Range::Day,
         Some(text) => Range::parse(text).ok_or_else(|| {
             ApiError::from(Problem::invalid(FieldError::new(
@@ -72,8 +81,8 @@ pub async fn history(
             )))
         })?,
     };
-    let points = metrics::history(&state, id, range).await?;
-    Ok(Json(MetricsDto {
+    let points = metrics::history(state, id, range).await?;
+    Ok(MetricsDto {
         range: range.as_str(),
         step_secs: range.step_secs(),
         points: points
@@ -90,5 +99,5 @@ pub async fn history(
                 network_tx_bytes: p.network_tx_bytes,
             })
             .collect(),
-    }))
+    })
 }

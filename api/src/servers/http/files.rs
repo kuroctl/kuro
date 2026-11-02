@@ -98,25 +98,45 @@ pub async fn list(
 ) -> Result<Json<FileListingDto>, ApiError> {
     session.require(&iam, Permission::ServersFilesRead).await?;
     let listing = files::list(&state, id, &query.path).await?;
-    Ok(Json(FileListingDto {
-        path: query.path,
-        truncated: listing.truncated,
-        entries: listing
-            .entries
-            .into_iter()
-            .map(|e| FileEntryDto {
-                name: e.name,
-                kind: match e.kind {
-                    FileKind::File => FileKindDto::File,
-                    FileKind::Directory => FileKindDto::Directory,
-                    FileKind::Symlink => FileKindDto::Symlink,
-                    FileKind::Other => FileKindDto::Other,
-                },
-                size: e.size,
-                modified_ms: e.modified_ms,
-            })
-            .collect(),
-    }))
+    Ok(Json(FileListingDto::of(query.path, listing)))
+}
+
+// Réponses partagées avec l'espace client (ADR-0055).
+
+impl FileListingDto {
+    pub(super) fn of(path: String, listing: kuro_protocol::daemon::FileListing) -> Self {
+        Self {
+            path,
+            truncated: listing.truncated,
+            entries: listing
+                .entries
+                .into_iter()
+                .map(|e| FileEntryDto {
+                    name: e.name,
+                    kind: match e.kind {
+                        FileKind::File => FileKindDto::File,
+                        FileKind::Directory => FileKindDto::Directory,
+                        FileKind::Symlink => FileKindDto::Symlink,
+                        FileKind::Other => FileKindDto::Other,
+                    },
+                    size: e.size,
+                    modified_ms: e.modified_ms,
+                })
+                .collect(),
+        }
+    }
+}
+
+impl FileContentDto {
+    pub(super) fn of(path: String, file: kuro_protocol::daemon::FileContent) -> Self {
+        Self {
+            path,
+            content: file.content,
+            size: file.size,
+            modified_ms: file.modified_ms,
+            sha256: file.sha256,
+        }
+    }
 }
 
 /// Contenu d'un fichier texte (512 Kio au plus). Permission : `servers.files.read`.
@@ -133,13 +153,7 @@ pub async fn read(
 ) -> Result<Json<FileContentDto>, ApiError> {
     session.require(&iam, Permission::ServersFilesRead).await?;
     let file = files::read(&state, id, &query.path).await?;
-    Ok(Json(FileContentDto {
-        path: query.path,
-        content: file.content,
-        size: file.size,
-        modified_ms: file.modified_ms,
-        sha256: file.sha256,
-    }))
+    Ok(Json(FileContentDto::of(query.path, file)))
 }
 
 /// Crée ou remplace un fichier texte. Permission : `servers.files.write`.
@@ -355,13 +369,7 @@ pub async fn version(
 ) -> Result<Json<FileContentDto>, ApiError> {
     session.require(&iam, Permission::ServersFilesRead).await?;
     let file = files::version(&state, id, &query.path, version).await?;
-    Ok(Json(FileContentDto {
-        path: query.path,
-        content: file.content,
-        size: file.size,
-        modified_ms: file.modified_ms,
-        sha256: file.sha256,
-    }))
+    Ok(Json(FileContentDto::of(query.path, file)))
 }
 
 /// Remet une version à la place du fichier ; la version remplacée est gardée (la restauration
@@ -396,7 +404,7 @@ pub struct DeletedFilesDto {
     pub files: Vec<DeletedFileDto>,
 }
 
-fn version_dto(v: kuro_protocol::daemon::FileVersion) -> FileVersionDto {
+pub(super) fn version_dto(v: kuro_protocol::daemon::FileVersion) -> FileVersionDto {
     FileVersionDto {
         id: v.id,
         at_ms: v.at_ms,
@@ -424,15 +432,21 @@ pub async fn deleted(
 ) -> Result<Json<DeletedFilesDto>, ApiError> {
     session.require(&iam, Permission::ServersFilesRead).await?;
     let deleted = files::deleted(&state, id, &query.path).await?;
-    Ok(Json(DeletedFilesDto {
-        path: query.path,
-        files: deleted
-            .files
-            .into_iter()
-            .map(|file| DeletedFileDto {
-                path: file.path,
-                version: version_dto(file.version),
-            })
-            .collect(),
-    }))
+    Ok(Json(DeletedFilesDto::of(query.path, deleted)))
+}
+
+impl DeletedFilesDto {
+    pub(super) fn of(path: String, deleted: kuro_protocol::daemon::DeletedFiles) -> Self {
+        Self {
+            path,
+            files: deleted
+                .files
+                .into_iter()
+                .map(|file| DeletedFileDto {
+                    path: file.path,
+                    version: version_dto(file.version),
+                })
+                .collect(),
+        }
+    }
 }

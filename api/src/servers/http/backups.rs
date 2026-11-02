@@ -22,6 +22,7 @@ use crate::iam::application::IamState;
 use crate::iam::domain::Permission;
 use crate::iam::http::AdminSession;
 use crate::servers::application::backups;
+use crate::servers::application::tickets::TicketHolder;
 use crate::servers::application::{ServersState, TICKET_TTL};
 use crate::servers::infra::BackupRecord;
 
@@ -54,7 +55,7 @@ pub struct BackupDto {
     pub completed_at: Option<OffsetDateTime>,
 }
 
-fn dto(backup: BackupRecord) -> BackupDto {
+pub(super) fn dto(backup: BackupRecord) -> BackupDto {
     BackupDto {
         id: backup.id,
         name: backup.name,
@@ -240,14 +241,8 @@ pub async fn download_ticket(
     session
         .require(&iam, Permission::ServersBackupsDownload)
         .await?;
-    let ticket = backups::download_ticket(
-        &state,
-        &session.context,
-        id,
-        backup_id,
-        session.principal.user_id,
-    )
-    .await?;
+    let holder = TicketHolder::Admin(session.principal.user_id);
+    let ticket = backups::download_ticket(&state, &session.context, id, backup_id, &holder).await?;
     Ok((
         StatusCode::CREATED,
         Json(DownloadTicketDto {

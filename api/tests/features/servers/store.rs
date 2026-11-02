@@ -23,7 +23,7 @@ async fn the_store_lists_its_versions_with_compatibility_and_catalog_presence() 
     });
     let present = store.publish_folder("wordpress", |m| m.to_owned());
     let mut future = store.publish_folder("terraria", |m| {
-        m.replace("version: 1.0.0", "version: 9.0.0")
+        m.replace("version: 1.1.0", "version: 9.0.0")
     });
     future.requires_kuro = Some(">=99".to_owned());
     store.publish(&index(vec![future, new, present]));
@@ -143,12 +143,12 @@ async fn an_altered_archive_is_refused() {
     let platform = Platform::start().await;
     let store = &platform.admin.store;
     let entry = store.publish_folder("terraria", |m| {
-        m.replace("version: 1.0.0", "version: 9.0.0")
+        m.replace("version: 1.1.0", "version: 9.0.0")
     });
     store.publish(&index(vec![entry.clone()]));
     // L'archive change après la publication de l'index : sa somme ne correspond plus.
     let tampered = store.publish_folder("terraria", |m| {
-        m.replace("version: 1.0.0", "version: 9.0.0")
+        m.replace("version: 1.1.0", "version: 9.0.0")
             .replace("tags: [", "tags: [altered, ")
     });
     assert_ne!(tampered.sha256, entry.sha256);
@@ -178,7 +178,7 @@ async fn an_index_signed_by_another_key_or_unreachable_is_not_trusted() {
     let platform = Platform::start().await;
     let store = &platform.admin.store;
     let entry = store.publish_folder("terraria", |m| {
-        m.replace("version: 1.0.0", "version: 9.0.0")
+        m.replace("version: 1.1.0", "version: 9.0.0")
     });
     store.publish_with_other_key(&index(vec![entry.clone()]));
 

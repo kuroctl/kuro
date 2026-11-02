@@ -19,7 +19,7 @@ async fn a_server_is_deployed_with_a_resolved_spec() {
     assert_eq!(server["state"], "deploying");
     assert_eq!(
         server["prefab"],
-        json!({ "id": "minecraft-java", "version": "1.4.0" })
+        json!({ "id": "minecraft-java", "version": "1.5.0" })
     );
     assert_eq!(
         server["allocations"],

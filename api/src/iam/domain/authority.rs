@@ -17,13 +17,24 @@ pub enum Authority {
     Admin(Principal),
     /// Commande lancée sur l'hôte de l'API : l'accès au shell vaut tous les droits.
     Host,
+    /// Propriétaire d'un serveur, identifié par une extension (ADR-0051) : il ne détient que ce
+    /// que l'espace client lui ouvre (ADR-0056). Sert l'anti-escalade des tâches planifiées.
+    Owner,
 }
+
+/// Ce que l'espace client permet au propriétaire sur son serveur.
+const OWNER_PERMISSIONS: [Permission; 3] = [
+    Permission::ServersConsoleWrite,
+    Permission::ServersPower,
+    Permission::ServersBackupsCreate,
+];
 
 impl Authority {
     pub fn has(&self, permission: Permission) -> bool {
         match self {
             Self::Admin(principal) => principal.permissions.contains(permission),
             Self::Host => true,
+            Self::Owner => OWNER_PERMISSIONS.contains(&permission),
         }
     }
 
@@ -32,6 +43,7 @@ impl Authority {
         match self {
             Self::Admin(principal) => principal.permissions.covers(permissions),
             Self::Host => true,
+            Self::Owner => false,
         }
     }
 
@@ -39,7 +51,7 @@ impl Authority {
     pub fn user_id(&self) -> Option<Uuid> {
         match self {
             Self::Admin(principal) => Some(principal.user_id),
-            Self::Host => None,
+            Self::Host | Self::Owner => None,
         }
     }
 

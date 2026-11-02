@@ -63,8 +63,8 @@ pub async fn ticket(
     session
         .require(&iam, Permission::ServersConsoleRead)
         .await?;
-    let ticket =
-        servers::console_ticket(&state, &session.context, id, session.principal.user_id).await?;
+    let holder = servers::tickets::TicketHolder::Admin(session.principal.user_id);
+    let ticket = servers::console_ticket(&state, &session.context, id, &holder).await?;
     Ok((
         StatusCode::CREATED,
         Json(ConsoleTicketDto {
@@ -142,7 +142,7 @@ enum ClientMessage {
 }
 
 async fn run(mut socket: WebSocket, state: ServersState, id: Uuid, context: AuditContext) {
-    let Some(admin_id) = authenticate(&mut socket, &state, id).await else {
+    let Some(holder) = authenticate(&mut socket, &state, id).await else {
         denied(
             &state,
             &context,
@@ -159,7 +159,7 @@ async fn run(mut socket: WebSocket, state: ServersState, id: Uuid, context: Audi
             return;
         }
     };
-    tracing::debug!(server_id = %id, %admin_id, "console opened");
+    tracing::debug!(server_id = %id, ?holder, "console opened");
 
     let mut viewer = state.console.join(id, NodeId::from(server.node_id));
     let initial = server
@@ -211,7 +211,11 @@ async fn run(mut socket: WebSocket, state: ServersState, id: Uuid, context: Audi
 }
 
 /// Premier message : le ticket. `None` s'il manque, est invalide ou arrive trop tard.
-async fn authenticate(socket: &mut WebSocket, state: &ServersState, id: Uuid) -> Option<Uuid> {
+async fn authenticate(
+    socket: &mut WebSocket,
+    state: &ServersState,
+    id: Uuid,
+) -> Option<servers::tickets::TicketHolder> {
     let first = tokio::time::timeout(AUTH_TIMEOUT, async {
         loop {
             match socket.next().await? {
@@ -225,7 +229,7 @@ async fn authenticate(socket: &mut WebSocket, state: &ServersState, id: Uuid) ->
     .ok()??;
     let ClientMessage::Auth { ticket } = serde_json::from_str(first.as_str()).ok()?;
     match servers::tickets::redeem_console(&state.pool, &ticket, id).await {
-        Ok(admin) => admin,
+        Ok(holder) => holder,
         Err(error) => {
             tracing::error!(%error, "failed to redeem a console ticket");
             None

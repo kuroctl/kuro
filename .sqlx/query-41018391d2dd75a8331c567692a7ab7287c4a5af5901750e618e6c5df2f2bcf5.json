@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM tickets WHERE token_hash = $1\n               RETURNING server_id, backup_id, admin_id, (expires_at <= now()) AS \"expired!\"",
+  "query": "DELETE FROM tickets WHERE token_hash = $1\n               RETURNING server_id, backup_id, admin_id, owner_ref,\n                         (expires_at <= now()) AS \"expired!\"",
   "describe": {
     "columns": [
       {
@@ -38,6 +38,17 @@
       },
       {
         "ordinal": 3,
+        "name": "owner_ref",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "tickets",
+            "name": "owner_ref"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
         "name": "expired!",
         "type_info": "Bool",
         "origin": "Expression"
@@ -51,9 +62,10 @@
     "nullable": [
       false,
       true,
-      false,
+      true,
+      true,
       null
     ]
   },
-  "hash": "3ff40ab40584e56857fea10f9ad73fcdff65436d90ce8f5f77921478a507faba"
+  "hash": "41018391d2dd75a8331c567692a7ab7287c4a5af5901750e618e6c5df2f2bcf5"
 }

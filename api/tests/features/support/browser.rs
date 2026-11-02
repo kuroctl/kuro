@@ -44,7 +44,17 @@ pub enum Closed {
 impl Browser {
     /// Ouvre le WebSocket de console ; `Err(statut)` si le serveur refuse la poignée de main.
     pub async fn open(addr: SocketAddr, server_id: &str, origin: &str) -> Result<Self, u16> {
-        let url = format!("ws://{addr}/api/admin/v1/servers/{server_id}/console");
+        Self::open_at(addr, "admin", server_id, origin).await
+    }
+
+    /// Même console, dans l'espace `space` (`admin` ou `client`, ADR-0054).
+    pub async fn open_at(
+        addr: SocketAddr,
+        space: &str,
+        server_id: &str,
+        origin: &str,
+    ) -> Result<Self, u16> {
+        let url = format!("ws://{addr}/api/{space}/v1/servers/{server_id}/console");
         let mut request = url.into_client_request().unwrap();
         request
             .headers_mut()

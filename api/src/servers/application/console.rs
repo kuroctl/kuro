@@ -280,7 +280,7 @@ pub async fn console_ticket(
     state: &ServersState,
     context: &AuditContext,
     id: Uuid,
-    admin_id: Uuid,
+    holder: &super::tickets::TicketHolder,
 ) -> Result<String, ServersError> {
     let server = get(state, id).await?.server;
     // Tant que les flux ne traversent pas les instances (ADR-0037, étape 2), la console d'un
@@ -294,7 +294,7 @@ pub async fn console_ticket(
     {
         return Err(ServersError::Conflict(ErrorCode::ConsoleHeldElsewhere));
     }
-    let ticket = super::tickets::issue_console(&state.pool, id, admin_id).await?;
+    let ticket = super::tickets::issue_console(&state.pool, id, holder).await?;
     let tx = AuditedTx::begin(&state.pool, context).await?;
     tx.commit(AuditEvent::success(AuditAction::ServerConsoleOpened).target("server", id))
         .await?;

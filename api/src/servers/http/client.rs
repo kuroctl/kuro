@@ -1,9 +1,10 @@
 //! Espace client (ADR-0051) : le propriétaire d'un serveur, identifié par le fournisseur d'une
 //! extension, agit sur **ses** serveurs, montés sous `/api/client/v1`. Mêmes cas d'usage que
-//! l'espace admin, autre garde : `OwnerSession` au lieu d'`AdminSession`.
+//! l'espace admin, autre garde : `OwnerSession` au lieu d'`AdminSession`. Console et métriques
+//! (ADR-0054) : mêmes tickets et même WebSocket que l'admin, le ticket désigne le propriétaire.
 
 use axum::Json;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use kuro_protocol::api::server::PowerAction;
 use serde::Serialize;
@@ -12,10 +13,13 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use super::console::{CommandRequest, ConsoleTicketDto};
+use super::metrics::{MetricsDto, MetricsQuery};
 use super::servers::{PowerActionDto, PowerRequest, ServerAllocationDto, ServerPrefabDto};
 use crate::audit::domain::{AuditAction, AuditEvent};
 use crate::http::error::{ApiError, ErrorCode, Problem};
 use crate::iam::http::OwnerSession;
+use crate::servers::application::tickets::TicketHolder;
 use crate::servers::application::{self as servers, ServerView, ServersError, ServersState};
 use crate::servers::domain::ServerState;
 
@@ -69,7 +73,7 @@ fn dto(view: ServerView) -> ClientServerDto {
 
 /// Serveur de la session, sinon `404` : un serveur d'un autre propriétaire est indiscernable d'un
 /// serveur inexistant. La tentative est auditée (`access.denied`, raison `not_owner`).
-async fn owned(
+pub(super) async fn owned(
     state: &ServersState,
     session: &OwnerSession,
     id: Uuid,
@@ -143,4 +147,66 @@ pub async fn power(
     };
     servers::power(&state, &session.context, id, action).await?;
     Ok(StatusCode::ACCEPTED)
+}
+
+/// Ticket à usage unique (30 s) pour ouvrir la console d'un serveur du propriétaire (ADR-0054).
+/// Refusé sur un serveur suspendu.
+#[utoipa::path(post, path = "/api/client/v1/servers/{id}/console/ticket", tag = "client-servers", security(("bearer" = [])),
+    params(("id" = Uuid, Path)),
+    responses((status = 201, body = ConsoleTicketDto), (status = 401, body = Problem), (status = 404, body = Problem),
+        (status = 409, description = "Serveur suspendu, ou console tenue par une autre instance", body = Problem)))]
+pub async fn console_ticket(
+    State(state): State<ServersState>,
+    session: OwnerSession,
+    Path(id): Path<Uuid>,
+) -> Result<(StatusCode, Json<ConsoleTicketDto>), ApiError> {
+    let view = owned(&state, &session, id).await?;
+    if view.server.suspended_at.is_some() {
+        return Err(ServersError::Conflict(ErrorCode::ServerSuspended).into());
+    }
+    let holder = TicketHolder::Owner(session.owner.as_str().to_owned());
+    let ticket = servers::console_ticket(&state, &session.context, id, &holder).await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(ConsoleTicketDto {
+            ticket,
+            expires_in_secs: servers::TICKET_TTL.as_secs(),
+        }),
+    ))
+}
+
+/// Envoie une ligne à la console d'un serveur du propriétaire (gardée dans l'audit).
+#[utoipa::path(post, path = "/api/client/v1/servers/{id}/command", tag = "client-servers", security(("bearer" = [])),
+    params(("id" = Uuid, Path)),
+    request_body = CommandRequest,
+    responses((status = 202), (status = 401, body = Problem), (status = 404, body = Problem),
+        (status = 409, description = "Serveur suspendu ou arrêté", body = Problem), (status = 422, body = Problem),
+        (status = 502, body = Problem)))]
+pub async fn command(
+    State(state): State<ServersState>,
+    session: OwnerSession,
+    Path(id): Path<Uuid>,
+    Json(request): Json<CommandRequest>,
+) -> Result<StatusCode, ApiError> {
+    owned(&state, &session, id).await?;
+    servers::command(&state, &session.context, id, &request.line).await?;
+    Ok(StatusCode::ACCEPTED)
+}
+
+/// Historique CPU, mémoire et réseau d'un serveur du propriétaire : `24h` (par défaut), `7d`,
+/// `90d`.
+#[utoipa::path(get, path = "/api/client/v1/servers/{id}/metrics", tag = "client-servers", security(("bearer" = [])),
+    params(("id" = Uuid, Path), MetricsQuery),
+    responses((status = 200, body = MetricsDto), (status = 401, body = Problem), (status = 404, body = Problem),
+        (status = 422, description = "Plage inconnue", body = Problem)))]
+pub async fn metrics(
+    State(state): State<ServersState>,
+    session: OwnerSession,
+    Path(id): Path<Uuid>,
+    Query(query): Query<MetricsQuery>,
+) -> Result<Json<MetricsDto>, ApiError> {
+    owned(&state, &session, id).await?;
+    Ok(Json(
+        super::metrics::load(&state, id, query.range.as_deref()).await?,
+    ))
 }

@@ -3,6 +3,9 @@
 mod actions;
 mod backups;
 mod client;
+mod client_backups;
+mod client_files;
+mod client_settings;
 mod console;
 mod content;
 mod error;
@@ -50,7 +53,42 @@ pub struct ServersApi;
 /// Espace client (ADR-0051) : les serveurs du propriétaire identifié par une extension.
 #[derive(OpenApi)]
 #[openapi(
-    paths(client::list, client::get, client::power),
+    paths(
+        client::list,
+        client::get,
+        client::power,
+        client::console_ticket,
+        client::command,
+        client::metrics,
+        client_files::list,
+        client_files::read,
+        client_files::write,
+        client_files::mkdir,
+        client_files::rename,
+        client_files::delete,
+        client_files::upload,
+        client_files::history,
+        client_files::version,
+        client_files::restore,
+        client_files::deleted,
+        client_backups::list_backups,
+        client_backups::create_backup,
+        client_backups::update_backup,
+        client_backups::restore_backup,
+        client_backups::delete_backup,
+        client_backups::download_ticket,
+        client_backups::list_schedules,
+        client_backups::create_schedule,
+        client_backups::get_schedule,
+        client_backups::update_schedule,
+        client_backups::delete_schedule,
+        client_backups::run_schedule,
+        client_backups::schedule_runs,
+        client_backups::preview_schedule,
+        client_settings::get,
+        client_settings::update,
+        client_settings::reinstall
+    ),
     tags((name = "client-servers", description = "Serveurs du propriétaire (espace client, ADR-0051)"))
 )]
 pub struct ClientServersApi;
@@ -62,11 +100,91 @@ where
     S: Clone + Send + Sync + 'static,
     ServersState: FromRef<S>,
     crate::extension::ClientIdentity: FromRef<S>,
+    // WebSocket de console : origine vérifiée, refus audité.
+    crate::http::policy::HttpPolicy: FromRef<S>,
+    sqlx::PgPool: FromRef<S>,
 {
     Router::new()
         .route("/servers", get(client::list))
         .route("/servers/{id}", get(client::get))
         .route("/servers/{id}/power", post(client::power))
+        .route("/servers/{id}/console/ticket", post(client::console_ticket))
+        .route("/servers/{id}/console", get(console::socket))
+        .route("/servers/{id}/command", post(client::command))
+        .route("/servers/{id}/metrics", get(client::metrics))
+        .route(
+            "/servers/{id}/files",
+            get(client_files::list).delete(client_files::delete),
+        )
+        .route(
+            "/servers/{id}/files/content",
+            get(client_files::read).put(client_files::write),
+        )
+        .route("/servers/{id}/files/directories", post(client_files::mkdir))
+        .route("/servers/{id}/files/rename", post(client_files::rename))
+        .route("/servers/{id}/files/history", get(client_files::history))
+        .route("/servers/{id}/files/deleted", get(client_files::deleted))
+        .route(
+            "/servers/{id}/files/history/{version}",
+            get(client_files::version),
+        )
+        .route(
+            "/servers/{id}/files/history/{version}/restore",
+            post(client_files::restore),
+        )
+        // Envoi d'un fichier entier : aussi long que le téléversement, hors délai global.
+        .route(
+            "/servers/{id}/files/upload",
+            put(client_files::upload).layer(from_fn(crate::http::timeout::exempt)),
+        )
+        .route(
+            "/servers/{id}/backups",
+            get(client_backups::list_backups).post(client_backups::create_backup),
+        )
+        .route(
+            "/servers/{id}/backups/{backup_id}",
+            patch(client_backups::update_backup).delete(client_backups::delete_backup),
+        )
+        .route(
+            "/servers/{id}/backups/{backup_id}/restore",
+            post(client_backups::restore_backup),
+        )
+        .route(
+            "/servers/{id}/backups/{backup_id}/download/ticket",
+            post(client_backups::download_ticket),
+        )
+        // Même formulaire que l'admin : le ticket suffit à désigner qui télécharge.
+        .route(
+            "/servers/{id}/backups/{backup_id}/download",
+            post(backups::download),
+        )
+        .route(
+            "/servers/{id}/schedules",
+            get(client_backups::list_schedules).post(client_backups::create_schedule),
+        )
+        .route(
+            "/servers/{id}/schedules/preview",
+            post(client_backups::preview_schedule),
+        )
+        .route(
+            "/servers/{id}/schedules/{schedule_id}",
+            get(client_backups::get_schedule)
+                .put(client_backups::update_schedule)
+                .delete(client_backups::delete_schedule),
+        )
+        .route(
+            "/servers/{id}/schedules/{schedule_id}/run",
+            post(client_backups::run_schedule),
+        )
+        .route(
+            "/servers/{id}/schedules/{schedule_id}/runs",
+            get(client_backups::schedule_runs),
+        )
+        .route(
+            "/servers/{id}/settings",
+            get(client_settings::get).patch(client_settings::update),
+        )
+        .route("/servers/{id}/reinstall", post(client_settings::reinstall))
 }
 
 pub fn routes<S>() -> Router<S>

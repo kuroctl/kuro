@@ -266,15 +266,14 @@ pub async fn download_ticket(
     context: &AuditContext,
     server_id: Uuid,
     backup_id: Uuid,
-    admin_id: Uuid,
+    holder: &super::tickets::TicketHolder,
 ) -> Result<String, ServersError> {
     let backup = get(state, server_id, backup_id).await?;
     ensure_not_suspended(&super::get(state, server_id).await?.server)?;
     if backup.state != "ready" {
         return Err(ServersError::Conflict(ErrorCode::BackupNotReady));
     }
-    let ticket =
-        super::tickets::issue_download(&state.pool, server_id, backup_id, admin_id).await?;
+    let ticket = super::tickets::issue_download(&state.pool, server_id, backup_id, holder).await?;
     let tx = AuditedTx::begin(&state.pool, context).await?;
     tx.commit(
         AuditEvent::success(AuditAction::ServerBackupDownloaded)

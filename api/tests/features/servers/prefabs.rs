@@ -50,7 +50,7 @@ async fn the_catalog_lists_names_and_deployability() {
         .iter()
         .find(|p| p["id"] == "minecraft-java")
         .unwrap();
-    assert_eq!(minecraft["version"], "1.4.0");
+    assert_eq!(minecraft["version"], "1.5.0");
     assert_eq!(minecraft["category"], "game");
     assert_eq!(minecraft["names"]["fr"], "Minecraft Java Edition");
     assert_eq!(minecraft["deployable"], true);
@@ -86,7 +86,7 @@ async fn the_manifest_keeps_the_display_order() {
     let platform = Platform::start().await;
 
     let prefab = platform
-        .call(Method::GET, "/prefabs/minecraft-java/1.4.0", None)
+        .call(Method::GET, "/prefabs/minecraft-java/1.5.0", None)
         .await;
 
     assert_eq!(prefab.status, StatusCode::OK);
@@ -128,14 +128,14 @@ async fn translations_are_served_per_language() {
     let fr = platform
         .call(
             Method::GET,
-            "/prefabs/minecraft-java/1.4.0/locales/fr",
+            "/prefabs/minecraft-java/1.5.0/locales/fr",
             None,
         )
         .await;
     let missing = platform
         .call(
             Method::GET,
-            "/prefabs/minecraft-java/1.4.0/locales/xx",
+            "/prefabs/minecraft-java/1.5.0/locales/xx",
             None,
         )
         .await;
@@ -232,16 +232,16 @@ async fn prefab_images_are_imported_and_served() {
     let report = import_dir(&platform.api.pool, dir.path()).await.unwrap();
     let list = platform.call(Method::GET, "/prefabs", None).await;
     let icon = platform
-        .call(Method::GET, "/prefabs/art-test/1.0.0/assets/icon", None)
+        .call(Method::GET, "/prefabs/art-test/1.1.0/assets/icon", None)
         .await;
     let cover = platform
-        .call(Method::GET, "/prefabs/art-test/1.0.0/assets/cover", None)
+        .call(Method::GET, "/prefabs/art-test/1.1.0/assets/cover", None)
         .await;
     let unknown = platform
-        .call(Method::GET, "/prefabs/art-test/1.0.0/assets/banner", None)
+        .call(Method::GET, "/prefabs/art-test/1.1.0/assets/banner", None)
         .await;
 
-    assert_eq!(report.imported, vec!["art-test@1.0.0"]);
+    assert_eq!(report.imported, vec!["art-test@1.1.0"]);
     let art = list
         .json
         .as_array()
@@ -279,13 +279,13 @@ async fn a_missing_image_is_added_later_and_none_is_replaced() {
     write_art(dir.path(), &official, Some(OTHER_ICON), Some(COVER));
     let again = import_dir(&platform.api.pool, dir.path()).await.unwrap();
     let icon = platform
-        .call(Method::GET, "/prefabs/art-test/1.0.0/assets/icon", None)
+        .call(Method::GET, "/prefabs/art-test/1.1.0/assets/icon", None)
         .await;
     let cover = platform
-        .call(Method::GET, "/prefabs/art-test/1.0.0/assets/cover", None)
+        .call(Method::GET, "/prefabs/art-test/1.1.0/assets/cover", None)
         .await;
 
-    assert_eq!(again.unchanged, vec!["art-test@1.0.0"]);
+    assert_eq!(again.unchanged, vec!["art-test@1.1.0"]);
     assert!(icon.body.ends_with("kuro-icon"), "a stored image is kept");
     assert_eq!(cover.status, StatusCode::OK);
     assert_eq!(cover.content_type.as_deref(), Some("image/webp"));
@@ -302,7 +302,7 @@ async fn an_image_that_is_not_png_jpeg_or_webp_is_refused() {
 
     let report = import_dir(&platform.api.pool, dir.path()).await.unwrap();
     let prefab = platform
-        .call(Method::GET, "/prefabs/art-test/1.0.0", None)
+        .call(Method::GET, "/prefabs/art-test/1.1.0", None)
         .await;
 
     assert!(report.imported.is_empty());
@@ -332,7 +332,7 @@ async fn reading_prefab_images_needs_only_a_session() {
         .admin
         .call(
             Method::GET,
-            "/prefabs/art-test/1.0.0/assets/icon",
+            "/prefabs/art-test/1.1.0/assets/icon",
             Some(&session.access_token),
             None,
         )
@@ -368,12 +368,12 @@ async fn declaring_a_new_image_later_is_not_a_new_version() {
     .unwrap();
     let again = import_dir(&platform.api.pool, dir.path()).await.unwrap();
 
-    assert_eq!(again.unchanged, vec!["art-test@1.0.0"]);
+    assert_eq!(again.unchanged, vec!["art-test@1.1.0"]);
     assert!(again.conflicts.is_empty());
     let thumbnail = platform
         .call(
             Method::GET,
-            "/prefabs/art-test/1.0.0/assets/thumbnail",
+            "/prefabs/art-test/1.1.0/assets/thumbnail",
             None,
         )
         .await;
