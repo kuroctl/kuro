@@ -131,7 +131,9 @@ pub async fn run(args: DevArgs) -> anyhow::Result<()> {
     if !args.no_panel && !root().join("panel/node_modules").exists() {
         step("installing panel dependencies");
         let mut install = node_tool("corepack");
-        install.args(["pnpm", "--dir", "panel", "install"]);
+        // `--ignore-workspace` : Kuro en sous-module d'un dépôt pnpm (une extension, ADR-0051),
+        // pnpm installerait sinon le workspace parent au lieu du panel, qui a son propre lockfile.
+        install.args(["pnpm", "--dir", "panel", "install", "--ignore-workspace"]);
         workspace::run(install, "pnpm install").await?;
     }
 

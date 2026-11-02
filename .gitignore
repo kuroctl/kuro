@@ -28,6 +28,9 @@ dev-node/
 # État local de `cargo xtask dev` (mot de passe admin de dev, volumes des serveurs…)
 .kuro-dev/
 
+# Graphe de connaissance graphify : régénérable, chemins absolus propres à chaque poste.
+graphify-out/
+
 # Éditeurs et systèmes
 .idea/
 .vscode/
