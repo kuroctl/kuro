@@ -117,4 +117,17 @@ describe('session elevation', () => {
     expect(elevations).toEqual([])
     expect(calls).toHaveLength(1)
   })
+
+  it('closes with Escape, only the confirmation', async () => {
+    const { calls, elevations } = protectedReset('password')
+    const { user, dialog } = await startReset()
+
+    await user.keyboard('{Escape}')
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Confirmez votre identité' })).toBeNull())
+    // Seule la couche du dessus se ferme : la fenêtre qui a lancé l'action reste ouverte.
+    expect(dialog.isConnected).toBe(true)
+    expect(elevations).toEqual([])
+    expect(calls).toHaveLength(1)
+  })
 })
