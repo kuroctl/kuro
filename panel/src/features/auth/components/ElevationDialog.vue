@@ -63,7 +63,7 @@ async function submit() {
 
 <template>
   <Dialog open @update:open="(open) => !open && store.settle(false)">
-    <DialogContent class="sm:max-w-sm">
+    <DialogContent class="sm:max-w-sm z-51">
       <DialogHeader>
         <DialogTitle class="flex items-center gap-2"><ShieldCheck class="size-4" />{{ t('elevation.title') }}</DialogTitle>
         <DialogDescription>
