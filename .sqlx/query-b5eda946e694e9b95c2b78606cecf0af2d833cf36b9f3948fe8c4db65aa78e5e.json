@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT provider FROM machine_providers\n         UNION SELECT provider FROM machines WHERE state <> 'deleted'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "provider",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b5eda946e694e9b95c2b78606cecf0af2d833cf36b9f3948fe8c4db65aa78e5e"
+}

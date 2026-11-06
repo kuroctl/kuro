@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE background_tasks\n                SET finished_at = $7, duration_ms = $2, outcome = $3, error = $4,\n                    report = COALESCE($5, report), last_dry_run = $6\n              WHERE name = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Bool",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fb9417a131a9b1908cbcbc7b7b007a69bc2a32b75bce9f3f5e29c052a9af3d0c"
+}

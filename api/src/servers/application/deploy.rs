@@ -245,6 +245,26 @@ async fn deploy_with(
     accepted(result)
 }
 
+/// Premier déploiement d'un serveur qui attendait son nœud (ADR-0065), quand le nœud se
+/// connecte : `waiting_node` → `deploying`, puis comme une création.
+pub(super) async fn deploy_waiting(state: &ServersState, id: Uuid) {
+    let started = async {
+        let mut conn = state.pool.acquire().await?;
+        sqlx::query!(
+            "UPDATE servers SET state = 'deploying', state_reason = NULL, updated_at = now()
+              WHERE id = $1 AND state = 'waiting_node'",
+            id
+        )
+        .execute(&mut *conn)
+        .await
+    };
+    match started.await {
+        Ok(done) if done.rows_affected() == 1 => deploy_recording_failure(state, id, true).await,
+        Ok(_) => {}
+        Err(error) => tracing::error!(server_id = %id, %error, "waiting server not deployed"),
+    }
+}
+
 /// Comme [`deploy`], mais un échec passe le serveur en `failed` avec sa raison.
 pub(super) async fn deploy_recording_failure(state: &ServersState, id: Uuid, first: bool) {
     if let Err(error) = deploy(state, id, first).await {

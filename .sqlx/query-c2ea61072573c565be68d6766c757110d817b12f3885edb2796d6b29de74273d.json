@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE machines SET state = 'ready', snapshot = NULL, updated_at = now()\n          WHERE id = $1 AND state = 'waking'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c2ea61072573c565be68d6766c757110d817b12f3885edb2796d6b29de74273d"
+}

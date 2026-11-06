@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Vue d'ensemble d'un serveur : état, actions, sortie de la console (si l'admin peut la lire),
 // adresses (nom DNS s'il existe), ressources.
-import { Ban, CircleAlert, Gamepad2, Network, TriangleAlert } from '@lucide/vue'
+import { Ban, CircleAlert, Gamepad2, Info, Network, TriangleAlert } from '@lucide/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
@@ -29,7 +29,9 @@ import { Skeleton } from '@/shared/ui/skeleton'
 
 definePage({ meta: { subnav: 'server' } })
 
-const { t, locale: lang } = useI18n()
+const { t, te, locale: lang } = useI18n()
+/** Raison d'un échec : traduite quand c'est un code de l'API (machine perdue…), sinon telle quelle. */
+const reason = (code: string) => (te(`errors.${code}`) ? t(`errors.${code}`) : code)
 const route = useRoute('/servers/[id]/')
 const { data: server } = useServer(() => route.params.id)
 const locale = usePrefabLocale(() => server.value?.prefab)
@@ -67,8 +69,11 @@ const underMinimum = computed(() => (server.value ? belowMinimum(entry.value, se
       <ServerPowerActions :server="server" />
       <ServerActions :server="server" />
       <PendingRestartBanner :server="server" />
+      <Alert v-if="server.state === 'waiting_node'" variant="info">
+        <Info />{{ t('machines.serverWaitingHelp') }}
+      </Alert>
       <Alert v-if="server.state === 'failed' && server.state_reason" variant="destructive">
-        <CircleAlert />{{ t('servers.failedReason', { reason: server.state_reason }) }}
+        <CircleAlert />{{ t('servers.failedReason', { reason: reason(server.state_reason) }) }}
       </Alert>
       <ServerConsolePreview v-if="can('servers.console.read')" :server="server" />
       <div class="grid gap-6 md:grid-cols-3">

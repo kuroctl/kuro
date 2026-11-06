@@ -285,6 +285,95 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/machines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Machines louées. Permission : `nodes.read`. */
+        get: operations["list"];
+        put?: never;
+        /**
+         * Loue une machine, enrôlée comme nœud. Permission : `nodes.create` (et `servers.create`,
+         *     `servers.power` pour le serveur attendu).
+         */
+        post: operations["rent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/machines/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Offres du fournisseur d'une région. Permission : `nodes.create`. */
+        get: operations["offers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/machines/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Rend une machine (VM, snapshot et nœud). Permission : `nodes.delete`. */
+        delete: operations["release"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/machines/{id}/sleep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Met une machine en sommeil (snapshot, puis VM rendue). Permission : `nodes.update`. */
+        post: operations["sleep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/machines/{id}/wake": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Réveille une machine depuis son snapshot. Permission : `nodes.update`. */
+        post: operations["wake"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/me": {
         parameters: {
             query?: never;
@@ -2275,6 +2364,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/settings/machines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Réglages des machines. Permission : `system.settings.read`. */
+        get: operations["get_settings"];
+        /** Adresse de l'API, ports, régions louées. Permission : `system.settings.update`. */
+        put: operations["put_settings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/settings/machines/providers/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Identifiants d'un fournisseur (`hetzner`) ; crée et relie une région (désactivée) par
+         *     emplacement. Permission : `system.settings.update`.
+         */
+        put: operations["put_provider"];
+        post?: never;
+        /** Retire les identifiants d'un fournisseur inutilisé. Permission : `system.settings.update`. */
+        delete: operations["delete_provider"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/settings/machines/providers/{provider}/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Emplacements d'un fournisseur configuré. Permission : `system.settings.read`. */
+        get: operations["provider_locations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/settings/machines/providers/{provider}/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Crée et relie une région (désactivée) par emplacement d'un fournisseur configuré, comme à
+         *     l'enregistrement du jeton. Permission : `system.settings.update`.
+         */
+        post: operations["provider_regions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/settings/mail": {
         parameters: {
             query?: never;
@@ -2472,6 +2637,60 @@ export interface paths {
         post?: never;
         /** Retire le compte. Permission : `system.steam_accounts.manage`. */
         delete: operations["delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/settings/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tâches de fond, réglage et dernier passage. Permission : `system.settings.read`. */
+        get: operations["list_tasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/settings/tasks/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Règle la simulation d'une tâche. Permission : `system.settings.update`. */
+        put: operations["update_task"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/settings/tasks/{name}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Avance le prochain passage (« Lancer maintenant ») ; il se fait en tâche de fond.
+         *     Permission : `system.settings.update`.
+         */
+        post: operations["run_task"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4341,7 +4560,7 @@ export interface components {
             token: string;
         };
         /** @enum {string} */
-        ErrorCode: "validation_failed" | "invalid_body" | "invalid_parameter" | "empty_patch" | "not_found" | "unauthorized" | "forbidden" | "internal_error" | "rate_limited" | "request_timeout" | "invalid_credentials" | "invalid_challenge" | "invalid_code" | "totp_already_enabled" | "totp_setup_not_started" | "totp_not_enabled" | "totp_code_required" | "totp_required_by_policy" | "elevation_required" | "invalid_email" | "invalid_display_name" | "invalid_project_name" | "setup_done" | "setup_token_unavailable" | "mail_not_configured" | "mail_send_failed" | "invalid_mail_host" | "invalid_mail_address" | "invalid_mail_field" | "ssh_key_invalid" | "ssh_key_unsupported" | "ssh_key_exists" | "ssh_key_not_found" | "invalid_recipients" | "user_disabled" | "weak_password" | "password_unchanged" | "email_taken" | "cannot_disable_self" | "cannot_delete_self" | "cannot_change_own_roles" | "use_own_password_change" | "cannot_reset_own_totp" | "insufficient_permissions_for_target" | "insufficient_permissions_for_role" | "cannot_grant_permissions_you_lack" | "last_super_admin" | "unknown_role" | "invalid_role_name" | "invalid_description" | "invalid_color" | "role_name_taken" | "system_role" | "unknown_permission" | "permission_not_assignable" | "invalid_node_name" | "node_name_taken" | "unknown_region" | "invalid_region_slug" | "invalid_region_name" | "region_slug_taken" | "region_not_empty" | "invalid_coordinates" | "invalid_location" | "invalid_reason" | "node_not_pending" | "node_already_revoked" | "node_not_enrolled" | "node_online" | "invalid_token" | "invalid_csr" | "already_enrolled" | "client_certificate_required" | "unknown_node" | "node_revoked" | "invalid_port_range" | "invalid_ip" | "no_free_allocation" | "unknown_allocation" | "allocation_taken" | "allocation_in_use" | "node_has_servers" | "unknown_prefab" | "invalid_prefab" | "prefab_exists" | "store_unavailable" | "store_untrusted" | "store_corrupted" | "prefab_in_use" | "invalid_setting" | "setting_not_editable" | "invalid_server_name" | "invalid_owner_ref" | "invalid_resources" | "node_offline" | "daemon_too_old" | "console_held_elsewhere" | "node_not_for_trials" | "prefab_draft_needs_test_node" | "dns_not_configured" | "invalid_domain" | "invalid_dns_label" | "dns_label_taken" | "dns_label_reserved" | "invalid_sites_domain" | "sites_domain_not_configured" | "invalid_ip_address" | "unknown_dns_provider" | "dns_token_required" | "dns_provider_unauthorized" | "dns_zone_not_found" | "dns_provider_unavailable" | "upgrade_blocked" | "upgrade_not_newer" | "oauth_no_scope" | "server_busy" | "server_not_running" | "invalid_command" | "unknown_action" | "invalid_action_param" | "action_not_schedulable" | "invalid_path" | "file_not_found" | "file_exists" | "file_conflict" | "file_not_text" | "file_too_large" | "backup_not_found" | "invalid_backup_name" | "backups_disabled" | "backup_limit_reached" | "backup_in_progress" | "backup_not_ready" | "backup_locked" | "deleted_backups_other_node" | "schedule_not_found" | "invalid_metrics_range" | "notification_channel_not_found" | "notification_rule_not_found" | "invalid_notification_name" | "invalid_notification_channel_kind" | "invalid_notification_language" | "invalid_webhook_url" | "invalid_notification_scope" | "invalid_notification_events" | "invalid_notification_channels" | "invalid_schedule_name" | "invalid_cron" | "invalid_timezone" | "invalid_schedule_step" | "schedule_limit_reached" | "schedule_running" | "resource_above_ceiling" | "resource_below_prefab_minimum" | "disk_quota_exceeded" | "server_suspended" | "content_slot_not_found" | "content_not_supported" | "game_version_not_pinned" | "content_not_found" | "content_already_installed" | "content_incompatible" | "content_required" | "content_up_to_date" | "provider_unavailable" | "modpack_installed" | "content_in_modpack" | "invalid_modpack" | "content_distribution_forbidden" | "content_source_unsupported" | "upload_not_accepted" | "content_value_required" | "invalid_content_value" | "unknown_content_source" | "content_source_not_configured" | "content_source_key_required" | "content_source_unauthorized" | "steam_account_required" | "steam_account_not_configured" | "steam_account_username_invalid" | "steam_account_password_invalid" | "steam_game_missing" | "steam_game_not_found" | "value_out_of_range" | "daemon_timeout" | "daemon_error";
+        ErrorCode: "validation_failed" | "invalid_body" | "invalid_parameter" | "empty_patch" | "not_found" | "unauthorized" | "forbidden" | "internal_error" | "rate_limited" | "request_timeout" | "invalid_credentials" | "invalid_challenge" | "invalid_code" | "totp_already_enabled" | "totp_setup_not_started" | "totp_not_enabled" | "totp_code_required" | "totp_required_by_policy" | "elevation_required" | "invalid_email" | "invalid_display_name" | "invalid_project_name" | "setup_done" | "setup_token_unavailable" | "mail_not_configured" | "mail_send_failed" | "invalid_mail_host" | "invalid_mail_address" | "invalid_mail_field" | "ssh_key_invalid" | "ssh_key_unsupported" | "ssh_key_exists" | "ssh_key_not_found" | "invalid_recipients" | "user_disabled" | "weak_password" | "password_unchanged" | "email_taken" | "cannot_disable_self" | "cannot_delete_self" | "cannot_change_own_roles" | "use_own_password_change" | "cannot_reset_own_totp" | "insufficient_permissions_for_target" | "insufficient_permissions_for_role" | "cannot_grant_permissions_you_lack" | "last_super_admin" | "unknown_role" | "invalid_role_name" | "invalid_description" | "invalid_color" | "role_name_taken" | "system_role" | "unknown_permission" | "permission_not_assignable" | "invalid_node_name" | "node_name_taken" | "unknown_region" | "invalid_region_slug" | "invalid_region_name" | "region_slug_taken" | "region_not_empty" | "invalid_coordinates" | "invalid_location" | "invalid_reason" | "node_not_pending" | "node_already_revoked" | "node_not_enrolled" | "node_online" | "invalid_token" | "invalid_csr" | "already_enrolled" | "client_certificate_required" | "unknown_node" | "node_revoked" | "invalid_port_range" | "invalid_ip" | "no_free_allocation" | "unknown_allocation" | "allocation_taken" | "allocation_in_use" | "node_has_servers" | "unknown_prefab" | "invalid_prefab" | "prefab_exists" | "store_unavailable" | "store_untrusted" | "store_corrupted" | "prefab_in_use" | "invalid_setting" | "setting_not_editable" | "invalid_server_name" | "invalid_owner_ref" | "invalid_resources" | "node_offline" | "daemon_too_old" | "console_held_elsewhere" | "node_not_for_trials" | "prefab_draft_needs_test_node" | "dns_not_configured" | "invalid_domain" | "invalid_dns_label" | "dns_label_taken" | "dns_label_reserved" | "invalid_sites_domain" | "sites_domain_not_configured" | "invalid_ip_address" | "unknown_dns_provider" | "dns_token_required" | "dns_provider_unauthorized" | "dns_zone_not_found" | "dns_provider_unavailable" | "cpu_above_node" | "machine_offer_too_small" | "machine_unavailable" | "machine_not_ready_in_time" | "machines_not_configured" | "unknown_machine_provider" | "machine_provider_not_configured" | "machine_provider_in_use" | "machine_provider_refused" | "machine_provider_unavailable" | "region_without_machine_provider" | "unknown_machine_offer" | "invalid_machine_location" | "invalid_api_url" | "invalid_claim" | "machine_creating" | "machine_busy" | "machine_not_ready" | "machine_not_asleep" | "machine_sleep_unsupported" | "upgrade_blocked" | "upgrade_not_newer" | "oauth_no_scope" | "server_busy" | "server_not_running" | "invalid_command" | "unknown_action" | "invalid_action_param" | "action_not_schedulable" | "invalid_path" | "file_not_found" | "file_exists" | "file_conflict" | "file_not_text" | "file_too_large" | "backup_not_found" | "invalid_backup_name" | "backups_disabled" | "backup_limit_reached" | "backup_in_progress" | "backup_not_ready" | "backup_locked" | "deleted_backups_other_node" | "schedule_not_found" | "invalid_metrics_range" | "notification_channel_not_found" | "notification_rule_not_found" | "invalid_notification_name" | "invalid_notification_channel_kind" | "invalid_notification_language" | "invalid_webhook_url" | "invalid_notification_scope" | "invalid_notification_events" | "invalid_notification_channels" | "invalid_schedule_name" | "invalid_cron" | "invalid_timezone" | "invalid_schedule_step" | "schedule_limit_reached" | "schedule_running" | "resource_above_ceiling" | "resource_below_prefab_minimum" | "disk_quota_exceeded" | "server_suspended" | "content_slot_not_found" | "content_not_supported" | "game_version_not_pinned" | "content_not_found" | "content_already_installed" | "content_incompatible" | "content_required" | "content_up_to_date" | "provider_unavailable" | "modpack_installed" | "content_in_modpack" | "invalid_modpack" | "content_distribution_forbidden" | "content_source_unsupported" | "upload_not_accepted" | "content_value_required" | "invalid_content_value" | "unknown_content_source" | "content_source_not_configured" | "content_source_key_required" | "content_source_unauthorized" | "steam_account_required" | "steam_account_not_configured" | "steam_account_username_invalid" | "steam_account_password_invalid" | "steam_game_missing" | "steam_game_not_found" | "value_out_of_range" | "daemon_timeout" | "daemon_error";
         FacetValueDto: {
             count: number;
             /** @description Libellé : nom du nœud, ou dernière version du prefab (pour son icône). */
@@ -4495,6 +4714,18 @@ export interface components {
             /** @description `survie` pour `survie.<domaine>` ; `null` : plus de nom. */
             label?: string | null;
         };
+        /** @description Emplacement d'un fournisseur (centre de données), pour y relier une région. */
+        Location: {
+            city: string;
+            /** @description Code pays ISO (`DE`). */
+            country: string;
+            /** Format: double */
+            latitude: number;
+            /** Format: double */
+            longitude: number;
+            /** @description Code chez le fournisseur (`fsn1`). */
+            name: string;
+        };
         LoginRequest: {
             /** @example admin@example.com */
             email: string;
@@ -4525,6 +4756,73 @@ export interface components {
             expires_in: number;
             /** @enum {string} */
             status: "totp_setup_required";
+        };
+        /** @description Machine vue par le panel et les extensions. */
+        MachineView: {
+            claim?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Signalement : `stalled`, `lost`. */
+            flag?: string | null;
+            /** @description Un snapshot est gardé (sommeil). */
+            has_snapshot: boolean;
+            /**
+             * Format: int64
+             * @description Coût horaire HT au moment de la location, en 1/100 000 d'euro.
+             */
+            hourly_cost: number;
+            /** Format: uuid */
+            id: string;
+            ipv4?: string | null;
+            location: string;
+            /**
+             * Format: int64
+             * @description Coût mensuel plafonné HT, en centimes.
+             */
+            monthly_cost: number;
+            /** Format: uuid */
+            node_id?: string | null;
+            node_name?: string | null;
+            /** Format: date-time */
+            node_online_at?: string | null;
+            node_status?: string | null;
+            offer: string;
+            provider: string;
+            reference?: string | null;
+            /** Format: uuid */
+            region_id?: string | null;
+            region_name?: string | null;
+            /**
+             * Format: uuid
+             * @description Serveur créé pour cette machine (il attend son nœud, puis s'installe dessus).
+             */
+            server_id?: string | null;
+            server_name?: string | null;
+            server_state?: string | null;
+            /** @description `creating`, `ready`, `sleeping`, `asleep`, `waking`, `releasing`, `deleted`. */
+            state: string;
+        };
+        MachinesPage: {
+            /** @description Au moins un fournisseur a des identifiants : sinon, aller aux Réglages d'abord. */
+            configured: boolean;
+            machines: components["schemas"]["MachineView"][];
+            sweep?: components["schemas"]["TaskStatus"] | null;
+        };
+        MachinesSettings: {
+            /** @description Adresse de l'API vue par les machines (installeur du nœud). */
+            api_url?: string | null;
+            /** @description Ports des serveurs, ouverts et alloués sur chaque machine. */
+            port_range: string;
+            providers: components["schemas"]["ProviderStatus"][];
+            regions: components["schemas"]["RegionHosting"][];
+        };
+        MachinesSettingsRequest: {
+            /** @description Adresse de l'API vue par les machines ; vide : aucune location possible. */
+            api_url?: string | null;
+            /** @description Ports des serveurs (`25565-25600`). */
+            port_range: string;
+            /** @description Fournisseur et emplacement de chaque région louée ; les autres ne louent rien. */
+            regions?: components["schemas"]["RegionHostingInput"][];
         };
         /** @description Réglages SMTP, sans le mot de passe. */
         MailSettingsDto: {
@@ -4624,6 +4922,11 @@ export interface components {
             /** Format: date-time */
             last_heartbeat_at?: string | null;
             location?: string | null;
+            /**
+             * Format: uuid
+             * @description Machine louée qui porte ce nœud (ADR-0065).
+             */
+            machine_id?: string | null;
             map_position?: components["schemas"]["CoordinatesDto"] | null;
             /** @description Identifiant technique, inscrit dans le certificat : non modifiable. */
             name: string;
@@ -4631,6 +4934,8 @@ export interface components {
             public_ipv4?: string | null;
             public_ipv6?: string | null;
             region?: components["schemas"]["RegionRefDto"] | null;
+            /** @description Réservé (ADR-0065) : jamais proposé d'office, seulement quand on le nomme. */
+            reserved: boolean;
             /** @example online */
             status: string;
             /** @description Nœud de test : accepte les essais du Studio (serveurs à durée limitée). */
@@ -4639,6 +4944,27 @@ export interface components {
         NodeTicketDto: {
             enrollment: components["schemas"]["EnrollmentTicketDto"];
             node: components["schemas"]["NodeDto"];
+        };
+        /** @description Type de machine proposé dans un emplacement. */
+        Offer: {
+            /** Format: int32 */
+            disk_gb: number;
+            /**
+             * Format: int64
+             * @description Prix horaire HT, en millièmes de centime (1/100 000 d'euro).
+             */
+            hourly_cost: number;
+            /** Format: int32 */
+            memory_mb: number;
+            /**
+             * Format: int64
+             * @description Prix mensuel plafonné HT, en centimes.
+             */
+            monthly_cost: number;
+            /** @description Nom chez le fournisseur (`cx22`). */
+            name: string;
+            /** Format: int32 */
+            vcpus: number;
         };
         OptimizeReportDto: {
             /** @description Laissées telles quelles (illisibles, ou trop lourdes une fois traitées). */
@@ -4713,6 +5039,26 @@ export interface components {
              * @description Contenus retirés.
              */
             removals: number;
+        };
+        /**
+         * @description Serveur à créer sur le nœud de la machine dès qu'il est en ligne (mêmes champs que la
+         *     création d'un serveur, sans nœud ni allocations).
+         */
+        PendingServerRequest: {
+            /** Format: int32 */
+            backup_limit?: number | null;
+            /** Format: int32 */
+            cpu_percent?: number | null;
+            /** Format: int32 */
+            disk_mb?: number | null;
+            /** Format: int32 */
+            memory_mb?: number | null;
+            name: string;
+            owner_ref?: string | null;
+            prefab_id: string;
+            prefab_version?: string | null;
+            settings?: Record<string, unknown>;
+            start_when_installed?: boolean;
         };
         PermissionDto: {
             availability: components["schemas"]["Availability"];
@@ -4881,6 +5227,24 @@ export interface components {
             slug: string;
             title: string;
         };
+        ProviderRequest: {
+            /** @description Jeton d'API du fournisseur ; essayé avant d'être enregistré, jamais renvoyé. */
+            token: string;
+        };
+        /** @description Jeton enregistré : les réglages, et les régions créées pour les emplacements du fournisseur. */
+        ProviderSaved: {
+            /** @description Noms des régions créées (désactivées, à activer dans Infrastructure › Régions). */
+            created_regions: string[];
+            settings: components["schemas"]["MachinesSettings"];
+        };
+        ProviderStatus: {
+            /** @description Des identifiants sont enregistrés (jamais renvoyés). */
+            configured: boolean;
+            /** @description `hetzner`. */
+            name: string;
+            /** Format: date-time */
+            updated_at?: string | null;
+        };
         /** @description Zone vue par tous : de quoi composer l'adresse d'un serveur, jamais l'accès au fournisseur. */
         PublicZoneDto: {
             /** @description `play.kuroctl.com` ; absent sans DNS configuré ou activé. */
@@ -4933,6 +5297,22 @@ export interface components {
             /** @example eu-west */
             slug: string;
         };
+        RegionHosting: {
+            /** @description Emplacement chez le fournisseur (`fsn1`). */
+            location?: string | null;
+            name: string;
+            /** @description Fournisseur de la région ; absent : la région ne loue rien. */
+            provider?: string | null;
+            /** Format: uuid */
+            region_id: string;
+            slug: string;
+        };
+        RegionHostingInput: {
+            location: string;
+            provider: string;
+            /** Format: uuid */
+            region_id: string;
+        };
         RegionRefDto: {
             /** Format: uuid */
             id: string;
@@ -4972,6 +5352,15 @@ export interface components {
         RenamedSettingDto: {
             from: string;
             to: string;
+        };
+        RentRequest: {
+            /** @description Appelant : la machine et son nœud lui sont réservés. */
+            claim?: string | null;
+            /** @description Offre du fournisseur (`cx23`). */
+            offer: string;
+            /** Format: uuid */
+            region_id: string;
+            server?: components["schemas"]["PendingServerRequest"] | null;
         };
         RequiredPasswordRequest: {
             challenge: string;
@@ -5237,7 +5626,7 @@ export interface components {
          *     que le daemon rapporte.
          * @enum {string}
          */
-        ServerState: "deploying" | "installing" | "restoring" | "offline" | "starting" | "running" | "stopping" | "failed" | "deleting";
+        ServerState: "waiting_node" | "deploying" | "installing" | "restoring" | "offline" | "starting" | "running" | "stopping" | "failed" | "deleting";
         ServerTrialDto: {
             /**
              * Format: uuid
@@ -5556,6 +5945,32 @@ export interface components {
             shared_allowed: boolean;
             subscriptions: components["schemas"]["SubscriptionDto"][];
         };
+        /** @description État d'une tâche, pour le panel. */
+        TaskStatus: {
+            dry_run: boolean;
+            /** Format: int64 */
+            duration_ms?: number | null;
+            error?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** @description Le dernier passage était une simulation. */
+            last_dry_run?: boolean | null;
+            name: string;
+            /** @description `ok` ou `error`. */
+            outcome?: string | null;
+            /** Format: int64 */
+            period_secs: number;
+            /** @description Rapport du dernier passage. */
+            report?: Record<string, unknown> | null;
+            /** @description Un passage a commencé et n'est pas fini. */
+            running: boolean;
+            /** Format: date-time */
+            started_at?: string | null;
+        };
+        TaskUpdateRequest: {
+            /** @description Simulation : la tâche rapporte ce qu'elle ferait, sans agir. */
+            dry_run: boolean;
+        };
         TestDto: {
             /** @description Cause de l'échec (code stable ou message court). */
             error?: string | null;
@@ -5623,6 +6038,8 @@ export interface components {
             location?: string | null;
             /** Format: uuid */
             region_id?: string | null;
+            /** @description Réservé (ADR-0065) : absent de la liste des nœuds proposés à la création d'un serveur. */
+            reserved?: boolean | null;
             /** @description Nœud de test : accepte les essais du Studio. */
             trials?: boolean | null;
         };
@@ -6363,6 +6780,298 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicZoneDto"];
+                };
+            };
+        };
+    };
+    list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachinesPage"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    rent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RentRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineView"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    offers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offer"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    release: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    sleep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineView"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    wake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachineView"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -12503,6 +13212,280 @@ export interface operations {
             };
         };
     };
+    get_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachinesSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MachinesSettingsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachinesSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_provider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderSaved"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_provider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MachinesSettings"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    provider_locations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Location"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    provider_regions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderSaved"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     get_mail: {
         parameters: {
             query?: never;
@@ -13118,6 +14101,109 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_tasks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskStatus"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_task: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskStatus"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    run_task: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };

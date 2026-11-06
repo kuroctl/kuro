@@ -1,0 +1,110 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT n.id AS node_id, n.region_id, n.status, n.reserved, n.cpu_cores, n.memory_bytes,\n                  COALESCE(SUM(s.cpu_percent), 0)::bigint AS \"allocated_cpu_percent!\",\n                  COALESCE(SUM(s.memory_mb), 0)::bigint AS \"allocated_memory_mb!\",\n                  COUNT(s.id) AS \"servers!\"\n             FROM nodes n LEFT JOIN servers s ON s.node_id = n.id\n            WHERE ($1::uuid IS NULL OR n.region_id = $1)\n              AND (NOT $2 OR n.region_id IS NULL)\n            GROUP BY n.id\n            ORDER BY n.name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "node_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "region_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "region_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "reserved",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "reserved"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "cpu_cores",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "cpu_cores"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "memory_bytes",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "memory_bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "allocated_cpu_percent!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "allocated_memory_mb!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "servers!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "98cf2d46cf02fb9021259e2ca3ff8e673ee98996ac0e5de8ce59c80937b360a6"
+}

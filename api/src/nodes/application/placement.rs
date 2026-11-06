@@ -30,6 +30,8 @@ pub struct NodePatch {
     pub coordinates: Option<Option<(f64, f64)>>,
     /// Nœud de test : accepte les essais du Studio.
     pub trials: Option<bool>,
+    /// Réservé (ADR-0065) : seulement quand on le nomme.
+    pub reserved: Option<bool>,
 }
 
 /// Valide un emplacement complet (création d'un nœud).
@@ -79,6 +81,7 @@ pub async fn update(
         ("location", validated.location.is_some()),
         ("coordinates", validated.coordinates.is_some()),
         ("trials", patch.trials.is_some()),
+        ("reserved", patch.reserved.is_some()),
     ]
     .into_iter()
     .filter_map(|(field, changed)| changed.then_some(field))
@@ -97,6 +100,9 @@ pub async fn update(
     NodeRepository::update_placement(&mut tx, id, &validated).await?;
     if let Some(trials) = patch.trials {
         NodeRepository::set_trials(&mut tx, id, trials).await?;
+    }
+    if let Some(reserved) = patch.reserved {
+        NodeRepository::set_reserved(&mut tx, id, reserved).await?;
     }
     let node = NodeRepository::get(&mut tx, id)
         .await?

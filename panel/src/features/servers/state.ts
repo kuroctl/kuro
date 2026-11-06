@@ -5,7 +5,7 @@ import type { BadgeVariants } from '@/shared/ui/badge'
 export type ServerState = Schemas['ServerState']
 
 /** États transitoires : l'interface se rafraîchit plus souvent pour les suivre. */
-export const TRANSITIONAL: ServerState[] = ['deploying', 'installing', 'restoring', 'starting', 'stopping', 'deleting']
+export const TRANSITIONAL: ServerState[] = ['waiting_node', 'deploying', 'installing', 'restoring', 'starting', 'stopping', 'deleting']
 
 export const FAST_REFRESH_MS = 2000
 export const SLOW_REFRESH_MS = 15000
@@ -19,6 +19,7 @@ export const stateBadge: Record<ServerState, { variant: BadgeVariants['variant']
   running: { variant: 'success' },
   starting: { variant: 'warning', pulse: true },
   stopping: { variant: 'warning', pulse: true },
+  waiting_node: { variant: 'info', pulse: true },
   deploying: { variant: 'info', pulse: true },
   installing: { variant: 'info', pulse: true },
   restoring: { variant: 'info', pulse: true },

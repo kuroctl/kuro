@@ -221,7 +221,26 @@ pub async fn run(config: Config, extensions: Vec<ExtensionFactory>) -> anyhow::R
             tracing::error!(%error, "setup token not written: run `kuro-api setup` on the host")
         }
     }
+    // Nœuds à la demande (ADR-0065), et les tâches de fond de Kuro et des extensions (ADR-0062).
+    let machines = crate::machines::application::MachinesState {
+        pool: pool.clone(),
+        key: secrets_key,
+        ca_fingerprint: settings.ca_fingerprint.clone(),
+        links: relay.clone(),
+        servers: servers.clone(),
+        events: crate::machines::application::MachineEvents::of(&extensions),
+        fixed: None,
+    };
+    let mut background = vec![crate::machines::application::task(machines.clone())];
+    background.extend(extensions.iter().flat_map(|e| e.tasks.iter().cloned()));
+    let tasks = crate::tasks::Tasks::new(pool.clone(), background);
+    tasks
+        .register()
+        .await
+        .context("registering background tasks")?;
     let state = AppState {
+        tasks: tasks.clone(),
+        machines,
         content_sources,
         dns: dns.clone(),
         oauth,
@@ -248,6 +267,9 @@ pub async fn run(config: Config, extensions: Vec<ExtensionFactory>) -> anyhow::R
         notifications,
     };
 
+    // Tâches de fond et extensions reçoivent l'état de l'application (ADR-0062, ADR-0065).
+    let _app = extension::start(&state, &extensions);
+
     let shutdown = CancellationToken::new();
     tokio::spawn({
         let shutdown = shutdown.clone();
@@ -272,21 +294,33 @@ pub async fn run(config: Config, extensions: Vec<ExtensionFactory>) -> anyhow::R
     tokio::spawn(heartbeats.flush_forever(shutdown.clone()));
 
     // Bus entre instances (ADR-0037) : commandes relayées, clés des sources rechargées.
-    let bus = relay.subscribe(Bus::new(state.pool.clone())).subscribe(
-        crate::content::settings::CHANGES_CHANNEL,
-        Arc::new({
-            let sources = state.content_sources.clone();
-            move |_payload: &str| {
-                let sources = sources.clone();
-                tokio::spawn(async move {
-                    if let Err(error) = crate::content::settings::load(&sources).await {
-                        tracing::warn!(%error, "failed to reload content source keys");
-                    }
-                });
-            }
-        }),
-    );
+    let bus = relay
+        .subscribe(Bus::new(state.pool.clone()))
+        .subscribe(
+            crate::content::settings::CHANGES_CHANNEL,
+            Arc::new({
+                let sources = state.content_sources.clone();
+                move |_payload: &str| {
+                    let sources = sources.clone();
+                    tokio::spawn(async move {
+                        if let Err(error) = crate::content::settings::load(&sources).await {
+                            tracing::warn!(%error, "failed to reload content source keys");
+                        }
+                    });
+                }
+            }),
+        )
+        .subscribe(
+            crate::tasks::CHANNEL,
+            Arc::new({
+                let tasks = state.tasks.clone();
+                move |name: &str| tasks.wake_local(name)
+            }),
+        );
     tokio::spawn(bus.run_forever(shutdown.clone()));
+
+    // Tâches de fond (ADR-0062) : une boucle par tâche, un passage à la fois sur le cluster.
+    tokio::spawn(state.tasks.clone().run_forever(shutdown.clone()));
 
     // Tâches planifiées des serveurs (ADR-0022).
     tokio::spawn(crate::servers::application::scheduler::run_forever(

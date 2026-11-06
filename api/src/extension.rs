@@ -22,8 +22,10 @@ use sqlx::migrate::{MigrateError, Migrator};
 use crate::audit::domain::{AuditAction, AuditActionDef, AuditActionError};
 use crate::error_code::{ErrorCode, ErrorCodeDef, ErrorCodeError};
 use crate::iam::domain::{Permission, PermissionDef, PermissionError};
+use crate::machines::application::MachineHooks;
 use crate::servers::domain::{OwnerRef, ServerEvent};
-use crate::state::AppState;
+use crate::state::{AppHandle, AppState};
+use crate::tasks::{Task, TaskContext, TaskDef, TaskError, TaskFn};
 
 /// Noms refusés : routes de Kuro sous `/api/…`, schémas de Postgres, et préfixes des
 /// permissions de Kuro (une extension préfixe les siennes par son nom).
@@ -43,6 +45,8 @@ const RESERVED: &[&str] = &[
     "prefabs",
     "customers",
     "system",
+    "machines",
+    "tasks",
 ];
 
 /// Ce qu'une extension reçoit pour se construire.
@@ -191,7 +195,13 @@ pub struct Extension {
     migrator: Option<&'static Migrator>,
     identity: Option<Arc<dyn IdentityProvider>>,
     hooks: Option<Arc<dyn ServerHooks>>,
+    tasks: Vec<(TaskDef, TaskFn)>,
+    machine_hooks: Option<Arc<dyn MachineHooks>>,
+    on_ready: Vec<ReadyFn>,
 }
+
+/// Rappel reçu une fois l'état de l'application construit (voir [`Extension::on_ready`]).
+pub type ReadyFn = Arc<dyn Fn(AppHandle) + Send + Sync>;
 
 impl Extension {
     /// Routes montées sous `/api/<nom>`, avec l'état de Kuro (base, IAM, serveurs…).
@@ -219,6 +229,35 @@ impl Extension {
         self.hooks = Some(hooks);
         self
     }
+
+    /// Tâche de fond (ADR-0062), nommée `<extension>.<def.name>` : une instance à la fois,
+    /// à la période et sur demande (`Tasks::trigger`), simulation réglée dans le panel.
+    pub fn task(
+        mut self,
+        def: TaskDef,
+        run: impl Fn(TaskContext) -> BoxFuture<'static, Result<serde_json::Value, TaskError>>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self {
+        self.tasks.push((def, Arc::new(run)));
+        self
+    }
+
+    /// Appelé une fois l'état de l'application construit, avant la première requête et le premier
+    /// passage des tâches : une extension y garde l'`AppHandle` dont ses hooks (`ServerHooks`,
+    /// `MachineHooks`) ont besoin (`handle.get()` : cas d'usage des serveurs, des machines,
+    /// e-mails, tâches…). Garder l'`AppHandle`, jamais un `AppState` : l'état contient les hooks.
+    pub fn on_ready(mut self, ready: impl Fn(AppHandle) + Send + Sync + 'static) -> Self {
+        self.on_ready.push(Arc::new(ready));
+        self
+    }
+
+    /// Reçoit les événements des machines louées (ADR-0065).
+    pub fn machine_hooks(mut self, hooks: Arc<dyn MachineHooks>) -> Self {
+        self.machine_hooks = Some(hooks);
+        self
+    }
 }
 
 /// Extension prête : migrée, ses routes à monter.
@@ -227,6 +266,27 @@ pub struct MountedExtension {
     pub routes: Router<AppState>,
     pub identity: Option<Arc<dyn IdentityProvider>>,
     pub hooks: Option<Arc<dyn ServerHooks>>,
+    /// Tâches de fond, nommées `<extension>.<tâche>`.
+    pub tasks: Vec<Task>,
+    pub machine_hooks: Option<Arc<dyn MachineHooks>>,
+    pub on_ready: Vec<ReadyFn>,
+}
+
+/// L'état de l'application est construit : il est rattaché aux tâches de fond, puis remis aux
+/// extensions (`Extension::on_ready`). À appeler avant de servir et de lancer les tâches ; le
+/// résultat est **à garder** tant que l'application tourne (tâches et hooks n'en ont qu'une
+/// référence faible).
+#[must_use = "tasks and hooks only hold a weak reference: keep it while the application runs"]
+pub fn start(state: &AppState, extensions: &[MountedExtension]) -> Arc<AppState> {
+    let app = Arc::new(state.clone());
+    let handle = AppHandle::new(&app);
+    state.tasks.attach(handle.clone());
+    for extension in extensions {
+        for ready in &extension.on_ready {
+            ready(handle.clone());
+        }
+    }
+    app
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -286,11 +346,24 @@ pub async fn prepare(
             migrate(pool, factory.name, migrator).await?;
         }
         tracing::info!(extension = factory.name, "extension loaded");
+        let tasks = extension
+            .tasks
+            .into_iter()
+            .map(|(def, run)| Task {
+                name: format!("{}.{}", factory.name, def.name),
+                def,
+                config: context.config.cloned(),
+                run,
+            })
+            .collect();
         mounted.push(MountedExtension {
             name: factory.name,
             routes: extension.routes,
             identity: extension.identity,
             hooks: extension.hooks,
+            tasks,
+            machine_hooks: extension.machine_hooks,
+            on_ready: extension.on_ready,
         });
     }
     Ok(mounted)

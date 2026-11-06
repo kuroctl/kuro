@@ -48,6 +48,8 @@ pub struct TestResponse {
 pub struct TestKuro {
     pub state: AppState,
     pub router: Router,
+    /// Gardé pour les tâches et les hooks des extensions (référence faible de leur côté).
+    _app: Arc<AppState>,
 }
 
 impl TestKuro {
@@ -89,6 +91,17 @@ impl TestKuro {
             allow_insecure: false,
         };
         let temp = std::env::temp_dir().join(format!("kuro-testing-{}", Uuid::now_v7().simple()));
+        let links_for_machines: Arc<dyn crate::nodes::domain::NodeLinks> = links.clone();
+        // Fournisseur de machines simulé : `MemoryProvider` (offres `small`, `large`, `tiny`).
+        let machines = crate::machines::application::MachinesState {
+            pool: pool.clone(),
+            key,
+            ca_fingerprint: "0".repeat(64),
+            links: links_for_machines,
+            servers: servers.clone(),
+            events: crate::machines::application::MachineEvents::of(&extensions),
+            fixed: Some(crate::machines::providers::memory::MemoryProvider::new()),
+        };
         let state = AppState {
             pool: pool.clone(),
             iam: iam.clone(),
@@ -139,9 +152,24 @@ impl TestKuro {
             mail,
             sftp: crate::sftp::SftpState { pool: pool.clone() },
             client_identity: ClientIdentity::of(&extensions),
+            tasks: crate::tasks::Tasks::new(pool.clone(), Vec::new()),
+            machines: machines.clone(),
         };
+        // Tâches de Kuro et des extensions, comme au démarrage ; passages lancés par le test
+        // (`state.tasks.pass(nom, …)`), jamais en boucle.
+        let mut background = vec![crate::machines::application::task(machines)];
+        background.extend(extensions.iter().flat_map(|e| e.tasks.iter().cloned()));
+        let state = AppState {
+            tasks: crate::tasks::Tasks::new(pool.clone(), background),
+            ..state
+        };
+        let app = extension::start(&state, &extensions);
         let router = crate::http::router_with(state.clone(), extensions);
-        Ok(Self { state, router })
+        Ok(Self {
+            state,
+            router,
+            _app: app,
+        })
     }
 
     /// Compte admin dont le rôle accorde exactement `permissions` (celles de Kuro ou d'une

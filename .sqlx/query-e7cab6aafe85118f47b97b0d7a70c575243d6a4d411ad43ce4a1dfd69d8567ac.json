@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE machines SET node_online_at = now(), flag = NULL\n          WHERE id = $1 AND node_online_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e7cab6aafe85118f47b97b0d7a70c575243d6a4d411ad43ce4a1dfd69d8567ac"
+}

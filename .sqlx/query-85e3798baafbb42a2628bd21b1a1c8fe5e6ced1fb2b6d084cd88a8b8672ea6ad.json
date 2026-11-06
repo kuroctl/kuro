@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE machines SET state = 'deleted', deleted_at = now(), updated_at = now()\n          WHERE id = $1 AND state = 'releasing'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "85e3798baafbb42a2628bd21b1a1c8fe5e6ced1fb2b6d084cd88a8b8672ea6ad"
+}

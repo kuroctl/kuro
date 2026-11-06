@@ -7,6 +7,8 @@ use utoipa::ToSchema;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ServerState {
+    /// Créé avant son nœud (machine louée, ADR-0065) : déployé dès que le nœud se connecte.
+    WaitingNode,
     Deploying,
     /// Étapes d'installation en cours (ADR-0017).
     Installing,
@@ -27,6 +29,7 @@ pub struct UnknownServerState(pub String);
 impl ServerState {
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::WaitingNode => "waiting_node",
             Self::Deploying => "deploying",
             Self::Installing => "installing",
             Self::Restoring => "restoring",
@@ -60,6 +63,7 @@ impl std::str::FromStr for ServerState {
 
     fn from_str(text: &str) -> Result<Self, Self::Err> {
         Ok(match text {
+            "waiting_node" => Self::WaitingNode,
             "deploying" => Self::Deploying,
             "installing" => Self::Installing,
             "restoring" => Self::Restoring,

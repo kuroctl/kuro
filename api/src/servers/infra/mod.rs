@@ -762,11 +762,24 @@ impl ServerRepository {
         node_id: Uuid,
     ) -> Result<Vec<Uuid>, sqlx::Error> {
         let rows = sqlx::query!(
-            "SELECT id FROM servers WHERE node_id = $1 ORDER BY id",
+            "SELECT id FROM servers WHERE node_id = $1 AND state <> 'waiting_node' ORDER BY id",
             node_id
         )
         .fetch_all(conn)
         .await?;
         Ok(rows.into_iter().map(|r| r.id).collect())
+    }
+
+    /// Serveurs créés avant leur nœud (ADR-0065), à déployer quand il se connecte.
+    pub async fn waiting_of_node(
+        conn: &mut PgConnection,
+        node_id: Uuid,
+    ) -> Result<Vec<Uuid>, sqlx::Error> {
+        sqlx::query_scalar!(
+            "SELECT id FROM servers WHERE node_id = $1 AND state = 'waiting_node' ORDER BY id",
+            node_id
+        )
+        .fetch_all(conn)
+        .await
     }
 }

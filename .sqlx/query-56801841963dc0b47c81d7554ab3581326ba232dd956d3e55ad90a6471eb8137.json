@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO background_tasks (name, dry_run) VALUES ($1, $2)\n             ON CONFLICT (name) DO UPDATE SET dry_run = EXCLUDED.dry_run",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "56801841963dc0b47c81d7554ab3581326ba232dd956d3e55ad90a6471eb8137"
+}

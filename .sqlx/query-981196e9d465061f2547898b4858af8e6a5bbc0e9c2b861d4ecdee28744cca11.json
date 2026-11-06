@@ -1,0 +1,275 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT m.id, m.provider, m.reference, m.offer, m.location, m.region_id,\n                  r.name AS \"region_name?\", m.hourly_cost, m.monthly_cost, m.node_id,\n                  n.name AS \"node_name?\", n.status AS \"node_status?\", m.ipv4,\n                  m.snapshot IS NOT NULL AS \"has_snapshot!\", m.claim, m.state,\n                  m.server_id, s.name AS \"server_name?\", s.state AS \"server_state?\", m.flag,\n                  m.node_online_at, m.created_at\n             FROM machines m\n             LEFT JOIN regions r ON r.id = m.region_id\n             LEFT JOIN nodes n ON n.id = m.node_id\n             LEFT JOIN servers s ON s.id = m.server_id\n            WHERE m.state <> 'deleted' AND ($1::text IS NULL OR m.claim = $1)\n            ORDER BY m.created_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "provider",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "provider"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "reference",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "reference"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "offer",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "offer"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "location",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "location"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "region_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "region_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "region_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "regions",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "hourly_cost",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "hourly_cost"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "monthly_cost",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "monthly_cost"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "node_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "node_id"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "node_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "node_status?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "ipv4",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "ipv4"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "has_snapshot!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 14,
+        "name": "claim",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "claim"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "state",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "state"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "server_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "server_id"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "server_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "server_state?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "servers",
+            "name": "state"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "flag",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "flag"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "node_online_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "node_online_at"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      null,
+      true,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "981196e9d465061f2547898b4858af8e6a5bbc0e9c2b861d4ecdee28744cca11"
+}

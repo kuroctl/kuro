@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT instance_tag, api_url, port_range FROM machine_settings",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "instance_tag",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "machine_settings",
+            "name": "instance_tag"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "api_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "machine_settings",
+            "name": "api_url"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "port_range",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "machine_settings",
+            "name": "port_range"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "c7bd5e65f74c46e6fbfa25bce546d1313c87239c789821167a68b6109defde73"
+}

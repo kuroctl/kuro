@@ -172,16 +172,21 @@ impl AllocationRepository {
         Ok(())
     }
 
-    /// Allocations de plusieurs serveurs en une requête, par serveur : (port du prefab, adresse,
-    /// port de l'hôte). Un serveur sans port est absent.
+    /// Allocations de plusieurs serveurs en une requête, par serveur : (port du prefab, adresse
+    /// à donner aux joueurs, port de l'hôte). Un port ouvert sur toutes les adresses du nœud
+    /// (`0.0.0.0`) prend l'adresse publique du nœud quand elle est connue. Un serveur sans port
+    /// est absent. Pour déployer, `of_server` (l'adresse d'écoute).
     pub async fn of_servers(
         conn: &mut PgConnection,
         server_ids: &[Uuid],
     ) -> Result<HashMap<Uuid, Vec<(String, String, i32)>>, sqlx::Error> {
         let rows = sqlx::query!(
-            r#"SELECT server_id AS "server_id!", port_name AS "port_name!", ip, port
-               FROM allocations
-               WHERE server_id = ANY($1) ORDER BY server_id, port_name"#,
+            r#"SELECT a.server_id AS "server_id!", a.port_name AS "port_name!",
+                      CASE WHEN a.ip IN ('0.0.0.0', '::') THEN COALESCE(n.public_ipv4, a.ip)
+                           ELSE a.ip END AS "ip!",
+                      a.port
+               FROM allocations a JOIN nodes n ON n.id = a.node_id
+               WHERE a.server_id = ANY($1) ORDER BY a.server_id, a.port_name"#,
             server_ids,
         )
         .fetch_all(conn)
@@ -196,7 +201,18 @@ impl AllocationRepository {
         Ok(by_server)
     }
 
-    /// Allocations d'un serveur : port du prefab → (adresse, port de l'hôte).
+    /// Allocations d'un serveur, telles que vues par les joueurs (voir `of_servers`).
+    pub async fn public_of_server(
+        conn: &mut PgConnection,
+        server_id: Uuid,
+    ) -> Result<Vec<(String, String, i32)>, sqlx::Error> {
+        Ok(Self::of_servers(conn, &[server_id])
+            .await?
+            .remove(&server_id)
+            .unwrap_or_default())
+    }
+
+    /// Allocations d'un serveur : port du prefab → (adresse d'écoute, port de l'hôte).
     pub async fn of_server(
         conn: &mut PgConnection,
         server_id: Uuid,

@@ -121,7 +121,18 @@ pub async fn get_with_panel(panel: Option<&std::path::Path>, path: &str) -> Test
         iam: iam.clone(),
         token_file: std::env::temp_dir().join(format!("kuro-test-setup-{}", uuid::Uuid::now_v7())),
     };
+    let machines = kuro_api::machines::application::MachinesState {
+        pool: pool.clone(),
+        key: secrets_key,
+        ca_fingerprint: "0".repeat(64),
+        links: links.clone(),
+        servers: servers.clone(),
+        events: kuro_api::machines::application::MachineEvents::default(),
+        fixed: Some(kuro_api::machines::providers::memory::MemoryProvider::new()),
+    };
     let state = AppState {
+        tasks: kuro_api::tasks::Tasks::new(pool.clone(), Vec::new()),
+        machines,
         setup,
         mail,
         sftp: kuro_api::sftp::SftpState { pool: pool.clone() },
@@ -147,6 +158,7 @@ pub async fn get_with_panel(panel: Option<&std::path::Path>, path: &str) -> Test
         http: http_policy(),
         readiness: kuro_api::system::Readiness::default(),
     };
+    let _app = kuro_api::extension::start(&state, &[]);
     call(&http::router(state), Method::GET, path, None, None, None).await
 }
 

@@ -16,6 +16,7 @@ export const node: Schemas['NodeDto'] = {
   status: 'online',
   created_at: '2026-10-01T00:00:00Z',
   trials: false,
+  reserved: false,
 }
 
 /** Sous-ensemble fidèle du manifest `minecraft-java` (ordre du fichier conservé). */

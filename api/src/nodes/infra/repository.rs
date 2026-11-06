@@ -33,6 +33,10 @@ pub struct NodeRecord {
     /// Adresses publiques, publiées sous le nom du nœud (ADR-0026).
     pub public_ipv4: Option<String>,
     pub public_ipv6: Option<String>,
+    /// Réservé (ADR-0065) : absent des choix automatiques et de la liste des nœuds proposés.
+    pub reserved: bool,
+    /// Machine louée qui porte ce nœud (ADR-0065).
+    pub machine_id: Option<Uuid>,
 }
 
 /// Nœud verrouillé pour une décision sur son cycle de vie.
@@ -117,8 +121,10 @@ impl NodeRepository {
                       r.slug AS "region_slug?", r.name AS "region_name?",
                       r.latitude AS "region_latitude?", r.longitude AS "region_longitude?",
                       n.location, n.latitude, n.longitude, n.daemon_version, n.os, n.arch,
-                      n.cpu_cores, n.memory_bytes, n.last_heartbeat_at, n.created_at, n.trials, n.public_ipv4, n.public_ipv6
+                      n.cpu_cores, n.memory_bytes, n.last_heartbeat_at, n.created_at, n.trials, n.public_ipv4, n.public_ipv6,
+                      n.reserved, m.id AS "machine_id?"
                FROM nodes n LEFT JOIN regions r ON r.id = n.region_id
+               LEFT JOIN machines m ON m.node_id = n.id AND m.state <> 'deleted'
                WHERE ($1::uuid IS NULL OR n.region_id = $1)
                  AND (NOT $2 OR n.region_id IS NULL)
                ORDER BY n.name"#,
@@ -141,6 +147,18 @@ impl NodeRepository {
         Ok(())
     }
 
+    /// Réservé ou non (ADR-0065).
+    pub async fn set_reserved(
+        conn: &mut PgConnection,
+        id: Uuid,
+        reserved: bool,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query!("UPDATE nodes SET reserved = $2 WHERE id = $1", id, reserved)
+            .execute(conn)
+            .await?;
+        Ok(())
+    }
+
     pub async fn get(conn: &mut PgConnection, id: Uuid) -> Result<Option<NodeRecord>, sqlx::Error> {
         sqlx::query_as!(
             NodeRecord,
@@ -148,8 +166,10 @@ impl NodeRepository {
                       r.slug AS "region_slug?", r.name AS "region_name?",
                       r.latitude AS "region_latitude?", r.longitude AS "region_longitude?",
                       n.location, n.latitude, n.longitude, n.daemon_version, n.os, n.arch,
-                      n.cpu_cores, n.memory_bytes, n.last_heartbeat_at, n.created_at, n.trials, n.public_ipv4, n.public_ipv6
+                      n.cpu_cores, n.memory_bytes, n.last_heartbeat_at, n.created_at, n.trials, n.public_ipv4, n.public_ipv6,
+                      n.reserved, m.id AS "machine_id?"
                FROM nodes n LEFT JOIN regions r ON r.id = n.region_id
+               LEFT JOIN machines m ON m.node_id = n.id AND m.state <> 'deleted'
                WHERE n.id = $1"#,
             id,
         )

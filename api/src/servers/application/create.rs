@@ -16,7 +16,7 @@ use crate::error_code::{ErrorCode, FieldError};
 use crate::nodes::domain::NodeStatus;
 use crate::nodes::infra::{AllocationRepository, NodeRepository};
 use crate::prefabs::application::{self as prefabs, PrefabsError};
-use crate::servers::domain::ServerEvent;
+use crate::servers::domain::{ServerEvent, ServerState};
 use crate::servers::infra::{NewServerRow, ServerRepository};
 use crate::settings::application::Resources;
 
@@ -47,10 +47,40 @@ pub struct NewServer {
     pub owner_ref: Option<String>,
 }
 
+/// Un conteneur ne peut pas recevoir plus de cœurs que son nœud n'en a (Docker le refuse au
+/// déploiement) : refusé avant, dès que le nœud a annoncé ses cœurs.
+pub(super) fn check_node_cpu(cores: Option<i32>, cpu_percent: i32) -> Result<(), ServersError> {
+    match cores {
+        Some(cores) if cores > 0 && cpu_percent > cores * 100 => Err(ServersError::Invalid(
+            FieldError::new("cpu_percent", ErrorCode::CpuAboveNode).param("max", cores * 100),
+        )),
+        _ => Ok(()),
+    }
+}
+
 pub async fn create(
     state: &ServersState,
     context: &AuditContext,
     input: NewServer,
+) -> Result<ServerView, ServersError> {
+    create_on(state, context, input, false).await
+}
+
+/// Comme [`create`], sur un nœud pas encore en ligne (machine louée pour ce serveur, ADR-0065) :
+/// le serveur est créé en `waiting_node`, avec ses ports, et déployé dès que le nœud se connecte.
+pub async fn create_waiting(
+    state: &ServersState,
+    context: &AuditContext,
+    input: NewServer,
+) -> Result<ServerView, ServersError> {
+    create_on(state, context, input, true).await
+}
+
+async fn create_on(
+    state: &ServersState,
+    context: &AuditContext,
+    input: NewServer,
+    wait: bool,
 ) -> Result<ServerView, ServersError> {
     let name = input.name.trim();
     if !crate::validation::is_display_text(name, 1, 64) {
@@ -151,9 +181,12 @@ pub async fn create(
     let node = NodeRepository::get(&mut tx, input.node_id)
         .await?
         .ok_or_else(|| ServersError::Invalid(FieldError::new("node_id", ErrorCode::NotFound)))?;
-    if node.status.parse::<NodeStatus>().ok() != Some(NodeStatus::Online) {
-        return Err(ServersError::Conflict(ErrorCode::NodeOffline));
-    }
+    let waiting = match node.status.parse::<NodeStatus>().ok() {
+        Some(NodeStatus::Online) => false,
+        Some(NodeStatus::Pending | NodeStatus::Offline) if wait => true,
+        _ => return Err(ServersError::Conflict(ErrorCode::NodeOffline)),
+    };
+    check_node_cpu(node.cpu_cores, resources.cpu_percent)?;
     if draft && !node.trials {
         return Err(ServersError::Invalid(FieldError::new(
             "node_id",
@@ -181,6 +214,9 @@ pub async fn create(
     )
     .await?;
 
+    if waiting {
+        ServerRepository::set_state(&mut tx, id, ServerState::WaitingNode.as_str(), None).await?;
+    }
     let mut assigned = Vec::new();
     let mut ports = BTreeMap::new();
     for port in &public_ports {
@@ -221,6 +257,7 @@ pub async fn create(
                 "start_when_installed": input.start_when_installed,
                 "backup_limit": resources.backup_limit,
                 "owner_ref": owner_ref,
+                "waiting_node": waiting,
             })),
     )
     .await?;
@@ -229,8 +266,11 @@ pub async fn create(
         server_id: id,
         owner_ref: owner_ref.clone(),
     });
-    // Le serveur existe : un échec de déploiement le laisse en `failed`, avec sa raison.
-    deploy::deploy_recording_failure(state, id, true).await;
+    // Le serveur existe : un échec de déploiement le laisse en `failed`, avec sa raison. Un
+    // serveur qui attend son nœud est déployé quand le nœud se connecte.
+    if !waiting {
+        deploy::deploy_recording_failure(state, id, true).await;
+    }
     get(state, id).await
 }
 

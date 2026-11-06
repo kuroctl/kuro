@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id FROM servers WHERE node_id = $1 ORDER BY id",
+  "query": "SELECT id FROM servers WHERE node_id = $1 AND state = 'waiting_node' ORDER BY id",
   "describe": {
     "columns": [
       {
@@ -24,5 +24,5 @@
       false
     ]
   },
-  "hash": "ff5d732699d40770966620e2ef1a9d9f3176d23912aa11f8ce85fcbb954f13e5"
+  "hash": "932811fb45bba79963b0e15cc1ead8db75236a93543afee2558be127dd95f362"
 }

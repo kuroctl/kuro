@@ -192,6 +192,16 @@ impl ServerEvents for LinkEvents {
     fn assigned(&self, node: NodeId) -> BoxFuture<'_, Result<Vec<Uuid>, sqlx::Error>> {
         Box::pin(async move {
             let mut conn = self.pool.acquire().await?;
+            // Serveurs créés avant leur nœud (ADR-0065) : déployés maintenant, hors de la boucle
+            // du lien (la commande attend la réponse de ce même daemon), et absents de la
+            // synchronisation (le daemon les dirait « non déployés »).
+            let waiting = ServerRepository::waiting_of_node(&mut conn, node.as_uuid()).await?;
+            if let Some(servers) = self.servers.get() {
+                for id in waiting {
+                    let servers = servers.clone();
+                    tokio::spawn(async move { super::deploy::deploy_waiting(&servers, id).await });
+                }
+            }
             ServerRepository::ids_of_node(&mut conn, node.as_uuid()).await
         })
     }

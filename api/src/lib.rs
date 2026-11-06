@@ -19,6 +19,7 @@ pub mod extension;
 pub(crate) mod extension_key;
 pub mod http;
 pub mod iam;
+pub mod machines;
 pub mod mail;
 pub mod mcp;
 pub mod nodes;
@@ -33,6 +34,7 @@ pub mod sftp;
 pub mod state;
 pub mod studio;
 pub mod system;
+pub mod tasks;
 /// Harnais de test des extensions (fonctionnalité `testing`).
 #[cfg(feature = "testing")]
 pub mod testing;

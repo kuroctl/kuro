@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT n.id, n.name, n.display_name, n.status, n.region_id,\n                      r.slug AS \"region_slug?\", r.name AS \"region_name?\",\n                      r.latitude AS \"region_latitude?\", r.longitude AS \"region_longitude?\",\n                      n.location, n.latitude, n.longitude, n.daemon_version, n.os, n.arch,\n                      n.cpu_cores, n.memory_bytes, n.last_heartbeat_at, n.created_at, n.trials, n.public_ipv4, n.public_ipv6\n               FROM nodes n LEFT JOIN regions r ON r.id = n.region_id\n               WHERE n.id = $1",
+  "query": "SELECT n.id, n.name, n.display_name, n.status, n.region_id,\n                      r.slug AS \"region_slug?\", r.name AS \"region_name?\",\n                      r.latitude AS \"region_latitude?\", r.longitude AS \"region_longitude?\",\n                      n.location, n.latitude, n.longitude, n.daemon_version, n.os, n.arch,\n                      n.cpu_cores, n.memory_bytes, n.last_heartbeat_at, n.created_at, n.trials, n.public_ipv4, n.public_ipv6,\n                      n.reserved, m.id AS \"machine_id?\"\n               FROM nodes n LEFT JOIN regions r ON r.id = n.region_id\n               LEFT JOIN machines m ON m.node_id = n.id AND m.state <> 'deleted'\n               WHERE ($1::uuid IS NULL OR n.region_id = $1)\n                 AND (NOT $2 OR n.region_id IS NULL)\n               ORDER BY n.name",
   "describe": {
     "columns": [
       {
@@ -244,11 +244,34 @@
             "name": "public_ipv6"
           }
         }
+      },
+      {
+        "ordinal": 22,
+        "name": "reserved",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "reserved"
+          }
+        }
+      },
+      {
+        "ordinal": 23,
+        "name": "machine_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "id"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Bool"
       ]
     },
     "nullable": [
@@ -257,10 +280,10 @@
       true,
       false,
       true,
-      true,
-      true,
-      true,
-      true,
+      false,
+      false,
+      false,
+      false,
       true,
       true,
       true,
@@ -273,8 +296,10 @@
       false,
       false,
       true,
-      true
+      true,
+      false,
+      false
     ]
   },
-  "hash": "ffb51bc4164d9174d4b96fb3f02e12cf7673e35a5fe775782e7d27894b3b48b1"
+  "hash": "cbe80fed4bffb397f3170634451280f2bdc7ca80093acd2ef0c1e9aa4d1f5422"
 }

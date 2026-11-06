@@ -38,8 +38,9 @@ watch(
     </MapMarker>
     <MapMarker v-for="node in placed" :key="node.id" :position="node.map_position!">
       <span
-        class="relative block size-3.5 rounded-full border-2 border-white shadow-[0_1px_3px_oklch(0_0_0/40%)]"
-        :class="nodeDot[node.status]"
+        class="relative block size-3.5 rounded-full border-2 shadow-[0_1px_3px_oklch(0_0_0/40%)]"
+        :class="[nodeDot[node.status], node.machine_id ? 'border-info' : 'border-white']"
+        :data-machine="node.machine_id ? '' : undefined"
         :aria-label="node.display_name ?? node.name"
       >
         <span v-if="node.status === 'online'" class="absolute inset-0 animate-ping rounded-full bg-success/60 motion-reduce:hidden" />
@@ -47,6 +48,7 @@ watch(
       <template #popup>
         <p class="font-bold">{{ node.display_name ?? node.name }}</p>
         <Badge :variant="nodeBadge[node.status]" class="h-5">{{ t(`nodes.status.${node.status}`) }}</Badge>
+        <Badge v-if="node.machine_id" variant="info" class="h-5">{{ t('machines.mapLegend') }}</Badge>
         <p v-if="node.region || node.location" class="text-xs text-muted-foreground">
           {{ [node.region?.name, node.location].filter(Boolean).join(' · ') }}
         </p>

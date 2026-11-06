@@ -27,6 +27,8 @@ pub fn document() -> utoipa::openapi::OpenApi {
     doc.merge(settings::http::SettingsApi::openapi());
     doc.merge(oauth::http::OAuthApi::openapi());
     doc.merge(dns::http::DnsApi::openapi());
+    doc.merge(crate::tasks::http::TasksApi::openapi());
+    doc.merge(crate::machines::http::MachinesApi::openapi());
     doc.merge(content::http::ContentSourcesApi::openapi());
     doc.merge(crate::notifications::http::NotificationsApi::openapi());
     doc.merge(crate::mail::http::MailApi::openapi());

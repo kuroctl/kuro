@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT provider, updated_at FROM machine_providers",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "provider",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "machine_providers",
+            "name": "provider"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "machine_providers",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "8ead277ab2986c04a12b874e8b6bb067623f978da36b383c59da05e878d8a6f2"
+}

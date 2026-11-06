@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (SELECT 1 FROM machines WHERE provider = $1 AND state <> 'deleted')\n             OR EXISTS (SELECT 1 FROM machine_regions WHERE provider = $1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "?column?",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "da4647273d65fbaea77dd2cab4d0715b1fb5c5ea20a7bf2e6179a3d50101eb50"
+}

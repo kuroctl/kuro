@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT provider, location FROM machine_regions WHERE region_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "provider",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "machine_regions",
+            "name": "provider"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "location",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "machine_regions",
+            "name": "location"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "fda953d3e4e22ba40770d6badaf40110a86e9ad5e6ab59d36c8236800be21f50"
+}

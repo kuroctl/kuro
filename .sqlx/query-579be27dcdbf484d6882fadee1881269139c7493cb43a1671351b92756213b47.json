@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT dry_run FROM background_tasks WHERE name = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "dry_run",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "background_tasks",
+            "name": "dry_run"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "579be27dcdbf484d6882fadee1881269139c7493cb43a1671351b92756213b47"
+}

@@ -17,6 +17,9 @@ import { Button } from '@/shared/ui/button'
 import { Label } from '@/shared/ui/label'
 import { Switch } from '@/shared/ui/switch'
 
+import { useMachinesApi } from '@/features/machines/machines.api'
+import { useInvalidateMachines } from '@/features/machines/machines.queries'
+
 import { useServersApi } from '../servers.api'
 import { useInvalidateServers } from '../servers.queries'
 
@@ -26,6 +29,8 @@ export interface ServerBasics {
   memory_mb: number
   cpu_percent: number
   disk_mb: number
+  /** Machine à louer : le serveur est créé dessus dès que son nœud est en ligne. */
+  machine?: { region_id: string; offer: string }
 }
 
 const props = defineProps<{ prefab: Prefab; basics: ServerBasics }>()
@@ -36,6 +41,7 @@ const router = useRouter()
 const { create } = useServersApi()
 const { handleError } = useApiError()
 const invalidate = useInvalidateServers()
+const invalidateMachines = useInvalidateMachines()
 const locale = usePrefabLocale(() => ({ id: props.prefab.id, version: props.prefab.version }))
 const { sections } = usePrefabSettings(() => props.prefab.manifest)
 
@@ -51,8 +57,29 @@ const start = ref(true)
 const submit = form.handleSubmit(async (values) => {
   pending.value = true
   try {
+    const { machine, node_id: nodeId, ...resources } = props.basics
+    if (machine) {
+      // Le serveur attend le nœud de la machine, dont il prend toutes les ressources : il sera
+      // créé dès que le nœud est en ligne.
+      const rented = await useMachinesApi().rent({
+        ...machine,
+        server: {
+          name: resources.name,
+          prefab_id: props.prefab.id,
+          prefab_version: props.prefab.version,
+          settings: changes(values),
+          start_when_installed: canStart.value && start.value,
+        },
+      })
+      toast.success(t('machines.serverWaiting', { name: props.basics.name }))
+      await invalidateMachines()
+      emit('created')
+      await router.push(rented.server_id ? `/servers/${rented.server_id}` : '/servers/machines')
+      return
+    }
     const server = await create({
-      ...props.basics,
+      ...resources,
+      node_id: nodeId,
       prefab_id: props.prefab.id,
       prefab_version: props.prefab.version,
       settings: changes(values),

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO machine_regions (region_id, provider, location) VALUES ($1, $2, $3)\n             ON CONFLICT (region_id) DO UPDATE\n                SET provider = EXCLUDED.provider, location = EXCLUDED.location",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6d525d6d03fccf281eff1aa8739da41589fe8bb0d1e23d0ecaa8e9c3f1490de6"
+}

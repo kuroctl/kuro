@@ -3,6 +3,7 @@ import type { Schemas } from '@/shared/api/types'
 import type fr from '../fr'
 
 import errors from './errors'
+import { machines, tasks } from './machines'
 
 type PermissionKey = Schemas['PermissionKey']
 type PermissionCategory = Schemas['Category']
@@ -32,6 +33,7 @@ export default {
       map: 'World map',
       regions: 'Regions',
       deleted: 'Deleted servers',
+      machines: 'Machines',
     },
     prefabs: {
       title: 'Prefabs',
@@ -51,6 +53,8 @@ export default {
       steam: 'Steam account',
       mail: 'E-mail',
       notifications: 'Notifications',
+      machines: 'Machines',
+      tasks: 'Tasks',
       audit: 'Audit log',
     },
     account: {
@@ -73,6 +77,15 @@ export default {
     clear: 'Clear',
     today: 'Today',
     unsaved: 'Unsaved changes',
+    blocked: {
+      seeAll: 'See the {count} servers',
+    },
+    leave: {
+      title: 'Unsaved changes',
+      help: 'If you leave this page, your changes will be lost.',
+      stay: 'Stay',
+      discard: 'Leave without saving',
+    },
     reset: 'Reset',
     comingSoon: 'This section is coming soon.',
   },
@@ -980,6 +993,7 @@ export default {
     cores: { one: '{n} core', other: '{n} cores' },
     failedReason: 'Failed: {reason}',
     state: {
+      waiting_node: 'Waiting for its machine',
       deploying: 'Deploying',
       installing: 'Installing',
       restoring: 'Restoring',
@@ -1443,8 +1457,24 @@ export default {
     longitude: 'Longitude',
     pickHint: 'Click the map to place the point, or drag the marker.',
   },
+  palette: {
+    open: 'Quick search',
+    shortcut: 'Ctrl K',
+    title: 'Go to…',
+    help: 'Pages, servers, nodes and actions. Arrows to choose, Enter to open.',
+    placeholder: 'A page, a server, a node…',
+    empty: 'No result.',
+    node: 'Node',
+    groups: {
+      recent: 'Recent',
+      actions: 'Action',
+      pages: 'Page',
+      servers: 'Server',
+      nodes: 'Node',
+    },
+  },
   overview: {
-    title: 'Overview',
+    title:'Overview',
     metrics: {
       servers: 'Servers',
       running: '{count} online',
@@ -1458,6 +1488,30 @@ export default {
       disk: 'Disk used',
       diskOf: 'of {total} in quotas',
       diskUnlimited: 'No quota set',
+    },
+    gettingStarted: {
+      title: 'Getting started',
+      progress: '{done} of {total} step done | {done} of {total} steps done',
+      dismiss: 'Hide getting started',
+      steps: {
+        node: { title: 'Add a node', help: 'The machine that will run your servers.' },
+        daemon: { title: 'Install its daemon', help: 'Run on the machine the command shown on the node page.' },
+        region: { title: 'Place the node in a region', help: 'It shows on the map and can be offered by region.' },
+        server: { title: 'Deploy a first server', help: 'Choose a prefab, a node and its resources.' },
+        mail: { title: 'Set up email sending', help: 'For invitations, forgotten passwords and alerts.' },
+      },
+    },
+    attention: {
+      title: 'Needs attention',
+      allClear: 'All clear.',
+      node: 'Node',
+      more: '{count} more item | {count} more items',
+      reasons: {
+        failed: 'Failed',
+        nodeOffline: 'Offline',
+        suspended: 'Suspended',
+        overQuota: 'Disk quota reached',
+      },
     },
     latest: 'Latest servers',
     seeAll: 'See all servers',
@@ -1515,6 +1569,8 @@ export default {
       action: 'Delete',
       title: 'Delete the region {name}?',
       help: 'Only a region without nodes can be deleted.',
+      blockedTitle: 'Cannot delete the region {name}',
+      blockedHelp: 'It still holds {count} node: move it to another region or delete it first. | It still holds {count} nodes: move them to another region or delete them first.',
       confirm: 'Delete',
       done: 'Region {name} deleted.',
     },
@@ -1614,6 +1670,8 @@ export default {
       action: 'Delete',
       confirmTitle: 'Delete the node {name}?',
       confirmHelp: 'The node goes away; the audit log keeps its actions. Reusing the machine needs a new node.',
+      blockedTitle: 'Cannot delete the node {name}',
+      blockedHelp: 'It still hosts {count} server: delete or move it first. | It still hosts {count} servers: delete or move them first.',
       confirm: 'Delete for good',
       done: 'Node {name} deleted.',
     },
@@ -1889,6 +1947,8 @@ export default {
       delete: 'Delete this version',
       deleteTitle: 'Delete {name} {version}?',
       deleteHelp: 'Only a version no server uses can be deleted.',
+      blockedTitle: 'Cannot delete {name} {version}',
+      blockedHelp: '{count} server still uses this version: delete it or update it first. | {count} servers still use this version: delete or update them first.',
       deleteOfficial: 'Official prefab: it comes back at the next API start.',
       deleted: '{name} {version} deleted.',
       export: 'Export',
@@ -1919,5 +1979,7 @@ export default {
       control: 'Line breaks and control characters are not allowed.',
     },
   },
+  machines,
+  tasks,
   errors,
 } satisfies typeof fr

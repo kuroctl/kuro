@@ -71,6 +71,10 @@ pub struct NodeDto {
     /// Adresses publiques, publiées sous le nom du nœud (ADR-0026).
     pub public_ipv4: Option<String>,
     pub public_ipv6: Option<String>,
+    /// Réservé (ADR-0065) : jamais proposé d'office, seulement quand on le nomme.
+    pub reserved: bool,
+    /// Machine louée qui porte ce nœud (ADR-0065).
+    pub machine_id: Option<Uuid>,
 }
 
 impl From<NodeRecord> for NodeDto {
@@ -102,6 +106,8 @@ impl From<NodeRecord> for NodeDto {
             trials: node.trials,
             public_ipv4: node.public_ipv4.clone(),
             public_ipv6: node.public_ipv6.clone(),
+            reserved: node.reserved,
+            machine_id: node.machine_id,
         }
     }
 }
@@ -139,6 +145,8 @@ pub struct UpdateNodeRequest {
     pub coordinates: Option<Option<CoordinatesDto>>,
     /// Nœud de test : accepte les essais du Studio.
     pub trials: Option<bool>,
+    /// Réservé (ADR-0065) : absent de la liste des nœuds proposés à la création d'un serveur.
+    pub reserved: Option<bool>,
 }
 
 /// Nœuds, filtrables par région. Permission : `nodes.read`.
@@ -201,6 +209,7 @@ pub async fn update(
             .coordinates
             .map(|value| value.map(|c| (c.latitude, c.longitude))),
         trials: request.trials,
+        reserved: request.reserved,
     };
     Ok(Json(
         placement::update(&pool, &session.context, id, patch)

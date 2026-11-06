@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE servers SET state = 'failed', state_reason = $2, updated_at = now()\n              WHERE id = $1 AND state = 'waiting_node'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b310a304d98b8b702fca32f07caa2798769f79e18cf74c182d3e1a76a0cf9359"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE servers SET state = 'deploying', state_reason = NULL, updated_at = now()\n              WHERE id = $1 AND state = 'waiting_node'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d68214eb5ee69a3993cf39177ef24951510f9d4910d589edb8c398c70a47071d"
+}

@@ -13,6 +13,8 @@ import { type RouteLocationRaw, useRoute, useRouter } from 'vue-router'
 import { z } from 'zod'
 
 import { usePermissions } from '@/features/account/account.queries'
+import MachineOfferFields from '@/features/machines/components/MachineOfferFields.vue'
+import { useRentableRegions } from '@/features/machines/machines.queries'
 import { useNodes } from '@/features/nodes/nodes.queries'
 import PrefabBlockedBadge from '@/features/prefabs/components/PrefabBlockedBadge.vue'
 import PrefabCover from '@/features/prefabs/components/PrefabCover.vue'
@@ -22,6 +24,7 @@ import ResourceNeedHint from '@/features/prefabs/components/ResourceNeedHint.vue
 import { type CatalogEntry, latestDeployable } from '@/features/prefabs/catalog'
 import { need, prefill } from '@/features/prefabs/needs'
 import { usePrefab, usePrefabs } from '@/features/prefabs/prefabs.queries'
+import { NEW_MACHINE } from '@/features/machines/status'
 import CreateServerSettings, { type ServerBasics } from '@/features/servers/components/CreateServerSettings.vue'
 import { usePlatformSettings } from '@/features/settings/settings.queries'
 import PageHeader from '@/shared/layout/PageHeader.vue'
@@ -73,22 +76,31 @@ const basics = ref<ServerBasics>()
 /** Étape affichée ; les réglages demandent l'étape 2 validée (perdue au rechargement). */
 const step = computed<1 | 2 | 3>(() => (!read('prefab') ? 1 : read('step') === 'settings' && basics.value ? 3 : 2))
 
-/** Nœuds proposés : en ligne, et de test pour un brouillon. */
+/** Nœuds proposés : en ligne, non réservés (ADR-0065), et de test pour un brouillon. */
 const onlineNodes = computed(() =>
-  (nodes.value ?? []).filter((node) => node.status === 'online' && (!pickedEntry.value?.test_nodes_only || node.trials)),
+  (nodes.value ?? []).filter((node) => node.status === 'online' && !node.reserved && (!pickedEntry.value?.test_nodes_only || node.trials)),
 )
+
+/** Nouvelle machine (ADR-0065) : proposée avec `nodes.create` et une région qui loue. */
+const rentable = useRentableRegions(() => can('system.settings.read'))
+const canRent = computed(() => can('nodes.create') && rentable.value.length > 0 && !pickedEntry.value?.test_nodes_only)
+const machine = ref<{ region?: string; offer?: string }>({})
+const renting = computed(() => basicsForm.values.node_id === NEW_MACHINE)
+const machineMissing = ref(false)
 
 const basicsForm = useForm({
   validationSchema: toTypedSchema(
     z.object({
       name: z.string().trim().min(1, t('prefabs.validation.required')).max(64, t('prefabs.validation.max_length', { max: 64 })),
-      node_id: z.string({ required_error: t('prefabs.validation.required') }).uuid(),
+      node_id: z.string({ required_error: t('prefabs.validation.required') }).refine((id) => id === NEW_MACHINE || z.string().uuid().safeParse(id).success),
       memory_mb: z.number().int().min(64).max(1_048_576),
       cpu_percent: z.number().min(CORES_INPUT.min).max(CORES_INPUT.max),
       disk_mb: z.number().int().min(0).max(104_857_600),
     }),
   ),
   initialValues: defaults(),
+  // Ressources cachées pour une nouvelle machine : gardées pour la validation, jamais envoyées.
+  keepValuesOnUnmount: true,
 })
 
 type BasicResource = 'memory_mb' | 'cpu_percent' | 'disk_mb'
@@ -162,7 +174,13 @@ const toBasics = () => goBack((query) => !!query.prefab && !query.step, { path: 
 const pickLink = ({ prefab }: CatalogEntry): RouteLocationRaw => ({ path: PATH, query: { prefab: prefab.id, version: prefab.version } })
 
 const next = basicsForm.handleSubmit((values) => {
-  basics.value = { ...values, cpu_percent: coresToPercent(values.cpu_percent) } as ServerBasics
+  machineMissing.value = renting.value && (!machine.value.region || !machine.value.offer)
+  if (machineMissing.value) return
+  basics.value = {
+    ...values,
+    cpu_percent: coresToPercent(values.cpu_percent),
+    machine: renting.value ? { region_id: machine.value.region as string, offer: machine.value.offer as string } : undefined,
+  } as ServerBasics
   void router.push({ path: PATH, query: { ...route.query, step: 'settings' } })
 })
 
@@ -263,45 +281,55 @@ const description = computed(() => pickedEntry.value?.descriptions[locale.value]
                     <SelectItem v-for="node in onlineNodes" :key="node.id" :value="node.id">
                       {{ node.display_name ?? node.name }}
                     </SelectItem>
+                    <SelectItem v-if="canRent" :value="NEW_MACHINE">{{ t('machines.newForServer') }}</SelectItem>
                   </SelectContent>
                 </Select>
+                <template v-if="componentField.modelValue === NEW_MACHINE">
+                  <p class="text-sm text-muted-foreground">{{ t('machines.newForServerHelp') }}</p>
+                  <MachineOfferFields v-model:region="machine.region" v-model:offer="machine.offer" />
+                  <p v-if="machineMissing" class="text-xs text-destructive">{{ t('machines.fields.required') }}</p>
+                </template>
                 <p v-if="pickedEntry.test_nodes_only" class="text-sm text-muted-foreground">
                   {{ t('servers.create.draft', { reason: pickedEntry.draft_reason || t('servers.create.draftNoReason') }) }}
                 </p>
-                <p v-if="onlineNodes.length === 0" class="text-sm text-muted-foreground">
+                <p v-if="onlineNodes.length === 0 && !canRent" class="text-sm text-muted-foreground">
                   {{ pickedEntry.test_nodes_only ? t('servers.create.noTestNode') : t('servers.create.noNode') }}
                 </p>
                 <FormMessage />
               </FormItem>
             </FormField>
-            <FormField
-              v-for="resource in (['memory_mb', 'cpu_percent', 'disk_mb'] as const)"
-              :key="resource"
-              v-slot="{ value, handleChange }"
-              :name="resource"
-            >
-              <FormItem>
-                <FormLabel>{{ t(`servers.fields.${resource}`) }}</FormLabel>
-                <NumberField
-                  :model-value="value"
-                  :min="floor(resource)"
-                  :max="fieldCeiling(resource)"
-                  :step="resource === 'cpu_percent' ? CORES_INPUT.step : 512"
-                  :format-options="resource === 'cpu_percent' ? CORES_INPUT.formatOptions : undefined"
-                  :step-snapping="false"
-                  :locale="locale"
-                  @update:model-value="handleChange"
-                >
-                  <NumberFieldContent>
-                    <NumberFieldDecrement />
-                    <FormControl><NumberFieldInput /></FormControl>
-                    <NumberFieldIncrement />
-                  </NumberFieldContent>
-                </NumberField>
-                <ResourceNeedHint :entry="pickedEntry" :resource="resource" />
-                <FormMessage />
-              </FormItem>
-            </FormField>
+            <!-- Nouvelle machine : le serveur prend la machine entière, ses ressources en viennent. -->
+            <p v-if="renting" class="text-sm text-muted-foreground sm:col-span-2">{{ t('machines.wholeMachine') }}</p>
+            <template v-else>
+              <FormField
+                v-for="resource in (['memory_mb', 'cpu_percent', 'disk_mb'] as const)"
+                :key="resource"
+                v-slot="{ value, handleChange }"
+                :name="resource"
+              >
+                <FormItem>
+                  <FormLabel>{{ t(`servers.fields.${resource}`) }}</FormLabel>
+                  <NumberField
+                    :model-value="value"
+                    :min="floor(resource)"
+                    :max="fieldCeiling(resource)"
+                    :step="resource === 'cpu_percent' ? CORES_INPUT.step : 512"
+                    :format-options="resource === 'cpu_percent' ? CORES_INPUT.formatOptions : undefined"
+                    :step-snapping="false"
+                    :locale="locale"
+                    @update:model-value="handleChange"
+                  >
+                    <NumberFieldContent>
+                      <NumberFieldDecrement />
+                      <FormControl><NumberFieldInput /></FormControl>
+                      <NumberFieldIncrement />
+                    </NumberFieldContent>
+                  </NumberField>
+                  <ResourceNeedHint :entry="pickedEntry" :resource="resource" />
+                  <FormMessage />
+                </FormItem>
+              </FormField>
+            </template>
             <div class="flex justify-between sm:col-span-2">
               <Button type="button" variant="ghost" @click="toPicker">{{ t('common.back') }}</Button>
               <Button type="submit">{{ t('common.continue') }}</Button>

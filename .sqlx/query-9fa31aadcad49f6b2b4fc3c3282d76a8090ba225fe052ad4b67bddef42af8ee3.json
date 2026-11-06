@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM machine_providers WHERE provider = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9fa31aadcad49f6b2b4fc3c3282d76a8090ba225fe052ad4b67bddef42af8ee3"
+}

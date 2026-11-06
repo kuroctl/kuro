@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO machine_providers (provider, token) VALUES ($1, $2)\n         ON CONFLICT (provider) DO UPDATE SET token = EXCLUDED.token, updated_at = now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a67000d2bad1e3230d096403d5b2a99c27c0dfaf58e004c454b5b19c5d479961"
+}

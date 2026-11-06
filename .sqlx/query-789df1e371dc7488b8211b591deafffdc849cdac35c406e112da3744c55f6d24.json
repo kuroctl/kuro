@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE machines\n            SET reference = $2, ipv4 = COALESCE($3, ipv4),\n                state = CASE WHEN state = 'creating' THEN 'ready' ELSE state END,\n                updated_at = CASE WHEN state = 'creating' THEN now() ELSE updated_at END\n          WHERE id = $1 AND state IN ('creating', 'waking')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "789df1e371dc7488b8211b591deafffdc849cdac35c406e112da3744c55f6d24"
+}

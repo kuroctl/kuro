@@ -2,6 +2,7 @@
 import type { Schemas } from '@/shared/api/types'
 
 import errors from './errors'
+import { machines, tasks } from './machines'
 
 type PermissionKey = Schemas['PermissionKey']
 type PermissionCategory = Schemas['Category']
@@ -31,6 +32,7 @@ export default {
       map: 'Carte du monde',
       regions: 'Régions',
       deleted: 'Serveurs supprimés',
+      machines: 'Machines',
     },
     prefabs: {
       title: 'Prefabs',
@@ -50,6 +52,8 @@ export default {
       steam: 'Compte Steam',
       mail: 'E-mail',
       notifications: 'Notifications',
+      machines: 'Machines',
+      tasks: 'Tâches',
       audit: 'Journal d’audit',
     },
     account: {
@@ -72,6 +76,15 @@ export default {
     clear: 'Effacer',
     today: 'Aujourd’hui',
     unsaved: 'Modifications non enregistrées',
+    blocked: {
+      seeAll: 'Voir les {count} serveurs',
+    },
+    leave: {
+      title: 'Modifications non enregistrées',
+      help: 'Si vous quittez cette page, vos modifications seront perdues.',
+      stay: 'Rester',
+      discard: 'Quitter sans enregistrer',
+    },
     reset: 'Réinitialiser',
     comingSoon: 'Cette section arrive bientôt.',
   },
@@ -979,6 +992,7 @@ export default {
     cores: { one: '{n} cœur', other: '{n} cœurs' },
     failedReason: 'Échec : {reason}',
     state: {
+      waiting_node: 'En attente de la machine',
       deploying: 'Déploiement',
       installing: 'Installation',
       restoring: 'Restauration',
@@ -1442,6 +1456,22 @@ export default {
     longitude: 'Longitude',
     pickHint: 'Cliquez sur la carte pour placer le point, ou faites glisser le marqueur.',
   },
+  palette: {
+    open: 'Recherche rapide',
+    shortcut: 'Ctrl K',
+    title: 'Aller à…',
+    help: 'Pages, serveurs, nœuds et actions. Flèches pour choisir, Entrée pour ouvrir.',
+    placeholder: 'Une page, un serveur, un nœud…',
+    empty: 'Aucun résultat.',
+    node: 'Nœud',
+    groups: {
+      recent: 'Récent',
+      actions: 'Action',
+      pages: 'Page',
+      servers: 'Serveur',
+      nodes: 'Nœud',
+    },
+  },
   overview: {
     title: 'Vue d’ensemble',
     metrics: {
@@ -1457,6 +1487,30 @@ export default {
       disk: 'Disque utilisé',
       diskOf: 'sur {total} de quotas',
       diskUnlimited: 'Aucun quota défini',
+    },
+    gettingStarted: {
+      title: 'Premiers pas',
+      progress: '{done} étape sur {total} terminée | {done} étapes sur {total} terminées',
+      dismiss: 'Masquer les premiers pas',
+      steps: {
+        node: { title: 'Ajouter un nœud', help: 'La machine qui fera tourner vos serveurs.' },
+        daemon: { title: 'Installer son daemon', help: 'Lancez sur la machine la commande donnée par la fiche du nœud.' },
+        region: { title: 'Placer le nœud dans une région', help: 'Il apparaît sur la carte et peut être proposé par région.' },
+        server: { title: 'Déployer un premier serveur', help: 'Choisissez un prefab, un nœud et ses ressources.' },
+        mail: { title: 'Configurer l’envoi d’e-mails', help: 'Pour les invitations, les mots de passe oubliés et les alertes.' },
+      },
+    },
+    attention: {
+      title: 'À surveiller',
+      allClear: 'Tout est en ordre.',
+      node: 'Nœud',
+      more: '{count} autre élément | {count} autres éléments',
+      reasons: {
+        failed: 'En échec',
+        nodeOffline: 'Hors ligne',
+        suspended: 'Suspendu',
+        overQuota: 'Quota disque atteint',
+      },
     },
     latest: 'Derniers serveurs créés',
     seeAll: 'Voir tous les serveurs',
@@ -1514,6 +1568,8 @@ export default {
       action: 'Supprimer',
       title: 'Supprimer la région {name} ?',
       help: 'Seule une région sans nœud peut être supprimée.',
+      blockedTitle: 'Impossible de supprimer la région {name}',
+      blockedHelp: 'Elle contient encore {count} nœud : changez-le de région ou supprimez-le d’abord. | Elle contient encore {count} nœuds : changez-les de région ou supprimez-les d’abord.',
       confirm: 'Supprimer',
       done: 'Région {name} supprimée.',
     },
@@ -1613,6 +1669,8 @@ export default {
       action: 'Supprimer',
       confirmTitle: 'Supprimer le nœud {name} ?',
       confirmHelp: 'Le nœud disparaît ; le journal d’audit garde ses actions. Réutiliser la machine demandera un nouveau nœud.',
+      blockedTitle: 'Impossible de supprimer le nœud {name}',
+      blockedHelp: 'Il porte encore {count} serveur : supprimez-le ou déplacez-le d’abord. | Il porte encore {count} serveurs : supprimez-les ou déplacez-les d’abord.',
       confirm: 'Supprimer définitivement',
       done: 'Nœud {name} supprimé.',
     },
@@ -1888,6 +1946,8 @@ export default {
       delete: 'Supprimer cette version',
       deleteTitle: 'Supprimer {name} {version} ?',
       deleteHelp: 'Seule une version qu’aucun serveur n’utilise peut être supprimée.',
+      blockedTitle: 'Impossible de supprimer {name} {version}',
+      blockedHelp: '{count} serveur utilise encore cette version : supprimez-le ou mettez-le à jour d’abord. | {count} serveurs utilisent encore cette version : supprimez-les ou mettez-les à jour d’abord.',
       deleteOfficial: 'Prefab officiel : il reviendra au prochain démarrage de l’API.',
       deleted: '{name} {version} supprimé.',
       export: 'Exporter',
@@ -1918,5 +1978,7 @@ export default {
       control: 'Retours à la ligne et caractères de contrôle interdits.',
     },
   },
+  machines,
+  tasks,
   errors,
 }

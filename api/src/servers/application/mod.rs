@@ -40,7 +40,9 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 pub use console::{ConsoleAccess, ConsoleEvent, ConsoleHub, Viewer, command, console_ticket};
-pub use create::{BACKUP_LIMIT, CPU_PERCENT, DISK_MB, MEMORY_MB, NewServer, create};
+pub use create::{
+    BACKUP_LIMIT, CPU_PERCENT, DISK_MB, MEMORY_MB, NewServer, create, create_waiting,
+};
 pub use error::ServersError;
 pub use events::ServerEventSink;
 pub use link::LinkEvents;
@@ -130,7 +132,7 @@ pub async fn get(state: &ServersState, id: Uuid) -> Result<ServerView, ServersEr
     let server = ServerRepository::get(&mut conn, id)
         .await?
         .ok_or(ServersError::NotFound)?;
-    let allocations = AllocationRepository::of_server(&mut conn, id).await?;
+    let allocations = AllocationRepository::public_of_server(&mut conn, id).await?;
     let pending = ServerRepository::pending(&mut conn, &[id])
         .await?
         .into_iter()

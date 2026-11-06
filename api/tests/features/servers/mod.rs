@@ -15,6 +15,7 @@ mod install;
 mod lifecycle;
 mod listing;
 mod loaders;
+mod machines;
 mod metrics;
 mod modpacks;
 mod notifications;

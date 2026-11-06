@@ -61,6 +61,10 @@ export const signedIn = () => [
   // SFTP (ADR-0047) : aucune clé, et le SFTP coupé dans le projet.
   http.get(`${API}/me/ssh-keys`, () => HttpResponse.json([])),
   http.get(`${API}/servers/:id/sftp`, () => HttpResponse.json(sftpDisabled)),
+  // Machines (ADR-0065) : aucun fournisseur ni région louée, la création ne propose pas d'en louer.
+  http.get(`${API}/settings/machines`, () =>
+    HttpResponse.json({ api_url: null, port_range: '25565-25600', providers: [{ name: 'hetzner', configured: false }], regions: [] }),
+  ),
   // Historique des fichiers (ADR-0049) : aucun fichier supprimé à rendre.
   http.get(`${API}/servers/:id/files/deleted`, ({ request }) =>
     HttpResponse.json({ path: new URL(request.url).searchParams.get('path'), files: [] }),

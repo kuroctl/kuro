@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE machines\n            SET state = CASE WHEN state = 'waking' THEN 'asleep' ELSE 'deleted' END,\n                deleted_at = CASE WHEN state = 'waking' THEN NULL ELSE now() END,\n                reference = CASE WHEN state = 'waking' THEN NULL ELSE reference END,\n                updated_at = now()\n          WHERE id = $1 AND state IN ('creating', 'waking')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b8799c7175d17f9c146aac6a4030e118a312a65f224f0c992b2bdd5ccaac4f59"
+}

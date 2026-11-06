@@ -30,6 +30,8 @@ const shownRegions = computed(() => (regions.value ?? []).filter((r) => region.v
 const regionLabel = computed(() =>
   region.value === ALL ? t('worldMap.allRegions') : region.value === NONE ? t('worldMap.noRegion') : regions.value?.find((r) => r.id === region.value)?.name,
 )
+/** Nœuds portés par une machine louée (ADR-0065), cerclés de leur propre couleur. */
+const machines = computed(() => shown.value.filter((node) => node.machine_id).length)
 const counts = computed(() => Object.fromEntries(NODE_STATUSES.map((status) => [status, shown.value.filter((node) => node.status === status).length])))
 </script>
 
@@ -53,6 +55,11 @@ const counts = computed(() => Object.fromEntries(NODE_STATUSES.map((status) => [
           <span class="size-2.5 rounded-full" :class="nodeDot[status]" aria-hidden="true" />
           {{ t(`nodes.status.${status}`) }}
           <span class="font-semibold text-foreground tabular-nums">{{ counts[status] }}</span>
+        </li>
+        <li v-if="machines > 0" class="inline-flex items-center gap-1.5" data-status="machine">
+          <span class="size-2.5 rounded-full border-2 border-info" aria-hidden="true" />
+          {{ t('machines.mapLegend') }}
+          <span class="font-semibold text-foreground tabular-nums">{{ machines }}</span>
         </li>
       </ul>
       <NodesMap :key="region" class="min-h-96 flex-1" :nodes="shown" :regions="shownRegions" :servers="metrics.perNode" />

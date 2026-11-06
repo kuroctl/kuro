@@ -144,6 +144,13 @@ pub async fn update_resources(
     if changed.is_empty() {
         return Err(ServersError::Unprocessable(ErrorCode::EmptyPatch));
     }
+    if changed.contains_key("cpu_percent") {
+        let mut conn = state.pool.acquire().await?;
+        let cores = crate::nodes::infra::NodeRepository::get(&mut conn, server.node_id)
+            .await?
+            .and_then(|node| node.cpu_cores);
+        super::create::check_node_cpu(cores, next.cpu_percent)?;
+    }
     crate::settings::application::get(&state.pool)
         .await
         .map_err(|e| ServersError::Internal(e.to_string()))?
@@ -421,6 +428,33 @@ pub async fn delete(
         .ok_or(ServersError::NotFound)?;
     if server.state == ServerState::Deleting.as_str() {
         return Err(ServersError::Conflict(ErrorCode::ServerBusy));
+    }
+    // Jamais déployé (il attend son nœud, ou son nœud ne s'est jamais enrôlé, ADR-0065) : rien
+    // sur un nœud, supprimé ici sans attendre de confirmation.
+    if server.state == ServerState::WaitingNode.as_str()
+        || server.node_status.parse::<NodeStatus>().ok() == Some(NodeStatus::Pending)
+    {
+        let deleted = ServerRepository::delete_if_owned(&mut tx, id, server.node_id).await?;
+        tx.commit(
+            AuditEvent::success(AuditAction::ServerDeleted)
+                .target("server", id)
+                .details(json!({
+                    "name": server.name,
+                    "node_id": server.node_id,
+                    "prefab": server.prefab_id,
+                    "never_deployed": true,
+                })),
+        )
+        .await?;
+        if let Some(owner_ref) = deleted {
+            state
+                .events
+                .emit(crate::servers::domain::ServerEvent::Deleted {
+                    server_id: id,
+                    owner_ref,
+                });
+        }
+        return Ok(());
     }
     ensure_node_online(&server)?;
     let keep_backups_days =

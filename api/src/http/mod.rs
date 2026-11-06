@@ -72,7 +72,9 @@ pub fn router_with(state: AppState, extensions: Vec<MountedExtension>) -> Router
         .merge(content::http::routes())
         .merge(crate::notifications::http::routes())
         .merge(crate::mail::http::routes())
-        .merge(crate::sftp::http::routes());
+        .merge(crate::sftp::http::routes())
+        .merge(crate::tasks::http::routes())
+        .merge(crate::machines::http::routes());
     let routes = extensions
         .into_iter()
         .fold(Router::new(), |routes, extension| {

@@ -45,6 +45,12 @@ pub struct TestAdmin {
     pub setup: kuro_api::setup::SetupState,
     /// État lu par `/api/ready` : aucun listener ne tourne ici, les tests le simulent.
     pub readiness: kuro_api::system::Readiness,
+    /// Fournisseur de machines simulé et l'état des machines, pour lancer un passage.
+    pub machine_provider: std::sync::Arc<kuro_api::machines::providers::memory::MemoryProvider>,
+    pub machines: kuro_api::machines::application::MachinesState,
+    pub tasks: kuro_api::tasks::Tasks,
+    /// État complet de l'application (rattaché aux tâches d'un test qui en construit d'autres).
+    pub app: std::sync::Arc<AppState>,
 }
 
 #[derive(Debug, Clone)]
@@ -175,35 +181,49 @@ impl TestAdmin {
             token_file: std::env::temp_dir()
                 .join(format!("kuro-test-setup-{}", uuid::Uuid::now_v7())),
         };
-        let router = http::router_with(
-            AppState {
-                pool: pool.clone(),
-                iam: iam.clone(),
-                enrollment: enrollment_settings(),
-                links,
-                servers: servers.clone(),
-                panel: None,
-                prefabs_dir: kuro_api::prefabs::application::PrefabsDir {
-                    dir: std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs"),
-                    publish_to_dir: false,
-                },
-                stores: kuro_api::prefabs::store::StoresState::new(
-                    vec![store.config()],
-                    store.clone(),
-                ),
-                notifications: notifications.clone(),
-                oauth: Some(super::oauth::oauth_state(&pool, metadata.clone())),
-                dns: dns.clone(),
-                content_sources,
-                http: super::http::http_policy(),
-                readiness: readiness.clone(),
-                setup: setup.clone(),
-                mail: mail.clone(),
-                sftp: kuro_api::sftp::SftpState { pool: pool.clone() },
-                client_identity: kuro_api::extension::ClientIdentity::of(&extensions),
-            },
-            extensions,
+        let machine_provider = kuro_api::machines::providers::memory::MemoryProvider::new();
+        let machines = kuro_api::machines::application::MachinesState {
+            pool: pool.clone(),
+            key: *iam.keys.server_secrets(),
+            ca_fingerprint: "0".repeat(64),
+            links: links.clone(),
+            servers: servers.clone(),
+            events: kuro_api::machines::application::MachineEvents::of(&extensions),
+            fixed: Some(machine_provider.clone()),
+        };
+        let tasks = kuro_api::tasks::Tasks::new(
+            pool.clone(),
+            std::iter::once(kuro_api::machines::application::task(machines.clone()))
+                .chain(extensions.iter().flat_map(|e| e.tasks.iter().cloned()))
+                .collect(),
         );
+        let state = AppState {
+            tasks: tasks.clone(),
+            machines: machines.clone(),
+            pool: pool.clone(),
+            iam: iam.clone(),
+            enrollment: enrollment_settings(),
+            links,
+            servers: servers.clone(),
+            panel: None,
+            prefabs_dir: kuro_api::prefabs::application::PrefabsDir {
+                dir: std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../prefabs"),
+                publish_to_dir: false,
+            },
+            stores: kuro_api::prefabs::store::StoresState::new(vec![store.config()], store.clone()),
+            notifications: notifications.clone(),
+            oauth: Some(super::oauth::oauth_state(&pool, metadata.clone())),
+            dns: dns.clone(),
+            content_sources,
+            http: super::http::http_policy(),
+            readiness: readiness.clone(),
+            setup: setup.clone(),
+            mail: mail.clone(),
+            sftp: kuro_api::sftp::SftpState { pool: pool.clone() },
+            client_identity: kuro_api::extension::ClientIdentity::of(&extensions),
+        };
+        let app = kuro_api::extension::start(&state, &extensions);
+        let router = http::router_with(state, extensions);
         Self {
             pool,
             iam,
@@ -223,6 +243,10 @@ impl TestAdmin {
             dns,
             setup,
             readiness,
+            machine_provider,
+            machines,
+            tasks,
+            app,
         }
     }
 

@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM machine_regions",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "ca16d70e35208ba763f8c7f0144079f0974e44e9c2ac316e818e14c050388f8b"
+}

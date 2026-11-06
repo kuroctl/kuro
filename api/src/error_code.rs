@@ -174,6 +174,26 @@ error_codes! {
     DnsProviderUnauthorized => "dns_provider_unauthorized", "The DNS provider refused the token";
     DnsZoneNotFound => "dns_zone_not_found", "No zone of the DNS provider holds this domain";
     DnsProviderUnavailable => "dns_provider_unavailable", "The DNS provider did not answer";
+    CpuAboveNode => "cpu_above_node", "The node has fewer cores than this CPU limit";
+    MachineOfferTooSmall => "machine_offer_too_small", "This offer does not cover the server resources";
+    MachineUnavailable => "machine_unavailable", "The machine for this server could not be rented";
+    MachineNotReadyInTime => "machine_not_ready_in_time", "The machine for this server never came online";
+    MachinesNotConfigured => "machines_not_configured", "Machines are not configured: set the API address seen by machines";
+    UnknownMachineProvider => "unknown_machine_provider", "Unknown machine provider";
+    MachineProviderNotConfigured => "machine_provider_not_configured", "This machine provider has no credentials";
+    MachineProviderInUse => "machine_provider_in_use", "Machines or regions still use this provider";
+    MachineProviderRefused => "machine_provider_refused", "The machine provider refused the request";
+    MachineProviderUnavailable => "machine_provider_unavailable", "The machine provider did not answer";
+    RegionWithoutMachineProvider => "region_without_machine_provider", "This region has no machine provider";
+    UnknownMachineOffer => "unknown_machine_offer", "This offer is not available in the region";
+    InvalidMachineLocation => "invalid_machine_location", "Invalid location at the provider";
+    InvalidApiUrl => "invalid_api_url", "Invalid address: an http(s) URL reachable by machines";
+    InvalidClaim => "invalid_claim", "Invalid claim";
+    MachineCreating => "machine_creating", "The machine is being created: wait for it";
+    MachineBusy => "machine_busy", "The machine is going to sleep, waking up or being released";
+    MachineNotReady => "machine_not_ready", "The machine is not running";
+    MachineNotAsleep => "machine_not_asleep", "The machine is not asleep";
+    MachineSleepUnsupported => "machine_sleep_unsupported", "A server is waiting for this machine: it cannot sleep yet";
     UpgradeBlocked => "upgrade_blocked", "This upgrade is blocked: see its preview";
     UpgradeNotNewer => "upgrade_not_newer", "Only a newer version of the same prefab can be installed";
     // Agents IA (ADR-0023)

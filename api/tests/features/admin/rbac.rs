@@ -881,6 +881,97 @@ fn protected_routes() -> Vec<(Method, String, Option<Value>, Vec<Permission>)> {
             None,
             vec![Permission::SystemDnsManage],
         ),
+        // Tâches de fond (ADR-0062) et nœuds à la demande (ADR-0065).
+        (
+            Method::GET,
+            "/settings/tasks".into(),
+            None,
+            vec![Permission::SystemSettingsRead],
+        ),
+        (
+            Method::PUT,
+            "/settings/tasks/machines.sweep".into(),
+            Some(json!({"dry_run": true})),
+            vec![Permission::SystemSettingsUpdate],
+        ),
+        (
+            Method::POST,
+            "/settings/tasks/machines.sweep/run".into(),
+            None,
+            vec![Permission::SystemSettingsUpdate],
+        ),
+        (
+            Method::GET,
+            "/settings/machines".into(),
+            None,
+            vec![Permission::SystemSettingsRead],
+        ),
+        (
+            Method::PUT,
+            "/settings/machines".into(),
+            Some(json!({"port_range": "25565-25570"})),
+            vec![Permission::SystemSettingsUpdate],
+        ),
+        (
+            Method::PUT,
+            "/settings/machines/providers/hetzner".into(),
+            Some(json!({"token": "x"})),
+            vec![Permission::SystemSettingsUpdate],
+        ),
+        (
+            Method::POST,
+            "/settings/machines/providers/hetzner/regions".into(),
+            None,
+            vec![Permission::SystemSettingsUpdate],
+        ),
+        (
+            Method::GET,
+            "/settings/machines/providers/hetzner/locations".into(),
+            None,
+            vec![Permission::SystemSettingsRead],
+        ),
+        (
+            Method::DELETE,
+            "/settings/machines/providers/hetzner".into(),
+            None,
+            vec![Permission::SystemSettingsUpdate],
+        ),
+        (
+            Method::GET,
+            "/machines".into(),
+            None,
+            vec![Permission::NodesRead],
+        ),
+        (
+            Method::GET,
+            format!("/machines/offers?region_id={id}"),
+            None,
+            vec![Permission::NodesCreate],
+        ),
+        (
+            Method::POST,
+            "/machines".into(),
+            Some(json!({"region_id": id, "offer": "small"})),
+            vec![Permission::NodesCreate],
+        ),
+        (
+            Method::DELETE,
+            format!("/machines/{id}"),
+            None,
+            vec![Permission::NodesDelete],
+        ),
+        (
+            Method::POST,
+            format!("/machines/{id}/sleep"),
+            None,
+            vec![Permission::NodesUpdate],
+        ),
+        (
+            Method::POST,
+            format!("/machines/{id}/wake"),
+            None,
+            vec![Permission::NodesUpdate],
+        ),
         (
             Method::POST,
             "/studio/compose".into(),
@@ -1196,7 +1287,16 @@ fn shape(path: &str) -> String {
                 || uuid(segment)
                 || matches!(
                     segment,
-                    "mods" | "x" | "1.0.0" | "fr" | "curseforge" | "icon" | "cron" | "official"
+                    "mods"
+                        | "x"
+                        | "1.0.0"
+                        | "fr"
+                        | "curseforge"
+                        | "icon"
+                        | "cron"
+                        | "official"
+                        | "hetzner"
+                        | "machines.sweep"
                 );
             if placeholder { "{}" } else { segment }
         })

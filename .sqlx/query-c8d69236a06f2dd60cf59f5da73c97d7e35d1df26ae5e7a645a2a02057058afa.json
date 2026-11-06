@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT token FROM machine_providers WHERE provider = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "token",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "machine_providers",
+            "name": "token"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c8d69236a06f2dd60cf59f5da73c97d7e35d1df26ae5e7a645a2a02057058afa"
+}

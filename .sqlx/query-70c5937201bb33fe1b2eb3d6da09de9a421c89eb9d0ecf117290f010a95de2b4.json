@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE machine_settings SET api_url = $1, port_range = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "70c5937201bb33fe1b2eb3d6da09de9a421c89eb9d0ecf117290f010a95de2b4"
+}

@@ -33,7 +33,7 @@ const placed: Schemas['NodeDto'] = {
   map_position: { latitude: 50.69, longitude: 3.17 },
   host: { daemon_version: '0.1.0', memory_bytes: 16 * GiB, cpu_cores: 8 },
 }
-const pending: Schemas['NodeDto'] = { id: OTHER_NODE, name: 'dev-2', status: 'pending', created_at: '2026-10-02T00:00:00Z', trials: false }
+const pending: Schemas['NodeDto'] = { id: OTHER_NODE, name: 'dev-2', status: 'pending', created_at: '2026-10-02T00:00:00Z', trials: false, reserved: false }
 
 function setup(nodes = [placed, pending], regions = [region]) {
   server.use(
@@ -75,6 +75,56 @@ describe('infrastructure overview', () => {
       .filter((text) => /Ancien|Récent/.test(text))
     expect(names[0]).toContain('Récent')
     expect(screen.getByRole('link', { name: /Nouveau serveur/ })).toBeTruthy()
+  })
+
+  it('lists what needs attention, the most serious first, with a link to each', async () => {
+    const offline: Schemas['NodeDto'] = { ...pending, id: '01a17a00-0000-7000-8000-000000000003', name: 'dev-3', status: 'offline' }
+    setup([placed, pending, offline])
+    server.use(
+      http.get(`${API}/servers`, () =>
+        HttpResponse.json([
+          serverDto({ name: 'Plein', disk_mb: 1024, disk_used_bytes: GiB }),
+          serverDto({ id: '01a17a00-0000-7000-8000-0000000000bb', name: 'Cassé', state: 'failed' }),
+          serverDto({ id: '01a17a00-0000-7000-8000-0000000000cc', name: 'Sain', state: 'running' }),
+        ]),
+      ),
+    )
+    await renderApp('/servers')
+
+    await screen.findByText('Cassé', { selector: '[data-attention] *' })
+    const links = within(document.querySelector<HTMLElement>('[data-attention]')!).getAllByRole('link')
+    expect(links.map((link) => link.textContent)).toEqual([
+      expect.stringContaining('Cassé'),
+      expect.stringContaining('dev-3'),
+      expect.stringContaining('Plein'),
+    ])
+    expect(links[0]!.textContent).toContain('En échec')
+    expect(links[1]!.getAttribute('href')).toBe('/servers/nodes/01a17a00-0000-7000-8000-000000000003')
+    expect(links[2]!.textContent).toContain('Quota disque atteint')
+  })
+
+  it('checks the getting started steps from the real data and hides them on demand', async () => {
+    localStorage.clear()
+    setup()
+    const { user } = await renderApp('/servers')
+
+    const card = (await screen.findByText('Premiers pas')).closest<HTMLElement>('[data-getting-started]')!
+    expect(await within(card).findByText('4 étapes sur 5 terminées')).toBeTruthy()
+    const mail = within(card).getByRole('link', { name: /Configurer l’envoi d’e-mails/ })
+    expect(mail.closest('li')?.dataset.done).toBe('false')
+    expect(mail.getAttribute('href')).toBe('/settings/mail')
+    expect(within(card).getByRole('link', { name: /Ajouter un nœud/ }).closest('li')?.dataset.done).toBe('true')
+
+    await user.click(within(card).getByRole('button', { name: 'Masquer les premiers pas' }))
+    await waitFor(() => expect(screen.queryByText('Premiers pas')).toBeNull())
+  })
+
+  it('says all is clear when nothing needs attention', async () => {
+    setup([placed])
+    server.use(http.get(`${API}/servers`, () => HttpResponse.json([serverDto({ state: 'running' })])))
+    await renderApp('/servers')
+
+    expect(await screen.findByText('Tout est en ordre.')).toBeTruthy()
   })
 
   it('places the nodes on the map and points out those without a position', async () => {
@@ -133,6 +183,7 @@ describe('nodes list', () => {
     region: { id: REGION_ID, slug: 'eu-west', name: 'Europe Ouest' },
     created_at: '2026-10-03T00:00:00Z',
     trials: false,
+      reserved: false,
   }
 
   it('lists the nodes and opens a node on click', async () => {
@@ -262,8 +313,21 @@ describe('regions', () => {
     await waitFor(() => expect(body).toEqual({ name: 'Amérique Est', slug: 'us-east', latitude: 40.71235, longitude: -74.006 }))
   })
 
-  it('explains that a region still holding nodes cannot be deleted', async () => {
+  it('lists the nodes that keep a region from being deleted, without a delete button', async () => {
     setup()
+    const { user } = await renderApp('/servers/regions')
+
+    await user.click(await screen.findByRole('button', { name: 'Actions sur Europe Ouest' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Supprimer' }))
+    const dialog = await screen.findByRole('alertdialog')
+
+    expect(within(dialog).getByText('Impossible de supprimer la région Europe Ouest')).toBeTruthy()
+    expect(within(dialog).getByRole('link', { name: /Dev 1/ }).getAttribute('href')).toBe(`/servers/nodes/${NODE_ID}`)
+    expect(within(dialog).queryByRole('button', { name: 'Supprimer' })).toBeNull()
+  })
+
+  it('still explains the refusal of the API when the nodes were not loaded yet', async () => {
+    setup([pending])
     server.use(http.delete(`${API}/regions/${REGION_ID}`, () => problem(409, 'region_not_empty')))
     const { user } = await renderApp('/servers/regions')
 
@@ -464,9 +528,24 @@ describe('node deletion', () => {
     expect(await screen.findByText('Nœud dev-2 supprimé.')).toBeTruthy()
   })
 
-  it('explains that a node still hosting servers cannot be deleted', async () => {
+  it('lists the servers that keep a node from being deleted, without a delete button', async () => {
+    setup()
+    server.use(http.get(`${API}/nodes/${NODE_ID}`, () => HttpResponse.json(offline)))
+    const { user } = await renderApp(`/servers/nodes/${NODE_ID}`)
+
+    await user.click(await screen.findByRole('button', { name: 'Supprimer' }))
+    const dialog = await screen.findByRole('alertdialog')
+
+    expect(within(dialog).getByText('Il porte encore 2 serveurs : supprimez-les ou déplacez-les d’abord.')).toBeTruthy()
+    expect(within(dialog).getByRole('link', { name: /Récent/ }).getAttribute('href')).toBe('/servers/01a17a00-0000-7000-8000-0000000000bb')
+    expect(within(dialog).getByRole('link', { name: /Ancien/ })).toBeTruthy()
+    expect(within(dialog).queryByRole('button', { name: 'Supprimer définitivement' })).toBeNull()
+  })
+
+  it('still explains the refusal of the API for a server it did not list', async () => {
     setup()
     server.use(
+      http.get(`${API}/servers`, () => HttpResponse.json([])),
       http.get(`${API}/nodes/${NODE_ID}`, () => HttpResponse.json(offline)),
       http.delete(`${API}/nodes/${NODE_ID}`, () => problem(409, 'node_has_servers')),
     )

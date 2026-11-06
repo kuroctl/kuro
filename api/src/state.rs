@@ -44,6 +44,38 @@ pub struct AppState {
     pub sftp: crate::sftp::SftpState,
     /// Fournisseur d'identité de l'espace client, fourni par une extension (ADR-0051).
     pub client_identity: crate::extension::ClientIdentity,
+    /// Tâches de fond de Kuro et des extensions (ADR-0062).
+    pub tasks: crate::tasks::Tasks,
+    /// Nœuds à la demande (ADR-0065).
+    pub machines: crate::machines::application::MachinesState,
+}
+
+/// Accès à l'état de l'application depuis ce qu'il contient lui-même (tâches de fond, hooks
+/// des extensions) : une référence faible, sans quoi l'état ne serait jamais libéré (cycle).
+#[derive(Debug, Clone, Default)]
+pub struct AppHandle(std::sync::Weak<AppState>);
+
+impl AppHandle {
+    pub fn new(app: &Arc<AppState>) -> Self {
+        Self(Arc::downgrade(app))
+    }
+
+    /// L'état, tant que l'application tourne (`None` pendant l'arrêt).
+    pub fn get(&self) -> Option<AppState> {
+        self.0.upgrade().map(|app| (*app).clone())
+    }
+}
+
+impl FromRef<AppState> for crate::tasks::Tasks {
+    fn from_ref(state: &AppState) -> Self {
+        state.tasks.clone()
+    }
+}
+
+impl FromRef<AppState> for crate::machines::application::MachinesState {
+    fn from_ref(state: &AppState) -> Self {
+        state.machines.clone()
+    }
 }
 
 impl FromRef<AppState> for crate::extension::ClientIdentity {
