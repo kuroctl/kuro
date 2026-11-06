@@ -29,6 +29,15 @@ export function useServer(id: MaybeRefOrGetter<string>) {
   return useQuery(computed(() => serverQuery(toValue(id))))
 }
 
+/** Serveurs supprimés dont les sauvegardes sont gardées (ADR-0059). */
+export function useDeletedServers(enabled: MaybeRefOrGetter<boolean>) {
+  return useQuery({
+    queryKey: ['servers', 'deleted'],
+    queryFn: () => useServersApi().deleted(),
+    enabled: computed(() => toValue(enabled)),
+  })
+}
+
 export type MetricsRange = '24h' | '7d' | '90d'
 
 /** Historique des stats (ADR-0043), relu toutes les minutes : le nœud envoie une minute à la fois. */

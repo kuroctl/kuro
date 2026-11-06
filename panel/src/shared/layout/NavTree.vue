@@ -34,6 +34,25 @@ watch(
   (keys) => keys.forEach((key) => folded.delete(key)),
   { immediate: true },
 )
+
+// Traits des sous-pages (repris du « branched menu » de nxui) : un tronc, une branche courbe par
+// page, et un trait d'accent qui part du haut du tronc et se trace jusqu'à la page active.
+const ROW = 32 // hauteur d'une sous-page (h-8), sans espace entre elles pour que les traits tombent juste
+const PAD = 4 // py-1 de la liste
+const TRUNK = 0.75 // moitié de l'épaisseur du trait, pour qu'il ne soit pas rogné
+const RADIUS = 8
+const END = 12 // fin des branches, avant le texte
+
+const rowY = (k: number) => PAD + k * ROW + ROW / 2
+const trunkPath = (count: number) => `M ${TRUNK} 0 V ${rowY(count - 1) - RADIUS}`
+const branchPath = (k: number, from = rowY(k) - RADIUS) =>
+  `M ${TRUNK} ${from} V ${rowY(k) - RADIUS} A ${RADIUS} ${RADIUS} 0 0 0 ${TRUNK + RADIUS} ${rowY(k)} H ${END}`
+const reachLength = (k: number) => rowY(k) - RADIUS + (Math.PI * RADIUS) / 2 + (END - TRUNK - RADIUS)
+
+function reachStyle(k: number, active?: boolean) {
+  const length = reachLength(k)
+  return { strokeDasharray: `${length}`, strokeDashoffset: `${active ? 0 : length}` }
+}
 </script>
 
 <template>
@@ -55,12 +74,29 @@ watch(
             </SidebarMenuButton>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <ul class="ml-[17px] flex flex-col gap-0.5 py-1">
-              <SidebarMenuSubItem
-                v-for="child in entry.children"
-                :key="child.key"
-                class="relative pl-4 before:absolute before:top-0 before:left-0 before:h-1/2 before:w-3 before:rounded-bl-lg before:border-b before:border-l before:border-muted-foreground/35 after:absolute after:top-0 after:-bottom-0.5 after:left-0 after:border-l after:border-muted-foreground/35 last:after:hidden"
+            <ul class="relative ml-[17px] flex flex-col py-1">
+              <svg
+                class="pointer-events-none absolute top-0 left-0 overflow-visible fill-none stroke-[1.5] [stroke-linecap:round]"
+                :width="END"
+                :height="rowY(entry.children.length - 1) + ROW / 2 + PAD"
+                aria-hidden="true"
               >
+                <path class="stroke-muted-foreground/35" :d="trunkPath(entry.children.length)" />
+                <path
+                  v-for="(child, k) in entry.children"
+                  :key="`branch-${child.key}`"
+                  class="stroke-muted-foreground/35"
+                  :d="branchPath(k)"
+                />
+                <path
+                  v-for="(child, k) in entry.children"
+                  :key="`reach-${child.key}`"
+                  class="stroke-foreground transition-[stroke-dashoffset] duration-400 ease-out motion-reduce:transition-none"
+                  :d="branchPath(k, 0)"
+                  :style="reachStyle(k, child.active)"
+                />
+              </svg>
+              <SidebarMenuSubItem v-for="child in entry.children" :key="child.key" class="pl-4">
                 <SidebarMenuSubButton as-child :is-active="child.active" class="h-8 translate-x-0 px-2.5 text-muted-foreground data-[active=true]:font-semibold">
                   <RouterLink :to="child.to ?? ''"><span>{{ child.label }}</span></RouterLink>
                 </SidebarMenuSubButton>

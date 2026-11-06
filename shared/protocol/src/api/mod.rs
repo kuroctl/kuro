@@ -13,7 +13,8 @@ pub mod sftp;
 use serde::{Deserialize, Serialize};
 
 pub use backup::{
-    BackupCreate, BackupDelete, BackupHook, BackupList, BackupRead, BackupRestore, RestoreMode,
+    BackupAdopt, BackupCreate, BackupDelete, BackupHook, BackupList, BackupRead, BackupRestore,
+    RestoreMode,
 };
 pub use content::{
     ContentExtract, ContentFile, ContentHash, ContentInstall, ContentRemove, ContentToggle,
@@ -98,6 +99,8 @@ pub enum ApiMessage {
     BackupList(BackupList),
     #[serde(rename = "backup.read")]
     BackupRead(BackupRead),
+    #[serde(rename = "backup.adopt")]
+    BackupAdopt(BackupAdopt),
     #[serde(rename = "content.install")]
     ContentInstall(ContentInstall),
     #[serde(rename = "content.remove")]

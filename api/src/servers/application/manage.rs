@@ -334,6 +334,34 @@ pub(super) async fn send_power(
     Ok(())
 }
 
+/// Renomme le serveur (nom affiché, 64 caractères au plus) ; son nom DNS ne change pas.
+pub async fn rename(
+    state: &ServersState,
+    context: &AuditContext,
+    id: Uuid,
+    name: &str,
+) -> Result<ServerView, ServersError> {
+    let name = name.trim();
+    if !crate::validation::is_display_text(name, 1, 64) {
+        return Err(ServersError::Invalid(FieldError::new(
+            "name",
+            ErrorCode::InvalidServerName,
+        )));
+    }
+    let mut tx = AuditedTx::begin(&state.pool, context).await?;
+    if !ServerRepository::lock(&mut tx, id).await? {
+        return Err(ServersError::NotFound);
+    }
+    ServerRepository::rename(&mut tx, id, name).await?;
+    tx.commit(
+        AuditEvent::success(AuditAction::ServerRenamed)
+            .target("server", id)
+            .details(json!({ "name": name })),
+    )
+    .await?;
+    get(state, id).await
+}
+
 /// Réinstalle (étapes du prefab sur les données existantes) ou réinitialise (volumes vidés,
 /// puis étapes) ; le nœud arrête le serveur d'abord. Acceptée par le nœud, l'état suit
 /// (`installing`, puis `offline`).
@@ -395,7 +423,10 @@ pub async fn delete(
         return Err(ServersError::Conflict(ErrorCode::ServerBusy));
     }
     ensure_node_online(&server)?;
+    let keep_backups_days =
+        crate::settings::infra::SettingsRepository::deleted_backups_days(&mut tx).await?;
     ServerRepository::set_state(&mut tx, id, ServerState::Deleting.as_str(), None).await?;
+    ServerRepository::set_keep_backups_days(&mut tx, id, keep_backups_days).await?;
     tx.commit(
         AuditEvent::success(AuditAction::ServerDeleted)
             .target("server", id)
@@ -407,7 +438,10 @@ pub async fn delete(
         .commands
         .send(
             NodeId::from(server.node_id),
-            ApiMessage::ServerDelete(ServerDelete { server_id: id }),
+            ApiMessage::ServerDelete(ServerDelete {
+                server_id: id,
+                keep_backups_days: u32::try_from(keep_backups_days).unwrap_or(0),
+            }),
         )
         .await
         .map_err(ServersError::from)

@@ -295,7 +295,9 @@ fn reply_of(outcome: Result<Option<DaemonMessage>, CommandError>) -> DaemonMessa
 async fn execute(message: ApiMessage, m: &Manager) -> Result<Option<DaemonMessage>, CommandError> {
     match message {
         ApiMessage::ServerDeploy(deploy) => m.deploy(deploy).map(|()| None),
-        ApiMessage::ServerDelete(delete) => m.delete(delete.server_id).map(|()| None),
+        ApiMessage::ServerDelete(delete) => m
+            .delete(delete.server_id, delete.keep_backups_days)
+            .map(|()| None),
         ApiMessage::ServerPower(power) => {
             m.power(power.server_id, power.action).await.map(|()| None)
         }
@@ -353,6 +355,10 @@ async fn execute(message: ApiMessage, m: &Manager) -> Result<Option<DaemonMessag
         ApiMessage::BackupCreate(create) => m.backup_create(create).await.map(|()| None),
         ApiMessage::BackupRestore(restore) => m
             .backup_restore(restore.server_id, restore.backup_id, restore.mode)
+            .await
+            .map(|()| None),
+        ApiMessage::BackupAdopt(adopt) => m
+            .backup_adopt(adopt.from_server_id, adopt.server_id)
             .await
             .map(|()| None),
         ApiMessage::BackupDelete(delete) => m

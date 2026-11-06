@@ -56,6 +56,14 @@ pub struct BackupDelete {
     pub backup_id: Uuid,
 }
 
+/// Reprend dans `server_id` les sauvegardes gardées d'un serveur supprimé du même nœud
+/// (`from_server_id`, ADR-0059) : les archives quittent la corbeille, identifiants inchangés.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BackupAdopt {
+    pub from_server_id: Uuid,
+    pub server_id: Uuid,
+}
+
 /// Sauvegardes connues du nœud pour ce serveur ; réponse `backup.listing`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BackupList {

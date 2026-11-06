@@ -418,6 +418,35 @@ async fn hooks_run_around_the_archive_of_a_running_server() {
 "
     );
     assert!(volume.join("resumed.txt").exists());
-    node.manager.delete(id).unwrap();
+    node.manager.delete(id, 0).unwrap();
     wait_for(&mut node.events, id, ServerState::Deleted).await;
+}
+
+#[tokio::test]
+async fn a_deleted_server_keeps_its_backups_for_another_server_to_adopt() {
+    let mut node = Node::new();
+    node.write("world.txt", "saved");
+    let (backup_id, outcome) = node.backup(&[]).await;
+    assert!(matches!(outcome, BackupOutcome::Ok { .. }), "{outcome:?}");
+
+    node.manager.delete(node.id, 7).unwrap();
+    wait_for(&mut node.events, node.id, ServerState::Deleted).await;
+    assert!(!node.data.path().join(node.id.to_string()).exists());
+    let kept = node.data.path().join(".trash").join(node.id.to_string());
+    assert!(kept.join(format!("backups/{backup_id}.tar.zst")).is_file());
+
+    // Un autre serveur du nœud reprend l'archive, puis la restaure.
+    let other = Uuid::now_v7();
+    let dir = ServerDir::new(node.data.path(), other);
+    let spec = single(other);
+    dir.save_spec(&spec).unwrap();
+    dir.ensure_volumes(&spec).unwrap();
+    node.manager.backup_adopt(node.id, other).await.unwrap();
+    assert!(!kept.exists());
+    let listing = node.manager.backup_list(other).await.unwrap();
+    assert_eq!(listing.backups[0].backup_id, backup_id);
+    assert_eq!(
+        node.manager.backup_adopt(node.id, other).await.unwrap_err(),
+        CommandError::NotFound
+    );
 }

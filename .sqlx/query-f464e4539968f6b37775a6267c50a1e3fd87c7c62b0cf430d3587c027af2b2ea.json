@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM server_members WHERE server_id = $1 AND owner_ref = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f464e4539968f6b37775a6267c50a1e3fd87c7c62b0cf430d3587c027af2b2ea"
+}

@@ -84,6 +84,10 @@ pub struct SettingsDto {
     pub file_history_days: i32,
     /// Place prise au plus par l'historique d'un serveur (1 à 10 240 Mio).
     pub file_history_max_mb: i32,
+    /// Jours où le nœud garde les sauvegardes d'un serveur supprimé (ADR-0059), 0 à 90 ;
+    /// 0 : effacées avec lui.
+    #[schema(example = 7)]
+    pub deleted_backups_days: i32,
     /// URL à donner au client IA (`<mcp.public_url>/mcp`) ; absente si le MCP n'est pas
     /// configuré sur ce serveur, auquel cas l'activer reste sans effet.
     pub mcp_url: Option<String>,
@@ -118,6 +122,7 @@ impl SettingsDto {
             sftp_enabled: s.sftp_enabled,
             file_history_days: s.file_history_days,
             file_history_max_mb: s.file_history_max_mb,
+            deleted_backups_days: s.deleted_backups_days,
             mcp_url: oauth.map(OAuthState::resource),
             alert_cpu_percent: s.alert_cpu_percent,
             alert_memory_percent: s.alert_memory_percent,
@@ -153,6 +158,7 @@ pub struct UpdatePlatformSettingsRequest {
     pub sftp_enabled: Option<bool>,
     pub file_history_days: Option<i32>,
     pub file_history_max_mb: Option<i32>,
+    pub deleted_backups_days: Option<i32>,
     pub alert_cpu_percent: Option<i32>,
     pub alert_memory_percent: Option<i32>,
     pub alert_minutes: Option<i32>,
@@ -211,6 +217,7 @@ pub async fn update_settings(
         sftp_enabled: request.sftp_enabled,
         file_history_days: request.file_history_days,
         file_history_max_mb: request.file_history_max_mb,
+        deleted_backups_days: request.deleted_backups_days,
         alert_cpu_percent: request.alert_cpu_percent,
         alert_memory_percent: request.alert_memory_percent,
         alert_minutes: request.alert_minutes,

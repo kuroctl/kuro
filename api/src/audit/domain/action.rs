@@ -126,6 +126,8 @@ audit_actions! {
     ServerPower => "server.power",
     ServerDeleted => "server.deleted",
     ServerReinstalled => "server.reinstalled",
+    ServerRenamed => "server.renamed",
+    ServerBackupsAdopted => "server.backups_adopted",
     ServerUpgraded => "server.upgraded",
     ServerDnsLabelChanged => "server.dns_label_changed",
     ServerConsoleOpened => "server.console_opened",
@@ -161,6 +163,9 @@ audit_actions! {
     ServerUnsuspended => "server.unsuspended",
     // Propriétaire d'un serveur (ADR-0051)
     ServerOwnerChanged => "server.owner_changed",
+    // Membres d'un serveur (ADR-0060)
+    ServerMemberAdded => "server.member_added",
+    ServerMemberRemoved => "server.member_removed",
 
     // Paramètres du projet
     SettingsUpdated => "system.settings_updated",

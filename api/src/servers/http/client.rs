@@ -71,8 +71,9 @@ fn dto(view: ServerView) -> ClientServerDto {
     }
 }
 
-/// Serveur de la session, sinon `404` : un serveur d'un autre propriétaire est indiscernable d'un
-/// serveur inexistant. La tentative est auditée (`access.denied`, raison `not_owner`).
+/// Serveur de la session (le sien, ou un dont elle est membre, ADR-0060), sinon `404` : un serveur
+/// d'un autre propriétaire est indiscernable d'un serveur inexistant. La tentative est auditée
+/// (`access.denied`, raison `not_owner`).
 pub(super) async fn owned(
     state: &ServersState,
     session: &OwnerSession,
@@ -84,7 +85,9 @@ pub(super) async fn owned(
         Err(ServersError::NotFound) => return Err(not_found()),
         Err(error) => return Err(error.into()),
     };
-    if session.owns(view.server.owner_ref.as_deref()) {
+    if session.owns(view.server.owner_ref.as_deref())
+        || servers::is_member(state, id, session.owner.as_str()).await?
+    {
         return Ok(view);
     }
     let event = AuditEvent::denied(AuditAction::AccessDenied)
@@ -98,14 +101,14 @@ pub(super) async fn owned(
     Err(not_found())
 }
 
-/// Serveurs du propriétaire, par nom.
+/// Serveurs du propriétaire et ceux dont il est membre, par nom.
 #[utoipa::path(get, path = "/api/client/v1/servers", tag = "client-servers", security(("bearer" = [])),
     responses((status = 200, body = [ClientServerDto]), (status = 401, body = Problem)))]
 pub async fn list(
     State(state): State<ServersState>,
     session: OwnerSession,
 ) -> Result<Json<Vec<ClientServerDto>>, ApiError> {
-    let views = servers::list(&state, Some(session.owner.as_str()), None, 0).await?;
+    let views = servers::of_client(&state, session.owner.as_str()).await?;
     Ok(Json(views.into_iter().map(dto).collect()))
 }
 
@@ -209,4 +212,33 @@ pub async fn metrics(
     Ok(Json(
         super::metrics::load(&state, id, query.range.as_deref()).await?,
     ))
+}
+
+#[derive(Debug, serde::Deserialize, ToSchema)]
+pub struct RenameRequest {
+    /// Nom affiché, 64 caractères au plus ; le nom DNS du serveur ne change pas.
+    #[schema(example = "Survie entre potes")]
+    pub name: String,
+}
+
+/// Renomme un serveur du propriétaire (ADR-0058).
+#[utoipa::path(patch, path = "/api/client/v1/servers/{id}", tag = "client-servers", security(("bearer" = [])),
+    params(("id" = Uuid, Path)),
+    request_body = RenameRequest,
+    responses((status = 200, body = ClientServerDto), (status = 401, body = Problem), (status = 404, body = Problem),
+        (status = 422, body = Problem)))]
+pub async fn rename(
+    State(state): State<ServersState>,
+    session: OwnerSession,
+    Path(id): Path<Uuid>,
+    Json(request): Json<RenameRequest>,
+) -> Result<Json<ClientServerDto>, ApiError> {
+    owned(&state, &session, id).await?;
+    Ok(Json(dto(servers::rename(
+        &state,
+        &session.context,
+        id,
+        &request.name,
+    )
+    .await?)))
 }

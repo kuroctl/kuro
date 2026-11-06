@@ -68,6 +68,6 @@ async fn an_action_runs_in_the_service_container_as_its_user() {
         Err(CommandError::NotRunning)
     ));
 
-    node.manager.delete(id).unwrap();
+    node.manager.delete(id, 0).unwrap();
     wait_for(&mut node.events, id, ServerState::Deleted).await;
 }

@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT deleted_backups_days FROM platform_settings",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "deleted_backups_days",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "platform_settings",
+            "name": "deleted_backups_days"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5c0a905da5a89fbe5e90a57ba2e5ca5686d1a3a4b3bdd1d7ed192821757bb266"
+}

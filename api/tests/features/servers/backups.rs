@@ -549,3 +549,103 @@ async fn backups_require_their_permissions() {
         assert_eq!(response.json["params"]["permission"], permission);
     }
 }
+
+/// Supprime le serveur arrêté ; retourne la commande reçue par le nœud, une fois la suppression
+/// confirmée.
+async fn delete(platform: &Platform, daemon: &mut FakeDaemon, id: &str) -> Value {
+    let path = format!("/servers/{id}");
+    let (accepted, command) =
+        tokio::join!(platform.call(Method::DELETE, &path, None), daemon.accept());
+    assert_eq!(accepted.status, StatusCode::ACCEPTED, "{}", accepted.json);
+    daemon.report(id, "deleted").await;
+    for _ in 0..200 {
+        if platform.call(Method::GET, &path, None).await.status == StatusCode::NOT_FOUND {
+            return command;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    panic!("server {id} never deleted");
+}
+
+#[tokio::test]
+async fn a_deleted_server_keeps_its_backups_for_another_server_to_adopt() {
+    let platform = Platform::start().await;
+    let mut daemon = platform.online_node("node-1", "25565-25566").await;
+    let old = server(&platform, &mut daemon, 3).await;
+    let backup = ready_backup(&platform, &mut daemon, &old).await;
+
+    let command = delete(&platform, &mut daemon, &old).await;
+    assert_eq!(command["payload"]["keep_backups_days"], 7, "{command}");
+
+    let deleted = platform.call(Method::GET, "/servers/deleted", None).await;
+    assert_eq!(deleted.status, StatusCode::OK, "{}", deleted.json);
+    assert_eq!(deleted.json[0]["id"], old);
+    assert_eq!(deleted.json[0]["name"], "Survie");
+    assert_eq!(deleted.json[0]["backups"][0]["id"], backup["id"]);
+
+    let new = server(&platform, &mut daemon, 3).await;
+    let path = format!("/servers/deleted/{old}/adopt");
+    let (adopted, request) = tokio::join!(
+        platform.call(Method::POST, &path, Some(json!({ "server_id": new }))),
+        daemon.accept_backup(),
+    );
+    assert_eq!(adopted.status, StatusCode::OK, "{}", adopted.json);
+    assert_eq!(adopted.json["adopted"], 1);
+    assert_eq!(request["type"], "backup.adopt");
+    assert_eq!(request["payload"]["from_server_id"], old);
+    assert_eq!(request["payload"]["server_id"], new);
+    let taken = backups(&platform, &new).await;
+    assert_eq!(ids(&taken), vec![backup["id"].clone()]);
+    assert_eq!(
+        taken["backups"][0]["locked"], true,
+        "safe from the rotation"
+    );
+    let left = platform.call(Method::GET, "/servers/deleted", None).await;
+    assert_eq!(left.json, json!([]));
+    let event = platform.admin.last_audit("server.backups_adopted").await;
+    assert_eq!(event.details["from"], old);
+    assert_eq!(event.details["count"], 1);
+}
+
+#[tokio::test]
+async fn no_backup_is_kept_once_retention_is_off() {
+    let platform = Platform::start().await;
+    let mut daemon = platform.online_node("node-1", "25565").await;
+    let off = platform
+        .call(
+            Method::PATCH,
+            "/settings",
+            Some(json!({ "deleted_backups_days": 0 })),
+        )
+        .await;
+    assert_eq!(off.status, StatusCode::OK, "{}", off.json);
+    assert_eq!(off.json["deleted_backups_days"], 0);
+    let id = server(&platform, &mut daemon, 3).await;
+    ready_backup(&platform, &mut daemon, &id).await;
+
+    let command = delete(&platform, &mut daemon, &id).await;
+    assert_eq!(command["payload"]["keep_backups_days"], 0);
+    let deleted = platform.call(Method::GET, "/servers/deleted", None).await;
+    assert_eq!(deleted.json, json!([]));
+}
+
+#[tokio::test]
+async fn kept_backups_stay_on_their_node() {
+    let platform = Platform::start().await;
+    let mut first = platform.online_node("node-1", "25565").await;
+    let mut second = platform.online_node("node-2", "25565").await;
+    let old = server(&platform, &mut first, 3).await;
+    ready_backup(&platform, &mut first, &old).await;
+    delete(&platform, &mut first, &old).await;
+    let elsewhere = server(&platform, &mut second, 3).await;
+
+    let refused = platform
+        .call(
+            Method::POST,
+            &format!("/servers/deleted/{old}/adopt"),
+            Some(json!({ "server_id": elsewhere })),
+        )
+        .await;
+    assert_eq!(refused.status, StatusCode::CONFLICT, "{}", refused.json);
+    assert_eq!(refused.json["code"], "deleted_backups_other_node");
+}

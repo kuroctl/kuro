@@ -11,6 +11,7 @@ export type ServerPage = Schemas['ServerPageDto']
 export type ActionResult = Schemas['ActionResultDto']
 export type BulkAction = Schemas['BulkActionDto']
 export type BulkOutcome = Schemas['BulkOutcomeDto']
+export type DeletedServer = Schemas['DeletedServerDto']
 /** Critères de `GET /servers/search` (ADR-0025) : valeurs multiples séparées par des virgules. */
 export type ServerSearch = Record<string, string | number | boolean | undefined>
 
@@ -28,6 +29,13 @@ export function useServersApi() {
       http.post<BulkOutcome[]>(`${BASE}/bulk`, { action, servers, backup }).then((response) => response.data),
 
     get: (id: string) => http.get<Server>(`${BASE}/${id}`).then((response) => response.data),
+
+    /** Serveurs supprimés dont le nœud garde encore les sauvegardes (ADR-0059). */
+    deleted: () => http.get<DeletedServer[]>(`${BASE}/deleted`).then((response) => response.data),
+
+    /** `serverId`, du même nœud, reprend les sauvegardes gardées du serveur supprimé `id`. */
+    adopt: (id: string, serverId: string) =>
+      http.post<Schemas['AdoptedDto']>(`${BASE}/deleted/${id}/adopt`, { server_id: serverId }).then((response) => response.data),
 
     create: (body: Schemas['CreateServerRequest']) => http.post<Server>(BASE, body).then((response) => response.data),
 

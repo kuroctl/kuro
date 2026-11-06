@@ -22,6 +22,8 @@ pub struct PlatformSettings {
     /// Historique des fichiers (ADR-0049) : jours (0 : coupé) et Mio par serveur.
     pub file_history_days: i32,
     pub file_history_max_mb: i32,
+    /// Jours où le nœud garde les sauvegardes d'un serveur supprimé (ADR-0059).
+    pub deleted_backups_days: i32,
     /// Seuils d'alerte des stats (ADR-0043) : CPU et mémoire en % de l'allocation, soutenus
     /// pendant `alert_minutes` minutes.
     pub alert_cpu_percent: i32,
@@ -42,7 +44,7 @@ impl SettingsRepository {
             "SELECT default_memory_mb, max_memory_mb, default_cpu_percent, max_cpu_percent,
                     default_disk_mb, max_disk_mb, default_backup_limit, max_backup_limit,
                     audit_retention_days, mcp_enabled, sftp_enabled, file_history_days,
-                    file_history_max_mb, alert_cpu_percent, alert_memory_percent,
+                    file_history_max_mb, deleted_backups_days, alert_cpu_percent, alert_memory_percent,
                     alert_minutes, project_name, updated_at
              FROM platform_settings"
         )
@@ -57,7 +59,7 @@ impl SettingsRepository {
             "SELECT default_memory_mb, max_memory_mb, default_cpu_percent, max_cpu_percent,
                     default_disk_mb, max_disk_mb, default_backup_limit, max_backup_limit,
                     audit_retention_days, mcp_enabled, sftp_enabled, file_history_days,
-                    file_history_max_mb, alert_cpu_percent, alert_memory_percent,
+                    file_history_max_mb, deleted_backups_days, alert_cpu_percent, alert_memory_percent,
                     alert_minutes, project_name, updated_at
              FROM platform_settings FOR UPDATE"
         )
@@ -88,6 +90,13 @@ impl SettingsRepository {
         Ok((row.file_history_days, row.file_history_max_mb))
     }
 
+    /// Jours où le nœud garde les sauvegardes d'un serveur supprimé.
+    pub async fn deleted_backups_days(conn: &mut PgConnection) -> Result<i32, sqlx::Error> {
+        sqlx::query_scalar!("SELECT deleted_backups_days FROM platform_settings")
+            .fetch_one(conn)
+            .await
+    }
+
     pub async fn save(
         conn: &mut PgConnection,
         settings: &PlatformSettings,
@@ -101,7 +110,7 @@ impl SettingsRepository {
                 audit_retention_days = $9, mcp_enabled = $10, alert_cpu_percent = $11,
                 alert_memory_percent = $12, alert_minutes = $13, project_name = $14,
                 sftp_enabled = $15, file_history_days = $16, file_history_max_mb = $17,
-                updated_at = now()
+                deleted_backups_days = $18, updated_at = now()
              RETURNING updated_at",
             settings.default_memory_mb,
             settings.max_memory_mb,
@@ -120,6 +129,7 @@ impl SettingsRepository {
             settings.sftp_enabled,
             settings.file_history_days,
             settings.file_history_max_mb,
+            settings.deleted_backups_days,
         )
         .fetch_one(conn)
         .await

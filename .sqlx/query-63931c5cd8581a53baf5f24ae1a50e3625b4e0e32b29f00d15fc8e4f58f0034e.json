@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO backups (id, server_id, name, state, size_bytes, sha256, locked,\n                                  created_at, completed_at)\n             SELECT id, $2, name, 'ready', size_bytes, sha256, true, created_at, now()\n             FROM deleted_server_backups WHERE server_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "63931c5cd8581a53baf5f24ae1a50e3625b4e0e32b29f00d15fc8e4f58f0034e"
+}

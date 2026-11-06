@@ -1,7 +1,8 @@
 //! Espace client (ADR-0051, tranche 3) : un fournisseur d'identité d'extension, le propriétaire
 //! qui ne voit et ne pilote que ses serveurs, les refus audités, le serveur suspendu ; sa console
 //! et ses métriques (ADR-0054) ; ses fichiers (ADR-0055) ; ses sauvegardes et ses tâches
-//! planifiées (ADR-0056) ; ses réglages et la réinstallation (ADR-0057).
+//! planifiées (ADR-0056) ; ses réglages et la réinstallation (ADR-0057) ; les membres d'un serveur
+//! (ADR-0060).
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
@@ -698,8 +699,8 @@ async fn an_owner_sees_and_changes_only_the_settings_open_to_customers() {
         difficulty["options"][3],
         json!({ "value": "hard", "label": "Difficile" })
     );
-    let loader = fields.iter().find(|f| f["key"] == "loader").unwrap();
-    assert_eq!(loader["editable"], false);
+    let seed = fields.iter().find(|f| f["key"] == "level_seed").unwrap();
+    assert_eq!(seed["editable"], false);
     assert_eq!(read.json["values"]["motd"], "A Kuro server");
 
     let (changed, _) = tokio::join!(
@@ -719,7 +720,7 @@ async fn an_owner_sees_and_changes_only_the_settings_open_to_customers() {
     assert_eq!(event.details["changed"], json!(["motd"]));
 
     // Hors de sa vue, ou fixé au déploiement : refusé, rien n'est envoyé au nœud.
-    for (key, value) in [("max_players", json!(200)), ("loader", json!("paper"))] {
+    for (key, value) in [("max_players", json!(200)), ("level_seed", json!("autre"))] {
         let refused = client(
             &platform,
             Method::PATCH,
@@ -768,4 +769,199 @@ async fn an_owner_reinstalls_their_server_keeping_its_data() {
     assert_eq!(event.details["mode"], "reinstall");
     let bob = client(&platform, Method::POST, &reinstall, Some("bob-token"), None).await;
     assert_eq!(bob.status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn an_owner_renames_their_server() {
+    let platform = Platform::start_with_extensions(vec![shop()]).await;
+    let mut daemon = platform.online_node("node-1", "25565-25570").await;
+    let alice = server_of(&platform, &mut daemon, json!(ALICE)).await;
+    let path = format!("/servers/{alice}");
+
+    let renamed = client(
+        &platform,
+        Method::PATCH,
+        &path,
+        Some("alice-token"),
+        Some(json!({ "name": "  Survie entre potes " })),
+    )
+    .await;
+    assert_eq!(renamed.status, StatusCode::OK, "{}", renamed.json);
+    assert_eq!(renamed.json["name"], "Survie entre potes");
+    let event = platform.admin.last_audit("server.renamed").await;
+    assert_eq!(event.actor_kind, "owner");
+
+    let empty = client(
+        &platform,
+        Method::PATCH,
+        &path,
+        Some("alice-token"),
+        Some(json!({ "name": " " })),
+    )
+    .await;
+    assert_eq!(empty.status, StatusCode::UNPROCESSABLE_ENTITY);
+    let bob = client(
+        &platform,
+        Method::PATCH,
+        &path,
+        Some("bob-token"),
+        Some(json!({ "name": "Volé" })),
+    )
+    .await;
+    assert_eq!(bob.status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn a_member_manages_the_server_like_its_owner_until_removed() {
+    let platform = Platform::start_with_extensions(vec![shop()]).await;
+    let mut daemon = platform.online_node("node-1", "25565-25570").await;
+    let alice = server_of(&platform, &mut daemon, json!(ALICE)).await;
+    let id: Uuid = alice.parse().unwrap();
+    let state = &platform.admin.servers;
+    let system = kuro_api::audit::domain::AuditContext::system();
+
+    kuro_api::servers::application::add_member(state, &system, id, BOB)
+        .await
+        .unwrap();
+    // Ajouté deux fois : sans effet.
+    kuro_api::servers::application::add_member(state, &system, id, BOB)
+        .await
+        .unwrap();
+
+    let listed = client(&platform, Method::GET, "/servers", Some("bob-token"), None).await;
+    assert_eq!(listed.json.as_array().unwrap().len(), 1, "{}", listed.json);
+    assert_eq!(listed.json[0]["id"], alice.as_str());
+    let path = format!("/servers/{alice}/power");
+    let (powered, command) = tokio::join!(
+        client(
+            &platform,
+            Method::POST,
+            &path,
+            Some("bob-token"),
+            Some(json!({ "action": "start" })),
+        ),
+        daemon.accept(),
+    );
+    assert_eq!(powered.status, StatusCode::ACCEPTED, "{}", powered.json);
+    assert_eq!(command["type"], "server.power");
+    let power = platform.admin.last_audit("server.power").await;
+    assert_eq!(
+        power.details["owner_ref"], BOB,
+        "the member is the audited actor"
+    );
+    let added = platform.admin.last_audit("server.member_added").await;
+    assert_eq!(added.details["member"], BOB);
+
+    kuro_api::servers::application::remove_member(state, &system, id, BOB)
+        .await
+        .unwrap();
+
+    let gone = client(
+        &platform,
+        Method::GET,
+        &format!("/servers/{alice}"),
+        Some("bob-token"),
+        None,
+    )
+    .await;
+    assert_eq!(gone.status, StatusCode::NOT_FOUND);
+    let removed = platform.admin.last_audit("server.member_removed").await;
+    assert_eq!(removed.details["member"], BOB);
+}
+
+#[tokio::test]
+async fn an_owner_searches_installs_and_removes_mods_on_their_server_only() {
+    use crate::support::content::version;
+
+    let platform = Platform::start_with_extensions(vec![shop()]).await;
+    let mut daemon = platform.online_node("node-1", "25565-25570").await;
+    platform.admin.content.add(
+        "Sodium",
+        version("sodium-1", "sodium", "1.21.4", "fabric", &[]),
+    );
+    let (created, _) = tokio::join!(
+        platform.call(
+            Method::POST,
+            "/servers",
+            Some(json!({
+                "name": "Modé",
+                "node_id": daemon.node.id.as_uuid(),
+                "prefab_id": "minecraft-java",
+                "owner_ref": ALICE,
+                "settings": { "loader": "fabric", "version": "1.21.4" },
+            })),
+        ),
+        daemon.accept(),
+    );
+    assert_eq!(created.status, StatusCode::CREATED, "{}", created.json);
+    let id = created.json["id"].as_str().unwrap().to_owned();
+    daemon.report(&id, "offline").await;
+    platform.wait_for_state(&id, "offline").await;
+    let mods = format!("/servers/{id}/content/mods");
+
+    let slots = client(
+        &platform,
+        Method::GET,
+        &format!("/servers/{id}/content"),
+        Some("alice-token"),
+        None,
+    )
+    .await;
+    assert_eq!(slots.status, StatusCode::OK, "{}", slots.json);
+    assert_eq!(slots.json[0]["slot"], "mods");
+    let found = client(
+        &platform,
+        Method::GET,
+        &format!("{mods}/search?q=sodium"),
+        Some("alice-token"),
+        None,
+    )
+    .await;
+    assert_eq!(found.status, StatusCode::OK, "{}", found.json);
+    assert_eq!(found.json["hits"][0]["title"], "Sodium");
+
+    let (installed, request) = tokio::join!(
+        client(
+            &platform,
+            Method::POST,
+            &mods,
+            Some("alice-token"),
+            Some(json!({ "version_id": "sodium-1" }))
+        ),
+        daemon.accept_content(),
+    );
+    assert_eq!(installed.status, StatusCode::ACCEPTED, "{}", installed.json);
+    daemon
+        .event(
+            "content.done",
+            json!({ "server_id": id, "operation_id": request["payload"]["operation_id"], "status": "ok" }),
+        )
+        .await;
+    let event = platform.admin.last_audit("server.content_installed").await;
+    assert_eq!(
+        event.details["owner_ref"], ALICE,
+        "the owner is the audited actor"
+    );
+
+    // Le serveur d'un autre : introuvable, rien n'y est installé.
+    let other = client(&platform, Method::GET, &mods, Some("bob-token"), None).await;
+    assert_eq!(other.status, StatusCode::NOT_FOUND);
+    let refused = client(
+        &platform,
+        Method::POST,
+        &mods,
+        Some("bob-token"),
+        Some(json!({ "version_id": "sodium-1" })),
+    )
+    .await;
+    assert_eq!(refused.status, StatusCode::NOT_FOUND);
+
+    let listed = client(&platform, Method::GET, &mods, Some("alice-token"), None).await;
+    let content_id = listed.json["items"][0]["id"].as_str().unwrap().to_owned();
+    let item = format!("{mods}/{content_id}");
+    let (removed, _) = tokio::join!(
+        client(&platform, Method::DELETE, &item, Some("alice-token"), None),
+        daemon.accept_content(),
+    );
+    assert_eq!(removed.status, StatusCode::OK, "{}", removed.json);
 }

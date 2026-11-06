@@ -100,22 +100,22 @@ fn a_text_field_accepts_several_lines() {
 #[test]
 fn a_deploy_only_field_is_frozen_afterwards() {
     let manifest = official("minecraft-java").manifest;
-    let deployed = apply(&manifest, None, &input(json!({ "loader": "fabric" }))).unwrap();
+    let deployed = apply(&manifest, None, &input(json!({ "level_seed": "kuro" }))).unwrap();
 
     let change = apply(
         &manifest,
         Some(&deployed),
-        &input(json!({ "loader": "forge" })),
+        &input(json!({ "level_seed": "autre" })),
     );
     let same = apply(
         &manifest,
         Some(&deployed),
-        &input(json!({ "loader": "fabric", "motd": "x" })),
+        &input(json!({ "level_seed": "kuro", "motd": "x" })),
     );
 
     assert_eq!(
         errors(change),
-        vec![("loader".to_owned(), Reason::NotEditable)]
+        vec![("level_seed".to_owned(), Reason::NotEditable)]
     );
     assert!(same.is_ok());
 }

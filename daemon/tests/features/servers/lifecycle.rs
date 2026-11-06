@@ -102,7 +102,7 @@ async fn a_server_is_deployed_started_stopped_and_deleted() {
     wait_for(&mut node.events, id, ServerState::Stopping).await;
     wait_for(&mut node.events, id, ServerState::Offline).await;
 
-    node.manager.delete(id).unwrap();
+    node.manager.delete(id, 0).unwrap();
     wait_for(&mut node.events, id, ServerState::Deleted).await;
     assert!(
         bollard()
@@ -143,7 +143,7 @@ async fn services_reach_each_other_by_name() {
 
     node.manager.power(id, PowerAction::Kill).await.unwrap();
     wait_for(&mut node.events, id, ServerState::Offline).await;
-    node.manager.delete(id).unwrap();
+    node.manager.delete(id, 0).unwrap();
     wait_for(&mut node.events, id, ServerState::Deleted).await;
 }
 
@@ -157,7 +157,7 @@ async fn one_operation_at_a_time_per_server() {
 
     assert_eq!(second, Err(CommandError::Busy));
     wait_for(&mut node.events, id, ServerState::Offline).await;
-    node.manager.delete(id).unwrap();
+    node.manager.delete(id, 0).unwrap();
     wait_for(&mut node.events, id, ServerState::Deleted).await;
 }
 
@@ -238,7 +238,7 @@ async fn a_deferred_deploy_keeps_a_running_server_until_its_next_restart() {
     assert!(env.iter().any(|e| e == "KURO_MODS=more-mobs"), "{env:?}");
     assert!(!pending.exists());
 
-    node.manager.delete(id).unwrap();
+    node.manager.delete(id, 0).unwrap();
     wait_for(&mut node.events, id, ServerState::Deleted).await;
 }
 
@@ -284,6 +284,6 @@ async fn redeploying_the_same_spec_keeps_a_running_server_running() {
         .and_then(|state| state.started_at);
     assert_eq!(still, started);
 
-    node.manager.delete(id).unwrap();
+    node.manager.delete(id, 0).unwrap();
     wait_for(&mut node.events, id, ServerState::Deleted).await;
 }

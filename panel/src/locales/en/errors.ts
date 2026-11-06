@@ -125,6 +125,7 @@ const codes = {
   file_too_large: 'File too large for the editor (512 KiB at most).',
   invalid_command: 'A command is a single line without control characters (1,024 characters at most).',
   backup_not_found: 'No such backup.',
+  deleted_backups_other_node: 'These backups are on another node: pick a server on the same node.',
   invalid_backup_name: 'Invalid name: 64 characters at most, no control characters.',
   backups_disabled: 'Backups are disabled for this server.',
   backup_limit_reached: 'Limit reached and every backup is locked: unlock one.',

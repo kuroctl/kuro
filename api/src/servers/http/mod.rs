@@ -4,10 +4,12 @@ mod actions;
 mod backups;
 mod client;
 mod client_backups;
+mod client_content;
 mod client_files;
 mod client_settings;
 mod console;
 mod content;
+mod deleted;
 mod error;
 mod files;
 mod loaders;
@@ -32,7 +34,7 @@ use crate::servers::application::ServersState;
     paths(
         servers::list, servers::get, servers::create, servers::update_settings,
         servers::update_resources, servers::set_owner, servers::suspend, servers::unsuspend, servers::power, servers::reinstall, servers::delete, console::ticket, console::command, actions::run,
-        metrics::history,
+        metrics::history, deleted::list, deleted::adopt,
         files::list, files::read, files::write, files::mkdir, files::rename, files::delete,
         files::history, files::version, files::restore, files::deleted,
         backups::list, backups::create, backups::update, backups::restore, backups::delete,
@@ -57,6 +59,7 @@ pub struct ServersApi;
         client::list,
         client::get,
         client::power,
+        client::rename,
         client::console_ticket,
         client::command,
         client::metrics,
@@ -87,7 +90,16 @@ pub struct ServersApi;
         client_backups::preview_schedule,
         client_settings::get,
         client_settings::update,
-        client_settings::reinstall
+        client_settings::reinstall,
+        client_content::slots,
+        client_content::list,
+        client_content::search,
+        client_content::categories,
+        client_content::versions,
+        client_content::install,
+        client_content::update,
+        client_content::toggle,
+        client_content::remove
     ),
     tags((name = "client-servers", description = "Serveurs du propriétaire (espace client, ADR-0051)"))
 )]
@@ -106,7 +118,7 @@ where
 {
     Router::new()
         .route("/servers", get(client::list))
-        .route("/servers/{id}", get(client::get))
+        .route("/servers/{id}", get(client::get).patch(client::rename))
         .route("/servers/{id}/power", post(client::power))
         .route("/servers/{id}/console/ticket", post(client::console_ticket))
         .route("/servers/{id}/console", get(console::socket))
@@ -185,6 +197,32 @@ where
             get(client_settings::get).patch(client_settings::update),
         )
         .route("/servers/{id}/reinstall", post(client_settings::reinstall))
+        // Mods, plugins, Workshop (ADR-0061).
+        .route("/servers/{id}/content", get(client_content::slots))
+        .route(
+            "/servers/{id}/content/{slot}",
+            get(client_content::list).post(client_content::install),
+        )
+        .route(
+            "/servers/{id}/content/{slot}/search",
+            get(client_content::search),
+        )
+        .route(
+            "/servers/{id}/content/{slot}/categories",
+            get(client_content::categories),
+        )
+        .route(
+            "/servers/{id}/content/{slot}/projects/{project}/versions",
+            get(client_content::versions),
+        )
+        .route(
+            "/servers/{id}/content/{slot}/{content_id}",
+            patch(client_content::toggle).delete(client_content::remove),
+        )
+        .route(
+            "/servers/{id}/content/{slot}/{content_id}/update",
+            post(client_content::update),
+        )
 }
 
 pub fn routes<S>() -> Router<S>
@@ -199,6 +237,8 @@ where
     Router::new()
         .route("/servers", get(servers::list).post(servers::create))
         .route("/servers/search", get(search::search))
+        .route("/servers/deleted", get(deleted::list))
+        .route("/servers/deleted/{id}/adopt", post(deleted::adopt))
         .route("/servers/bulk", post(search::bulk_action))
         .route("/content/loaders", get(loaders::list))
         .route(

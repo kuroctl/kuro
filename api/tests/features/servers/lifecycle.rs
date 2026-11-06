@@ -19,7 +19,7 @@ async fn a_server_is_deployed_with_a_resolved_spec() {
     assert_eq!(server["state"], "deploying");
     assert_eq!(
         server["prefab"],
-        json!({ "id": "minecraft-java", "version": "1.5.0" })
+        json!({ "id": "minecraft-java", "version": "1.6.0" })
     );
     assert_eq!(
         server["allocations"],
@@ -229,7 +229,7 @@ async fn settings_changes_redeploy_and_respect_frozen_fields() {
         .call(
             Method::PATCH,
             &path,
-            Some(json!({ "settings": { "loader": "forge" } })),
+            Some(json!({ "settings": { "level_seed": "autre" } })),
         )
         .await;
     let (updated, command) = tokio::join!(

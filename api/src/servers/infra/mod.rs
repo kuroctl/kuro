@@ -3,6 +3,7 @@
 mod alerts;
 mod backups;
 mod content;
+mod deleted_backups;
 mod metrics;
 mod schedules;
 mod tickets;
@@ -10,6 +11,7 @@ mod tickets;
 pub use alerts::AlertRepository;
 pub use backups::{BackupRecord, BackupRepository};
 pub use content::{ContentPackage, ContentRecord, ContentRepository, NewContent};
+pub use deleted_backups::{DeletedBackupRecord, DeletedBackupRepository};
 pub use metrics::{MetricPoint, MetricsRepository};
 pub use schedules::{RunRecord, ScheduleFields, ScheduleRecord, ScheduleRepository, StepRecord};
 pub use tickets::{RedeemedTicket, TicketRepository};
@@ -137,6 +139,31 @@ impl ServerRepository {
                LIMIT $1 OFFSET $2"#,
             limit,
             offset,
+            owner_ref,
+        )
+        .fetch_all(conn)
+        .await
+    }
+
+    /// Serveurs de l'espace client de `owner_ref` : les siens et ceux dont il est membre
+    /// (ADR-0060), par nom.
+    pub async fn of_client(
+        conn: &mut PgConnection,
+        owner_ref: &str,
+    ) -> Result<Vec<ServerRecord>, sqlx::Error> {
+        sqlx::query_as!(
+            ServerRecord,
+            r#"SELECT s.id, s.name, s.node_id, n.name AS node_name, n.status AS node_status,
+                      s.prefab_id, s.prefab_version, s.settings, s.secrets,
+                      s.memory_mb, s.cpu_percent, s.disk_mb, s.backup_limit, s.state, s.state_reason,
+                      s.suspended_at, s.disk_used_bytes, s.disk_measured_at,
+                      s.created_at, s.updated_at, s.trial_draft_id, s.expires_at, s.dns_label,
+                      s.web_id, s.web_status, s.owner_ref
+               FROM servers s JOIN nodes n ON n.id = s.node_id
+               WHERE s.owner_ref = $1
+                  OR EXISTS (SELECT 1 FROM server_members m
+                             WHERE m.server_id = s.id AND m.owner_ref = $1)
+               ORDER BY s.name, s.id"#,
             owner_ref,
         )
         .fetch_all(conn)
@@ -322,6 +349,54 @@ impl ServerRepository {
         Ok(())
     }
 
+    /// Admet `owner_ref` dans l'espace client du serveur (ADR-0060) ; faux s'il l'était déjà.
+    pub async fn add_member(
+        conn: &mut PgConnection,
+        id: Uuid,
+        owner_ref: &str,
+    ) -> Result<bool, sqlx::Error> {
+        let added = sqlx::query!(
+            "INSERT INTO server_members (server_id, owner_ref) VALUES ($1, $2)
+             ON CONFLICT DO NOTHING",
+            id,
+            owner_ref
+        )
+        .execute(conn)
+        .await?;
+        Ok(added.rows_affected() == 1)
+    }
+
+    /// Faux s'il n'était pas membre.
+    pub async fn remove_member(
+        conn: &mut PgConnection,
+        id: Uuid,
+        owner_ref: &str,
+    ) -> Result<bool, sqlx::Error> {
+        let removed = sqlx::query!(
+            "DELETE FROM server_members WHERE server_id = $1 AND owner_ref = $2",
+            id,
+            owner_ref
+        )
+        .execute(conn)
+        .await?;
+        Ok(removed.rows_affected() == 1)
+    }
+
+    pub async fn is_member(
+        conn: &mut PgConnection,
+        id: Uuid,
+        owner_ref: &str,
+    ) -> Result<bool, sqlx::Error> {
+        sqlx::query_scalar!(
+            r#"SELECT EXISTS (SELECT 1 FROM server_members
+                              WHERE server_id = $1 AND owner_ref = $2) AS "member!""#,
+            id,
+            owner_ref
+        )
+        .fetch_one(conn)
+        .await
+    }
+
     /// Donne son identifiant de site à un serveur dont le prefab devient web (ADR-0038).
     pub async fn set_web_id(
         conn: &mut PgConnection,
@@ -332,6 +407,17 @@ impl ServerRepository {
             "UPDATE servers SET web_id = $2, updated_at = now() WHERE id = $1",
             id,
             web_id,
+        )
+        .execute(conn)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn rename(conn: &mut PgConnection, id: Uuid, name: &str) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            "UPDATE servers SET name = $2, updated_at = now() WHERE id = $1",
+            id,
+            name
         )
         .execute(conn)
         .await?;
@@ -461,6 +547,22 @@ impl ServerRepository {
             id,
             state,
             reason,
+        )
+        .execute(conn)
+        .await?;
+        Ok(())
+    }
+
+    /// Durée de garde des sauvegardes envoyée au nœud avec la suppression (ADR-0059).
+    pub async fn set_keep_backups_days(
+        conn: &mut PgConnection,
+        id: Uuid,
+        days: i32,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            "UPDATE servers SET keep_backups_days = $2 WHERE id = $1",
+            id,
+            days
         )
         .execute(conn)
         .await?;
@@ -624,6 +726,23 @@ impl ServerRepository {
         .await?
         .map(|row| row.owner_ref);
         if owned.is_some() {
+            // Ses sauvegardes prêtes restent sur le nœud (ADR-0059) : leurs lignes partent avec le
+            // serveur, une copie en garde la trace jusqu'à leur effacement.
+            sqlx::query!(
+                "INSERT INTO deleted_server_backups (id, server_id, server_name, prefab_id,
+                     prefab_version, owner_ref, node_id, name, size_bytes, sha256, created_at,
+                     purge_at)
+                 SELECT b.id, s.id, s.name, s.prefab_id, s.prefab_version, s.owner_ref, s.node_id,
+                        b.name, b.size_bytes, b.sha256, b.created_at,
+                        now() + make_interval(days => s.keep_backups_days)
+                 FROM backups b
+                 JOIN servers s ON s.id = b.server_id
+                 WHERE s.id = $1 AND b.state = 'ready' AND s.keep_backups_days > 0
+                 ON CONFLICT (id) DO NOTHING",
+                id
+            )
+            .execute(&mut *tx)
+            .await?;
             sqlx::query!(
                 "UPDATE allocations SET server_id = NULL, port_name = NULL WHERE server_id = $1",
                 id

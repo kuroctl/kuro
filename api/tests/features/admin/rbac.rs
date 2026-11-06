@@ -371,6 +371,18 @@ fn protected_routes() -> Vec<(Method, String, Option<Value>, Vec<Permission>)> {
         ),
         (
             Method::GET,
+            "/servers/deleted".into(),
+            None,
+            vec![Permission::ServersBackupsRead],
+        ),
+        (
+            Method::POST,
+            format!("/servers/deleted/{id}/adopt"),
+            Some(json!({ "server_id": id })),
+            vec![Permission::ServersBackupsRestore],
+        ),
+        (
+            Method::GET,
             format!("/servers/{id}"),
             None,
             vec![Permission::ServersRead],

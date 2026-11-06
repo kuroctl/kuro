@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO deleted_server_backups (id, server_id, server_name, prefab_id,\n                     prefab_version, owner_ref, node_id, name, size_bytes, sha256, created_at,\n                     purge_at)\n                 SELECT b.id, s.id, s.name, s.prefab_id, s.prefab_version, s.owner_ref, s.node_id,\n                        b.name, b.size_bytes, b.sha256, b.created_at,\n                        now() + make_interval(days => s.keep_backups_days)\n                 FROM backups b\n                 JOIN servers s ON s.id = b.server_id\n                 WHERE s.id = $1 AND b.state = 'ready' AND s.keep_backups_days > 0\n                 ON CONFLICT (id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e626f144ef6553aaac807c32dbb2242dd41707ebc8d9a46c674b8a400dd8797d"
+}

@@ -50,7 +50,7 @@ async fn the_catalog_lists_names_and_deployability() {
         .iter()
         .find(|p| p["id"] == "minecraft-java")
         .unwrap();
-    assert_eq!(minecraft["version"], "1.5.0");
+    assert_eq!(minecraft["version"], "1.6.0");
     assert_eq!(minecraft["category"], "game");
     assert_eq!(minecraft["names"]["fr"], "Minecraft Java Edition");
     assert_eq!(minecraft["deployable"], true);
@@ -86,7 +86,7 @@ async fn the_manifest_keeps_the_display_order() {
     let platform = Platform::start().await;
 
     let prefab = platform
-        .call(Method::GET, "/prefabs/minecraft-java/1.5.0", None)
+        .call(Method::GET, "/prefabs/minecraft-java/1.6.0", None)
         .await;
 
     assert_eq!(prefab.status, StatusCode::OK);
@@ -128,14 +128,14 @@ async fn translations_are_served_per_language() {
     let fr = platform
         .call(
             Method::GET,
-            "/prefabs/minecraft-java/1.5.0/locales/fr",
+            "/prefabs/minecraft-java/1.6.0/locales/fr",
             None,
         )
         .await;
     let missing = platform
         .call(
             Method::GET,
-            "/prefabs/minecraft-java/1.5.0/locales/xx",
+            "/prefabs/minecraft-java/1.6.0/locales/xx",
             None,
         )
         .await;

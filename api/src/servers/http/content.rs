@@ -204,7 +204,7 @@ fn package_dto(package: &crate::servers::infra::ContentPackage) -> ContentPackag
     }
 }
 
-fn dto(item: ContentRecord, installed: Option<&Installed>) -> ContentDto {
+pub(super) fn dto(item: ContentRecord, installed: Option<&Installed>) -> ContentDto {
     let pending = installed.is_some_and(|all| all.pending.contains(&item.id));
     let packages = installed
         .and_then(|all| all.packages.get(&item.id))
@@ -352,7 +352,7 @@ pub struct SearchParams {
 }
 
 impl SearchParams {
-    fn filters(&self) -> Result<SearchFilters, ApiError> {
+    pub(super) fn filters(&self) -> Result<SearchFilters, ApiError> {
         let sort = match self.sort.as_deref() {
             None | Some("") => SearchSort::default(),
             Some(text) => SearchSort::parse(text).ok_or_else(|| {

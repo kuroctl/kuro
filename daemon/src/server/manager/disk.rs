@@ -28,8 +28,17 @@ impl Manager {
         ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
             ticks.tick().await;
-            // Même cadence pour oublier les envois de fichiers abandonnés.
+            // Même cadence pour oublier les envois de fichiers abandonnés, et vider la corbeille
+            // des sauvegardes des serveurs supprimés (ADR-0059).
             self.sweep_uploads();
+            let data_root = self.inner.data_root.clone();
+            let purged = tokio::task::spawn_blocking(move || {
+                crate::backup::trash::purge_expired(&data_root, crate::backup::trash::now_secs())
+            })
+            .await;
+            if let Ok(Err(error)) = purged {
+                tracing::warn!(%error, "purging kept backups failed");
+            }
             for server_id in self.deployed() {
                 self.measure(server_id).await;
             }

@@ -18,6 +18,7 @@ const settings: Schemas['SettingsDto'] = {
   default_backup_limit: 3,
   max_backup_limit: null,
   audit_retention_days: 365,
+  deleted_backups_days: 7,
   alert_cpu_percent: 90,
   alert_memory_percent: 90,
   alert_minutes: 5,

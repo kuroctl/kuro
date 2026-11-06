@@ -1,0 +1,184 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT d.id, d.server_id, d.server_name, d.prefab_id, d.prefab_version, d.owner_ref,\n                    d.node_id, n.name AS node_name, d.name, d.size_bytes, d.sha256, d.created_at,\n                    d.deleted_at, d.purge_at\n             FROM deleted_server_backups d JOIN nodes n ON n.id = d.node_id\n             WHERE $1::uuid IS NULL OR d.server_id = $1\n             ORDER BY d.deleted_at DESC, d.created_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "deleted_server_backups",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "server_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "deleted_server_backups",
+            "name": "server_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "server_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "deleted_server_backups",
+            "name": "server_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "prefab_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "deleted_server_backups",
+            "name": "prefab_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "prefab_version",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "deleted_server_backups",
+            "name": "prefab_version"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "owner_ref",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "deleted_server_backups",
+            "name": "owner_ref"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "node_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "deleted_server_backups",
+            "name": "node_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "node_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "nodes",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "deleted_server_backups",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "size_bytes",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "deleted_server_backups",
+            "name": "size_bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "sha256",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "deleted_server_backups",
+            "name": "sha256"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "deleted_server_backups",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "deleted_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "deleted_server_backups",
+            "name": "deleted_at"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "purge_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "deleted_server_backups",
+            "name": "purge_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "e745945e63512c39a3947a9f131b8abc6b1fc237f93b0125d00bc8fc438547d2"
+}

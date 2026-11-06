@@ -290,7 +290,7 @@ async fn a_web_server_is_served_over_https_by_the_node_proxy_then_unplugged() {
     assert_eq!(status.certificate, CertificateState::Issued, "{status:?}");
 
     // Serveur supprimé : plus de route, le proxy a quitté son réseau, puis s'arrête (dernier site).
-    node.manager.delete(id).unwrap();
+    node.manager.delete(id, 0).unwrap();
     wait_for(&mut node.events, id, ServerState::Deleted).await;
     assert!(
         bollard

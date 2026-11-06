@@ -424,12 +424,47 @@ fn server_delete_wire_format() {
         reply_to: None,
         message: ApiMessage::ServerDelete(ServerDelete {
             server_id: server_id(),
+            keep_backups_days: 7,
         }),
     };
 
     assert_wire_format(
         &envelope,
-        json!({ "id": ID, "type": "server.delete", "payload": { "server_id": SERVER_ID } }),
+        json!({ "id": ID, "type": "server.delete",
+                "payload": { "server_id": SERVER_ID, "keep_backups_days": 7 } }),
+    );
+}
+
+#[test]
+fn a_server_delete_without_retention_erases_the_backups() {
+    let raw = json!({ "id": ID, "type": "server.delete", "payload": { "server_id": SERVER_ID } });
+    let envelope: Envelope<ApiMessage> = decode(&raw.to_string()).unwrap();
+
+    assert_eq!(
+        envelope.message,
+        ApiMessage::ServerDelete(ServerDelete {
+            server_id: server_id(),
+            keep_backups_days: 0,
+        })
+    );
+}
+
+#[test]
+fn backup_adopt_wire_format() {
+    let other = Uuid::nil();
+    let envelope = Envelope {
+        id: id(ID),
+        reply_to: None,
+        message: ApiMessage::BackupAdopt(kuro_protocol::api::BackupAdopt {
+            from_server_id: other,
+            server_id: server_id(),
+        }),
+    };
+
+    assert_wire_format(
+        &envelope,
+        json!({ "id": ID, "type": "backup.adopt",
+                "payload": { "from_server_id": other, "server_id": SERVER_ID } }),
     );
 }
 

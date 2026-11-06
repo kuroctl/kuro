@@ -63,7 +63,7 @@ async fn next_stats(streams: &mut mpsc::Receiver<DaemonMessage>) -> ServerStats 
 async fn cleanup(node: &mut Node, id: Uuid) {
     node.manager.power(id, PowerAction::Kill).await.unwrap();
     wait_for(&mut node.events, id, ServerState::Offline).await;
-    node.manager.delete(id).unwrap();
+    node.manager.delete(id, 0).unwrap();
     wait_for(&mut node.events, id, ServerState::Deleted).await;
 }
 
@@ -131,7 +131,7 @@ async fn a_command_needs_a_running_server() {
     let refused = node.manager.command(id, "say hello").await;
 
     assert_eq!(refused, Err(CommandError::NotRunning));
-    node.manager.delete(id).unwrap();
+    node.manager.delete(id, 0).unwrap();
     wait_for(&mut node.events, id, ServerState::Deleted).await;
 }
 

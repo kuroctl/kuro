@@ -227,6 +227,10 @@ impl StopSignal {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServerDelete {
     pub server_id: Uuid,
+    /// Sauvegardes gardées ce nombre de jours dans la corbeille du nœud, puis effacées
+    /// (ADR-0059) ; 0 (ou absent) : effacées avec le serveur.
+    #[serde(default)]
+    pub keep_backups_days: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

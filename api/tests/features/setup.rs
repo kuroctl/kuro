@@ -184,7 +184,7 @@ async fn prefab_images_are_readable_by_any_signed_in_admin() {
     let icon = admin
         .call(
             Method::GET,
-            "/prefabs/minecraft-java/1.5.0/assets/icon",
+            "/prefabs/minecraft-java/1.6.0/assets/icon",
             Some(&token),
             None,
         )

@@ -62,7 +62,7 @@ async fn cleanup(node: &mut Node, id: Uuid) {
         }
     }
     wait_for(&mut node.events, id, ServerState::Offline).await;
-    node.manager.delete(id).unwrap();
+    node.manager.delete(id, 0).unwrap();
     wait_for(&mut node.events, id, ServerState::Deleted).await;
 }
 
@@ -218,7 +218,7 @@ async fn disk_usage_counts_volumes_and_backups() {
 
     let used = disk_report(&mut node.streams, id, |used| used >= 6000).await;
     assert_eq!(used, 6000);
-    node.manager.delete(id).unwrap();
+    node.manager.delete(id, 0).unwrap();
     wait_for(&mut node.events, id, ServerState::Deleted).await;
 }
 
@@ -242,7 +242,7 @@ async fn a_link_out_of_the_volume_is_not_counted() {
 
     let used = disk_report(&mut node.streams, id, |used| used >= 10).await;
     assert_eq!(used, 10);
-    node.manager.delete(id).unwrap();
+    node.manager.delete(id, 0).unwrap();
     wait_for(&mut node.events, id, ServerState::Deleted).await;
 }
 
@@ -292,6 +292,6 @@ async fn over_the_quota_writes_backups_and_start_are_refused() {
         .unwrap();
     disk_report(&mut node.streams, id, |used| used == 1096).await;
     write(&node, id, "/app/data/c.txt", 100).await.unwrap();
-    node.manager.delete(id).unwrap();
+    node.manager.delete(id, 0).unwrap();
     wait_for(&mut node.events, id, ServerState::Deleted).await;
 }

@@ -6,6 +6,7 @@
 
 pub mod archive;
 pub mod pattern;
+pub mod trash;
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};

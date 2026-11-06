@@ -28,10 +28,11 @@ type Alert = 'alert_cpu_percent' | 'alert_memory_percent' | 'alert_minutes'
 const ALERTS: Alert[] = ['alert_cpu_percent', 'alert_memory_percent', 'alert_minutes']
 type History = 'file_history_days' | 'file_history_max_mb'
 const HISTORY: History[] = ['file_history_days', 'file_history_max_mb']
-type Field = `default_${Resource}` | `max_${Resource}` | 'audit_retention_days' | Alert | History
+type Field = `default_${Resource}` | `max_${Resource}` | 'audit_retention_days' | 'deleted_backups_days' | Alert | History
 const FIELDS: Field[] = [
   ...RESOURCES.flatMap((r) => [`default_${r}`, `max_${r}`] as Field[]),
   'audit_retention_days',
+  'deleted_backups_days',
   ...ALERTS,
   ...HISTORY,
 ]
@@ -204,6 +205,31 @@ async function save() {
                 </NumberFieldContent>
               </NumberField>
               <p v-if="errors.audit_retention_days" class="text-xs text-destructive">{{ errors.audit_retention_days }}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{{ t('settings.deletedBackups.title') }}</CardTitle>
+              <CardDescription>{{ t('settings.deletedBackups.help') }}</CardDescription>
+            </CardHeader>
+            <CardContent class="grid max-w-xs gap-1.5">
+              <Label for="deleted_backups_days">{{ t('settings.deletedBackups.days') }}</Label>
+              <NumberField
+                v-model="form.deleted_backups_days"
+                :min="0"
+                :max="90"
+                :step-snapping="false"
+                :locale="locale"
+                :disabled="!editable"
+              >
+                <NumberFieldContent>
+                  <NumberFieldDecrement />
+                  <NumberFieldInput id="deleted_backups_days" :aria-invalid="!!errors.deleted_backups_days" />
+                  <NumberFieldIncrement />
+                </NumberFieldContent>
+              </NumberField>
+              <p v-if="errors.deleted_backups_days" class="text-xs text-destructive">{{ errors.deleted_backups_days }}</p>
             </CardContent>
           </Card>
 

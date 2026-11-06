@@ -198,6 +198,7 @@ error_codes! {
     BackupInProgress => "backup_in_progress", "A backup of this server is already running";
     BackupNotReady => "backup_not_ready", "This backup is not complete";
     BackupLocked => "backup_locked", "This backup is locked";
+    DeletedBackupsOtherNode => "deleted_backups_other_node", "Kept backups can only go to a server on their node";
     ScheduleNotFound => "schedule_not_found", "No such scheduled task";
     InvalidMetricsRange => "invalid_metrics_range", "Range must be 24h, 7d or 90d";
     NotificationChannelNotFound => "notification_channel_not_found", "No such notification channel";

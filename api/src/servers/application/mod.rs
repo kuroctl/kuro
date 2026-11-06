@@ -12,6 +12,7 @@ pub mod compat;
 mod console;
 pub mod content;
 mod create;
+pub mod deleted_backups;
 mod deploy;
 mod error;
 mod events;
@@ -44,9 +45,10 @@ pub use error::ServersError;
 pub use events::ServerEventSink;
 pub use link::LinkEvents;
 pub use manage::{
-    ResourcesPatch, delete, power, reinstall, set_suspended, update_resources, update_settings,
+    ResourcesPatch, delete, power, reinstall, rename, set_suspended, update_resources,
+    update_settings,
 };
-pub use owner::set_owner;
+pub use owner::{add_member, is_member, of_client, remove_member, set_owner};
 pub use tickets::TICKET_TTL;
 
 use crate::auth::secret_box;

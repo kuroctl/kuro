@@ -17,6 +17,8 @@ pub use crate::settings::infra::PlatformSettings;
 pub const RETENTION_DAYS: RangeInclusive<i32> = 30..=3650;
 /// Historique des fichiers (ADR-0049) : 0 jour le coupe.
 pub const FILE_HISTORY_DAYS: RangeInclusive<i32> = 0..=365;
+/// Sauvegardes d'un serveur supprimé gardées par son nœud (ADR-0059) ; 0 : effacées avec lui.
+pub const DELETED_BACKUPS_DAYS: RangeInclusive<i32> = 0..=90;
 pub const FILE_HISTORY_MB: RangeInclusive<i32> = 1..=10240;
 /// Seuils d'alerte des stats (ADR-0043) : en % de l'allocation, et durée en minutes.
 pub const ALERT_PERCENT: RangeInclusive<i32> = 50..=100;
@@ -54,6 +56,7 @@ pub struct SettingsPatch {
     pub sftp_enabled: Option<bool>,
     pub file_history_days: Option<i32>,
     pub file_history_max_mb: Option<i32>,
+    pub deleted_backups_days: Option<i32>,
     pub alert_cpu_percent: Option<i32>,
     pub alert_memory_percent: Option<i32>,
     pub alert_minutes: Option<i32>,
@@ -95,6 +98,7 @@ pub async fn update(
         sftp_enabled,
         file_history_days,
         file_history_max_mb,
+        deleted_backups_days,
         alert_cpu_percent,
         alert_memory_percent,
         alert_minutes,
@@ -173,6 +177,11 @@ pub async fn update(
         "file_history_days",
         json!(current.file_history_days),
         json!(next.file_history_days),
+    );
+    record(
+        "deleted_backups_days",
+        json!(current.deleted_backups_days),
+        json!(next.deleted_backups_days),
     );
     record(
         "file_history_max_mb",
@@ -275,6 +284,12 @@ fn validate(settings: &PlatformSettings) -> Result<(), SettingsError> {
         errors.push(out_of_range(
             "file_history_days".to_owned(),
             &FILE_HISTORY_DAYS,
+        ));
+    }
+    if !DELETED_BACKUPS_DAYS.contains(&settings.deleted_backups_days) {
+        errors.push(out_of_range(
+            "deleted_backups_days".to_owned(),
+            &DELETED_BACKUPS_DAYS,
         ));
     }
     if !FILE_HISTORY_MB.contains(&settings.file_history_max_mb) {

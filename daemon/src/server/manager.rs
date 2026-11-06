@@ -249,12 +249,14 @@ impl Manager {
         Ok(())
     }
 
-    pub fn delete(&self, server_id: Uuid) -> Result<(), CommandError> {
+    /// Supprime le serveur ; ses sauvegardes restent `keep_backups_days` jours dans la corbeille
+    /// du nœud (ADR-0059).
+    pub fn delete(&self, server_id: Uuid, keep_backups_days: u32) -> Result<(), CommandError> {
         let guard = self.acquire(server_id)?;
         self.unwatch(server_id);
         let this = self.clone();
         tokio::spawn(async move {
-            match this.run_delete(server_id).await {
+            match this.run_delete(server_id, keep_backups_days).await {
                 Ok(()) => this.report(server_id, ServerState::Deleted, None),
                 Err(error) => {
                     tracing::warn!(%server_id, %error, "delete failed");
@@ -691,7 +693,7 @@ impl Manager {
         Ok(())
     }
 
-    async fn run_delete(&self, server_id: Uuid) -> Result<(), OpError> {
+    async fn run_delete(&self, server_id: Uuid, keep_backups_days: u32) -> Result<(), OpError> {
         let docker = &self.inner.docker;
         let dir = self.dir(server_id);
         self.inner.stopping_insert(server_id);
@@ -706,6 +708,21 @@ impl Manager {
         self.inner.proxy.remove(server_id).await;
         docker.remove_network(server_id).await?;
         self.inner.specs().remove(&server_id);
+        // Sauvegardes mises de côté d'abord : si c'est impossible, rien n'est effacé.
+        let data_root = self.inner.data_root.clone();
+        let backups = dir.root().join("backups");
+        tokio::task::spawn_blocking(move || {
+            crate::backup::trash::keep(
+                &data_root,
+                server_id,
+                &backups,
+                keep_backups_days,
+                crate::backup::trash::now_secs(),
+            )
+        })
+        .await
+        .map_err(|e| OpError::Spec(e.to_string()))?
+        .map_err(|e| OpError::Spec(format!("keeping backups: {e}")))?;
         // Des dizaines de Go à effacer : hors des workers du runtime.
         tokio::task::spawn_blocking(move || dir.remove())
             .await

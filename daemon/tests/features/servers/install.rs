@@ -531,7 +531,7 @@ async fn the_first_install_runs_right_after_the_deployment() {
         .join(id.to_string())
         .join("volumes/app/data/marker");
     assert_eq!(std::fs::read_to_string(marker).unwrap(), "installed\n");
-    node.manager.delete(id).unwrap();
+    node.manager.delete(id, 0).unwrap();
     wait_for(&mut node.events, id, ServerState::Deleted).await;
 }
 

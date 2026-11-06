@@ -293,6 +293,26 @@ impl Manager {
         Ok(())
     }
 
+    /// Reprend les sauvegardes gardées d'un serveur supprimé du nœud (ADR-0059).
+    pub async fn backup_adopt(&self, from: Uuid, server_id: Uuid) -> Result<(), CommandError> {
+        if !self.dir(server_id).exists() {
+            return Err(CommandError::UnknownServer);
+        }
+        let data_root = self.inner.data_root.clone();
+        let backups = self.dir(server_id).root().join("backups");
+        tokio::task::spawn_blocking(move || {
+            crate::backup::trash::adopt(&data_root, from, &backups)
+        })
+        .await
+        .map_err(|e| CommandError::Internal(e.to_string()))?
+        .map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => CommandError::NotFound,
+            _ => CommandError::Internal(e.to_string()),
+        })?;
+        self.measure_later(server_id);
+        Ok(())
+    }
+
     /// Sauvegardes terminées, et celle en cours. Nettoie au passage les archives interrompues.
     pub async fn backup_list(&self, server_id: Uuid) -> Result<BackupListing, CommandError> {
         let current = self.archiving(server_id);

@@ -1,6 +1,6 @@
 // Sections du rail et leur sous-menu. Les libellés sont des clés i18n. Les extensions du panel
 // (ADR-0051) ajoutent les leurs et complètent les sous-menus de Kuro (`withExtensions`).
-import { Bell, Bot, Boxes, Earth, Gamepad2, Globe, LayoutDashboard, Mail, Map as MapIcon, Network, PackageSearch, ScrollText, Server, Settings, ShieldCheck, Sparkles, type LucideIcon, UserCog, UserRound, Users } from '@lucide/vue'
+import { ArchiveRestore, Bell, Bot, Boxes, Earth, Gamepad2, Globe, LayoutDashboard, Mail, Map as MapIcon, Network, PackageSearch, ScrollText, Server, Settings, ShieldCheck, Sparkles, type LucideIcon, UserCog, UserRound, Users } from '@lucide/vue'
 import extensions from 'virtual:kuro-panel-extensions'
 
 import { withExtensions } from '@/shared/extensions'
@@ -66,6 +66,7 @@ const builtin: Section[] = [
       { label: 'subnav.servers.nodes', icon: Network, to: '/servers/nodes' },
       { label: 'subnav.servers.map', icon: MapIcon, to: '/servers/map' },
       { label: 'subnav.servers.regions', icon: Globe, to: '/servers/regions' },
+      { label: 'subnav.servers.deleted', icon: ArchiveRestore, to: '/servers/deleted', permission: 'servers.backups.read' },
     ],
   },
   {

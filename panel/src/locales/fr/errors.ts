@@ -126,6 +126,7 @@ const codes = {
   file_too_large: 'Fichier trop gros pour l’éditeur (512 Kio au plus).',
   invalid_command: 'Une commande tient sur une ligne, sans caractère de contrôle (1 024 caractères au plus).',
   backup_not_found: 'Sauvegarde introuvable.',
+  deleted_backups_other_node: 'Ces sauvegardes sont sur un autre nœud : choisissez un serveur du même nœud.',
   invalid_backup_name: 'Nom invalide : 64 caractères au plus, sans caractère de contrôle.',
   backups_disabled: 'Les sauvegardes sont désactivées pour ce serveur.',
   backup_limit_reached: 'Limite atteinte et toutes les sauvegardes sont verrouillées : déverrouillez-en une.',
