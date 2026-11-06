@@ -37,6 +37,7 @@ import {
   AlertDialogTitle,
 } from '@/shared/ui/alert-dialog'
 import { Badge } from '@/shared/ui/badge'
+import { BlockedBy } from '@/shared/ui/blocked-by'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
@@ -76,6 +77,8 @@ const show = (value: unknown) => (value === undefined || value === null || value
 
 const deleting = ref(false)
 const pending = ref(false)
+/** Serveurs qui utilisent cette version : l'API refuserait la suppression. */
+const blockers = computed(() => (servers.value ?? []).map((server) => ({ key: server.id, label: server.name, to: `/servers/${server.id}` })))
 
 // Archive `.kprefab` de la version (ADR-0042) : à déposer dans le dépôt des prefabs ou à importer
 // sur une autre instance.
@@ -166,7 +169,7 @@ async function remove() {
       >
         <ImageDown :class="{ 'animate-pulse': optimizing }" />{{ t('prefabs.detail.optimize') }}
       </Button>
-      <Button v-if="can('prefabs.manage') && summary" variant="outline" :disabled="summary.servers > 0" @click="deleting = true">
+      <Button v-if="can('prefabs.manage') && summary" variant="outline" @click="deleting = true">
         <Trash2 />{{ t('prefabs.detail.delete') }}
       </Button>
     </PageHeader>
@@ -307,7 +310,17 @@ async function remove() {
     </div>
 
     <AlertDialog :open="deleting" @update:open="(open) => (deleting = open)">
-      <AlertDialogContent>
+      <AlertDialogContent v-if="summary && summary.servers > 0">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{{ t('prefabs.detail.blockedTitle', { name, version }) }}</AlertDialogTitle>
+          <AlertDialogDescription>{{ t('prefabs.detail.blockedHelp', summary.servers) }}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <BlockedBy v-if="blockers.length > 0" :items="blockers" />
+        <AlertDialogFooter>
+          <AlertDialogCancel>{{ t('common.close') }}</AlertDialogCancel>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+      <AlertDialogContent v-else>
         <AlertDialogHeader>
           <AlertDialogTitle>{{ t('prefabs.detail.deleteTitle', { name, version }) }}</AlertDialogTitle>
           <AlertDialogDescription>

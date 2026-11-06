@@ -1,5 +1,5 @@
 // Paramètres du projet (ADR-0019) : valeurs par défaut, plafonds, conservation du journal.
-import { screen, waitFor } from '@testing-library/vue'
+import { screen, waitFor, within } from '@testing-library/vue'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
@@ -169,6 +169,26 @@ describe('project settings', () => {
     await renderApp('/settings')
 
     expect(await screen.findByText('Vous n’avez pas accès aux paramètres du projet.')).toBeTruthy()
+  })
+
+  it('asks before leaving unsaved changes', async () => {
+    server.use(...signedIn(), http.get(`${API}/settings`, () => HttpResponse.json(settings)))
+    const { user, router } = await renderApp('/settings')
+
+    const days = await screen.findByLabelText('Conservation des versions (jours)')
+    await user.clear(days)
+    await user.type(days, '7')
+    await user.tab()
+    await screen.findByRole('button', { name: 'Enregistrer' })
+
+    void router.push('/servers')
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Rester' }))
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/settings'))
+
+    void router.push('/servers')
+    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Quitter sans enregistrer' }))
+    await waitFor(() => expect(router.currentRoute.value.path).toBe('/servers'))
   })
 
   it('sends a new file history retention', async () => {

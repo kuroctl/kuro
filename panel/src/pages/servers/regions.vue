@@ -10,6 +10,7 @@ import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
 import { usePermissions } from '@/features/account/account.queries'
+import { useNodes } from '@/features/nodes/nodes.queries'
 import RegionDialog from '@/features/regions/components/RegionDialog.vue'
 import { type Region, useRegionsApi } from '@/features/regions/regions.api'
 import { useInvalidateRegions, useRegions } from '@/features/regions/regions.queries'
@@ -24,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/shared/ui/alert-dialog'
+import { BlockedBy, type Blocker } from '@/shared/ui/blocked-by'
 import { Button } from '@/shared/ui/button'
 import {
   DataTable,
@@ -50,6 +52,14 @@ const editing = ref<Region>()
 const dialog = ref(false)
 const deleting = ref<Region>()
 const pending = ref(false)
+
+const { data: nodes } = useNodes()
+/** Nœuds encore rattachés à la région à supprimer : l'API refuserait. */
+const blockers = computed<Blocker[]>(() =>
+  (nodes.value ?? [])
+    .filter((node) => deleting.value && node.region?.id === deleting.value.id)
+    .map((node) => ({ key: node.id, label: node.display_name ?? node.name, to: `/servers/nodes/${node.id}` })),
+)
 /** Région dont l'état est en cours d'enregistrement. */
 const toggling = ref<string>()
 
@@ -181,7 +191,17 @@ const { table } = useDataTable({ data: filtered, columns, getRowId: (region) => 
     <RegionDialog v-model:open="dialog" :region="editing" />
 
     <AlertDialog :open="!!deleting" @update:open="(open) => !open && (deleting = undefined)">
-      <AlertDialogContent>
+      <AlertDialogContent v-if="blockers.length > 0">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{{ t('regions.delete.blockedTitle', { name: deleting?.name ?? '' }) }}</AlertDialogTitle>
+          <AlertDialogDescription>{{ t('regions.delete.blockedHelp', blockers.length) }}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <BlockedBy :items="blockers" />
+        <AlertDialogFooter>
+          <AlertDialogCancel>{{ t('common.close') }}</AlertDialogCancel>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+      <AlertDialogContent v-else>
         <AlertDialogHeader>
           <AlertDialogTitle>{{ t('regions.delete.title', { name: deleting?.name ?? '' }) }}</AlertDialogTitle>
           <AlertDialogDescription>{{ t('regions.delete.help') }}</AlertDialogDescription>

@@ -14,7 +14,7 @@ export interface NavEntry {
 }
 
 /** Comparaison sans casse ni accents : « securite » trouve « Sécurité ». */
-function normalize(text: string): string {
+export function normalize(text: string): string {
   return text
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')

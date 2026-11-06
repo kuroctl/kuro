@@ -21,6 +21,7 @@ import {
 } from '@/shared/ui/sidebar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/ui/tooltip'
 import AccountMenu from './AccountMenu.vue'
+import CommandPalette from './CommandPalette.vue'
 import { sectionOf, sections } from './sections'
 
 const { t } = useI18n()
@@ -79,7 +80,8 @@ watch(
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarContent>
-    <SidebarFooter class="items-center pb-5">
+    <SidebarFooter class="items-center gap-3 pb-5">
+      <CommandPalette />
       <AccountMenu />
     </SidebarFooter>
   </Sidebar>

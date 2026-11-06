@@ -10,6 +10,8 @@ import NodesMap from '@/features/nodes/components/NodesMap.vue'
 import { useNodes } from '@/features/nodes/nodes.queries'
 import PrefabIcon from '@/features/prefabs/components/PrefabIcon.vue'
 import { useRegions } from '@/features/regions/regions.queries'
+import AttentionCard from '@/features/servers/components/AttentionCard.vue'
+import GettingStarted from '@/features/servers/components/GettingStarted.vue'
 import ServerStateBadge from '@/features/servers/components/ServerStateBadge.vue'
 import { useFleetMetrics } from '@/features/servers/composables/useFleetMetrics'
 import { useServers } from '@/features/servers/servers.queries'
@@ -100,20 +102,21 @@ const cards = computed<Metric[]>(() => {
       </Button>
     </PageHeader>
 
-      <!-- La carte reste en haut ; le contenu glisse par-dessus en défilant. -->
-      <NodesMap
-        v-if="can('nodes.read')"
-        class="sticky top-6 z-0 h-[42vh] min-h-72 border-none rounded-none [mask-image:linear-gradient(to_bottom,transparent_0%,black_20%,black_80%,transparent_100%)]"
-        :nodes="nodes ?? []"
-        :regions="regions"
-        :servers="metrics.perNode"
-      />
+    <!-- La carte reste en haut ; le contenu glisse par-dessus en défilant. -->
+    <NodesMap
+      v-if="can('nodes.read')"
+      class="sticky top-6 z-0 h-[42vh] min-h-72 border-none rounded-none [mask-image:linear-gradient(to_bottom,transparent_0%,black_20%,black_80%,transparent_100%)]"
+      :nodes="nodes ?? []"
+      :regions="regions"
+      :servers="metrics.perNode"
+    />
     <div class="relative flex-1 px-6 pt-6 pb-6">
-
       <div class="relative z-10 grid gap-6 bg-background pt-6">
         <Alert v-if="metrics.unplaced > 0" variant="info">
           <Network />{{ t('overview.unplaced', metrics.unplaced) }}
         </Alert>
+
+        <GettingStarted v-if="servers && nodes && can('nodes.read')" :servers="servers" :nodes="nodes" />
 
         <div v-if="isPending" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <Skeleton v-for="index in 5" :key="index" class="h-28" />
@@ -136,6 +139,8 @@ const cards = computed<Metric[]>(() => {
             </CardContent>
           </Card>
         </div>
+
+        <AttentionCard v-if="!isPending" :servers="servers ?? []" :nodes="nodes ?? []" />
 
         <Card class="gap-0 py-0">
           <CardHeader class="flex items-center justify-between border-b py-4">
