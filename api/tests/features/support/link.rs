@@ -229,6 +229,16 @@ impl TestApi {
         body: Value,
         client: Option<&NodeFiles>,
     ) -> (StatusCode, Value) {
+        self.post_listener(ENROLL_PATH, body, client).await
+    }
+
+    /// `POST` sur le listener daemon (enrôlement, annonces d'avancement des machines).
+    pub async fn post_listener(
+        &self,
+        path: &str,
+        body: Value,
+        client: Option<&NodeFiles>,
+    ) -> (StatusCode, Value) {
         let builder = ClientConfig::builder_with_provider(kuro_runtime::tls::provider())
             .with_protocol_versions(&[&rustls::version::TLS13])
             .unwrap()
@@ -254,7 +264,7 @@ impl TestApi {
             .unwrap();
         tokio::spawn(connection);
 
-        let request = Request::post(ENROLL_PATH)
+        let request = Request::post(path)
             .header(HOST, "127.0.0.1")
             .header(CONTENT_TYPE, "application/json")
             .body(Full::new(Bytes::from(body.to_string())))

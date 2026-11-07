@@ -14,8 +14,9 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use super::domain::{
-    Action, DISK_RESERVE_GB, ENROLL_TTL, LABEL, MachineState, Resources, RowState, SCOPE_LABEL,
-    cheapest_covering, cloud_init, is_location, machine_name, machine_step, memory_reserve_mb,
+    ANNOUNCED_STEPS, Action, DISK_RESERVE_GB, ENROLL_TTL, LABEL, MachineState, NO_NEWS_ERROR,
+    Resources, RowState, SCOPE_LABEL, cheapest_covering, cloud_init, is_location, machine_name,
+    machine_step, memory_reserve_mb, short_error, silent_step,
 };
 use super::provider::{
     Listed, Location, MachineSpec, Offer, Provider, ProviderError, SnapshotState,
@@ -727,6 +728,22 @@ pub struct MachineView {
     #[serde(with = "time::serde::rfc3339")]
     #[schema(value_type = String, format = DateTime)]
     pub created_at: OffsetDateTime,
+    /// Installation : dernière nouvelle de chaque étape atteinte, dans l'ordre chronologique.
+    #[schema(value_type = Vec<MachineProgress>)]
+    pub progress: sqlx::types::Json<Vec<MachineProgress>>,
+}
+
+/// Étape de l'installation d'une machine louée (`vm_requested`, `vm_started`, `install_started`,
+/// `enrolled`, `installed`, `online`).
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct MachineProgress {
+    pub step: String,
+    #[serde(with = "time::serde::rfc3339")]
+    #[schema(value_type = String, format = DateTime)]
+    pub at: OffsetDateTime,
+    /// Échec de l'étape : sortie courte de l'installeur, ou `no_news` (aucune nouvelle de la
+    /// machine, souvent l'adresse de l'API injoignable depuis la VM).
+    pub error: Option<String>,
 }
 
 /// Machines encore là, les plus récentes d'abord ; `claim` pour celles d'un appelant.
@@ -738,7 +755,11 @@ pub async fn list(pool: &PgPool, claim: Option<&str>) -> Result<Vec<MachineView>
                   n.name AS "node_name?", n.status AS "node_status?", m.ipv4,
                   m.snapshot IS NOT NULL AS "has_snapshot!", m.claim, m.state,
                   m.server_id, s.name AS "server_name?", s.state AS "server_state?", m.flag,
-                  m.node_online_at, m.created_at
+                  m.node_online_at, m.created_at,
+                  COALESCE((SELECT jsonb_agg(jsonb_build_object('step', p.step, 'at', p.at,
+                                                                'error', p.error) ORDER BY p.at)
+                              FROM machine_progress p WHERE p.machine_id = m.id), '[]')
+                    AS "progress!: sqlx::types::Json<Vec<MachineProgress>>"
              FROM machines m
              LEFT JOIN regions r ON r.id = m.region_id
              LEFT JOIN nodes n ON n.id = m.node_id
@@ -917,6 +938,7 @@ pub async fn rent(
     )
     .execute(&mut *tx)
     .await?;
+    record_step(&mut tx, id, "vm_requested").await?;
     tx.commit(
         AuditEvent::success(AuditAction::MachineRented)
             .target("machine", id)
@@ -1089,6 +1111,7 @@ async fn adopt(
     if adopted.rows_affected() == 0 {
         return Ok(());
     }
+    record_step(&mut tx, row.id, "vm_started").await?;
     // Adresse publique du nœud (ports à donner aux joueurs, DNS) : celle de la VM, qui change à
     // chaque réveil.
     if let (Some(node), Some(ipv4)) = (row.node_id, &vm.ipv4) {
@@ -1592,10 +1615,13 @@ async fn machine_pass(
             report.released += 1;
         }
         Action::Orphan | Action::Keep => match row.state() {
-            MachineState::Ready => {
-                if row.node_online_at.is_none() && node_online(pool, row.node_id).await? {
+            MachineState::Ready if row.node_online_at.is_none() => {
+                record_enrolled(pool, row).await?;
+                if node_online(pool, row.node_id).await? {
                     report.nodes_online += 1;
                     node_came_online(state, row).await?;
+                } else {
+                    flag_silence(pool, row.id, now).await?;
                 }
             }
             MachineState::Sleeping => {
@@ -1644,9 +1670,117 @@ async fn node_came_online(state: &MachinesState, row: &MachineRow) -> Result<(),
     .execute(&state.pool)
     .await?;
     if marked.rows_affected() > 0 {
+        let mut conn = state.pool.acquire().await?;
+        record_step(&mut conn, row.id, "online").await?;
         emit(state, row, MachineEventKind::NodeOnline);
     }
     Ok(())
+}
+
+// Installation (étapes).
+
+/// Étape atteinte, notée une fois ; une erreur notée avant sur elle est effacée.
+async fn record_step(
+    conn: &mut sqlx::PgConnection,
+    machine: Uuid,
+    step: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "INSERT INTO machine_progress (machine_id, step) VALUES ($1, $2)
+         ON CONFLICT (machine_id, step) DO UPDATE SET at = now(), error = NULL
+          WHERE machine_progress.error IS NOT NULL",
+        machine,
+        step,
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
+}
+
+/// Inscription reçue : le jeton d'enrôlement du nœud a servi (date de son usage).
+async fn record_enrolled(pool: &PgPool, row: &MachineRow) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "INSERT INTO machine_progress (machine_id, step, at)
+         SELECT $1, 'enrolled', max(used_at) FROM enrollment_tokens
+          WHERE node_id = $2 AND used_at IS NOT NULL HAVING max(used_at) IS NOT NULL
+         ON CONFLICT (machine_id, step) DO UPDATE SET at = EXCLUDED.at, error = NULL
+          WHERE machine_progress.error IS NOT NULL",
+        row.id,
+        row.node_id,
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Installation muette depuis `NO_NEWS` : l'étape attendue passe en erreur `no_news`.
+async fn flag_silence(
+    pool: &PgPool,
+    machine: Uuid,
+    now: OffsetDateTime,
+) -> Result<(), sqlx::Error> {
+    let progress: Vec<(String, OffsetDateTime, bool)> = sqlx::query!(
+        r#"SELECT step, at, error IS NOT NULL AS "failed!" FROM machine_progress
+            WHERE machine_id = $1"#,
+        machine,
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|row| (row.step, row.at, row.failed))
+    .collect();
+    if let Some(step) = silent_step(&progress, now) {
+        tracing::warn!(%machine, step, "machine installation silent");
+        sqlx::query!(
+            "INSERT INTO machine_progress (machine_id, step, error) VALUES ($1, $2, $3)
+             ON CONFLICT (machine_id, step) DO NOTHING",
+            machine,
+            step,
+            NO_NEWS_ERROR,
+        )
+        .execute(pool)
+        .await?;
+    }
+    Ok(())
+}
+
+/// Annonce de l'installeur d'une machine louée, authentifiée par le jeton d'enrôlement de son
+/// nœud (encore valide, même déjà utilisé : l'installation continue après l'inscription).
+/// `false` : jeton inconnu ou expiré, ou nœud sans machine.
+pub async fn announce(
+    pool: &PgPool,
+    token: &str,
+    step: &str,
+    error: Option<&str>,
+) -> Result<bool, MachinesError> {
+    if !ANNOUNCED_STEPS.contains(&step) {
+        return Err(MachinesError::Invalid(FieldError::new(
+            "step",
+            ErrorCode::InvalidParameter,
+        )));
+    }
+    let hash = crate::enrollment::domain::TokenHash::of(token);
+    let machine = sqlx::query_scalar!(
+        "SELECT m.id FROM enrollment_tokens t
+           JOIN machines m ON m.node_id = t.node_id AND m.state <> 'deleted'
+          WHERE t.token_hash = $1 AND t.expires_at > now()",
+        hash.as_str(),
+    )
+    .fetch_optional(pool)
+    .await?;
+    let Some(machine) = machine else {
+        return Ok(false);
+    };
+    sqlx::query!(
+        "INSERT INTO machine_progress (machine_id, step, error) VALUES ($1, $2, $3)
+         ON CONFLICT (machine_id, step) DO UPDATE SET at = now(), error = EXCLUDED.error",
+        machine,
+        step,
+        error.and_then(short_error),
+    )
+    .execute(pool)
+    .await?;
+    Ok(true)
 }
 
 /// VM recréée et nœud revenu : snapshot supprimé, machine prête.

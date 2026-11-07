@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT m.id, m.provider, m.reference, m.offer, m.location, m.region_id,\n                  r.name AS \"region_name?\", m.hourly_cost, m.monthly_cost, m.node_id,\n                  n.name AS \"node_name?\", n.status AS \"node_status?\", m.ipv4,\n                  m.snapshot IS NOT NULL AS \"has_snapshot!\", m.claim, m.state,\n                  m.server_id, s.name AS \"server_name?\", s.state AS \"server_state?\", m.flag,\n                  m.node_online_at, m.created_at\n             FROM machines m\n             LEFT JOIN regions r ON r.id = m.region_id\n             LEFT JOIN nodes n ON n.id = m.node_id\n             LEFT JOIN servers s ON s.id = m.server_id\n            WHERE m.state <> 'deleted' AND ($1::text IS NULL OR m.claim = $1)\n            ORDER BY m.created_at DESC",
+  "query": "SELECT m.id, m.provider, m.reference, m.offer, m.location, m.region_id,\n                  r.name AS \"region_name?\", m.hourly_cost, m.monthly_cost, m.node_id,\n                  n.name AS \"node_name?\", n.status AS \"node_status?\", m.ipv4,\n                  m.snapshot IS NOT NULL AS \"has_snapshot!\", m.claim, m.state,\n                  m.server_id, s.name AS \"server_name?\", s.state AS \"server_state?\", m.flag,\n                  m.node_online_at, m.created_at,\n                  COALESCE((SELECT jsonb_agg(jsonb_build_object('step', p.step, 'at', p.at,\n                                                                'error', p.error) ORDER BY p.at)\n                              FROM machine_progress p WHERE p.machine_id = m.id), '[]')\n                    AS \"progress!: sqlx::types::Json<Vec<MachineProgress>>\"\n             FROM machines m\n             LEFT JOIN regions r ON r.id = m.region_id\n             LEFT JOIN nodes n ON n.id = m.node_id\n             LEFT JOIN servers s ON s.id = m.server_id\n            WHERE m.state <> 'deleted' AND ($1::text IS NULL OR m.claim = $1)\n            ORDER BY m.created_at DESC",
   "describe": {
     "columns": [
       {
@@ -239,6 +239,12 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 22,
+        "name": "progress!: sqlx::types::Json<Vec<MachineProgress>>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -268,8 +274,9 @@
       false,
       true,
       true,
-      false
+      false,
+      null
     ]
   },
-  "hash": "981196e9d465061f2547898b4858af8e6a5bbc0e9c2b861d4ecdee28744cca11"
+  "hash": "f8f84ef3ddd19e3dda7560e482acc5a21ff20556c34220e35882cdddeeabc024"
 }

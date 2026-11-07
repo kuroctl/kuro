@@ -9,6 +9,7 @@ import { toast } from 'vue-sonner'
 
 import { usePermissions } from '@/features/account/account.queries'
 import MachineOfferFields from '@/features/machines/components/MachineOfferFields.vue'
+import MachineProgress from '@/features/machines/components/MachineProgress.vue'
 import { type Machine, useMachinesApi } from '@/features/machines/machines.api'
 import { useInvalidateMachines, useMachines } from '@/features/machines/machines.queries'
 import { formatMonthly, machineBadge } from '@/features/machines/status'
@@ -145,6 +146,7 @@ const release = (machine: Machine) =>
                       <Badge v-if="machine.flag" variant="destructive">{{ t(`machines.flag.${machine.flag}`) }}</Badge>
                       <Badge v-if="machine.claim" variant="outline">{{ machine.claim }}</Badge>
                     </div>
+                    <MachineProgress :machine="machine" class="mt-1.5" />
                   </TableCell>
                   <TableCell class="text-right tabular-nums">{{ formatMonthly(machine.monthly_cost, locale) }}</TableCell>
                   <TableCell>

@@ -3646,6 +3646,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/enroll/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Annonce de l'installeur d'une machine louée : étape atteinte, ou son échec. */
+        post: operations["announce"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -4757,6 +4774,20 @@ export interface components {
             /** @enum {string} */
             status: "totp_setup_required";
         };
+        /**
+         * @description Étape de l'installation d'une machine louée (`vm_requested`, `vm_started`, `install_started`,
+         *     `enrolled`, `installed`, `online`).
+         */
+        MachineProgress: {
+            /** Format: date-time */
+            at: string;
+            /**
+             * @description Échec de l'étape : sortie courte de l'installeur, ou `no_news` (aucune nouvelle de la
+             *     machine, souvent l'adresse de l'API injoignable depuis la VM).
+             */
+            error?: string | null;
+            step: string;
+        };
         /** @description Machine vue par le panel et les extensions. */
         MachineView: {
             claim?: string | null;
@@ -4787,6 +4818,8 @@ export interface components {
             node_online_at?: string | null;
             node_status?: string | null;
             offer: string;
+            /** @description Installation : dernière nouvelle de chaque étape atteinte, dans l'ordre chronologique. */
+            progress: components["schemas"]["MachineProgress"][];
             provider: string;
             reference?: string | null;
             /** Format: uuid */
@@ -5209,6 +5242,14 @@ export interface components {
             /** @description La plateforme exige le TOTP (`auth.require_totp`) : il ne peut pas être retiré. */
             totp_required: boolean;
             user: components["schemas"]["AdminUserDto"];
+        };
+        ProgressRequest: {
+            /** @description Échec de l'étape : sortie courte (300 caractères gardés). */
+            error?: string | null;
+            /** @description `install_started` ou `installed`. */
+            step: string;
+            /** @description Jeton d'enrôlement du nœud de la machine (encore valide, même déjà utilisé). */
+            token: string;
         };
         ProjectHitDto: {
             author: string;
@@ -17720,6 +17761,46 @@ export interface operations {
             };
             /** @description Certificat client présenté */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    announce: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgressRequest"];
+            };
+        };
+        responses: {
+            /** @description Étape notée */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Jeton inconnu ou expiré, ou nœud sans machine */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Étape inconnue */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

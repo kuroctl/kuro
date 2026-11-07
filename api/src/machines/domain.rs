@@ -194,6 +194,53 @@ pub fn cloud_init(api_url: &str, fingerprint: &str, token: &str, ports: &str) ->
     )
 }
 
+/// Étapes de l'installation d'une machine louée, dans l'ordre attendu (`machine_progress.step`).
+/// `install_started` et `installed` sont annoncées par l'installeur, les autres par l'API.
+pub const STEPS: [&str; 6] = [
+    "vm_requested",
+    "vm_started",
+    "install_started",
+    "enrolled",
+    "installed",
+    "online",
+];
+/// Étapes que l'installeur annonce.
+pub const ANNOUNCED_STEPS: [&str; 2] = ["install_started", "installed"];
+/// Aucune nouvelle de l'installation depuis ce délai : l'étape suivante passe en erreur.
+pub const NO_NEWS: time::Duration = time::Duration::minutes(10);
+/// Erreur d'une étape jamais annoncée (souvent : adresse de l'API injoignable depuis la VM).
+pub const NO_NEWS_ERROR: &str = "no_news";
+
+/// Étape à marquer `no_news`, d'après ce qui est déjà noté (`(étape, date, en erreur)`) : la
+/// première étape absente, quand la dernière nouvelle date de `NO_NEWS` et qu'aucune étape n'est
+/// déjà en erreur (une seule erreur à la fois, la plus précise).
+pub fn silent_step(
+    progress: &[(String, OffsetDateTime, bool)],
+    now: OffsetDateTime,
+) -> Option<&'static str> {
+    if progress.iter().any(|(_, _, failed)| *failed) {
+        return None;
+    }
+    let last = progress.iter().map(|(_, at, _)| *at).max()?;
+    if now - last < NO_NEWS {
+        return None;
+    }
+    STEPS
+        .into_iter()
+        .find(|step| !progress.iter().any(|(s, _, _)| s == step))
+}
+
+/// Erreur annoncée par l'installeur, gardée courte et sur une ligne.
+pub fn short_error(error: &str) -> Option<String> {
+    let line: String = error
+        .chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .take(300)
+        .collect();
+    let line = line.trim();
+    (!line.is_empty()).then(|| line.to_owned())
+}
+
 /// Nom neutre de la machine et de son nœud : partie aléatoire de l'identifiant.
 pub fn machine_name(id: Uuid) -> String {
     let hex = id.simple().to_string();
@@ -406,6 +453,27 @@ mod tests {
         assert_eq!(memory_reserve_mb(1024), 256);
         assert_eq!(memory_reserve_mb(2048), 512);
         assert_eq!(memory_reserve_mb(16_384), 1024);
+    }
+
+    #[test]
+    fn a_silent_installation_marks_the_next_step() {
+        let now = OffsetDateTime::now_utc();
+        let at = |minutes| now - time::Duration::minutes(minutes);
+        let step = |name: &str, minutes, failed| (name.to_owned(), at(minutes), failed);
+        let started = [
+            step("vm_requested", 12, false),
+            step("vm_started", 11, false),
+        ];
+        assert_eq!(silent_step(&started, now), Some("install_started"));
+        assert_eq!(silent_step(&started[..1], at(5)), None);
+        let failed = [step("vm_requested", 30, false), step("installed", 20, true)];
+        assert_eq!(silent_step(&failed, now), None);
+        assert_eq!(silent_step(&[], now), None);
+        assert_eq!(
+            short_error("curl: (7)\nFailed to connect").as_deref(),
+            Some("curl: (7) Failed to connect")
+        );
+        assert_eq!(short_error(" \n"), None);
     }
 
     #[test]

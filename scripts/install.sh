@@ -95,13 +95,65 @@ node:
 EOF
 }
 
+last_step=""
+last_error=""
 fail() {
+  last_error="$*"
   echo "error: $*" >&2
   exit 1
 }
 
 step() {
+  last_step="$*"
   echo "==> $*"
+}
+
+# Avancement d'une machine louée (ADR-0065) : annoncé à l'API avec le jeton d'enrôlement (dans
+# le corps, jamais en argument), en TLS épinglé sur la CA comme l'enrôlement. Jamais bloquant.
+report_ca=""
+installed_reported=false
+pinned_ca() {
+  local hostport host want cert fp
+  hostport="${api#https://}"
+  hostport="${hostport%%/*}"
+  case "$hostport" in *:*) ;; *) hostport="$hostport:443" ;; esac
+  host="${hostport%:*}"
+  want="$(printf '%s' "${fingerprint#sha256:}" | tr -d ':' | tr 'A-F' 'a-f')"
+  openssl s_client -connect "$hostport" -servername "$host" -showcerts </dev/null 2>/dev/null |
+    awk -v dir="$work" '/BEGIN CERTIFICATE/ { n++; out = dir "/peer-" n ".pem" }
+      out { print > out } /END CERTIFICATE/ { close(out); out = "" }' || true
+  for cert in "$work"/peer-*.pem; do
+    [ -f "$cert" ] || continue
+    fp="$(openssl x509 -in "$cert" -noout -fingerprint -sha256 2>/dev/null | sed 's/.*=//' | tr -d ':' | tr 'A-F' 'a-f')"
+    if [ "$fp" = "$want" ]; then
+      echo "$cert"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# report <install_started|installed> [erreur]
+report() {
+  $node_enroll && ! $node_local || return 0
+  command -v openssl >/dev/null || return 0
+  local token="${KURO_ENROLL_TOKEN:-}" error
+  [ -n "$token_file" ] && token="$(cat "$token_file" 2>/dev/null || true)"
+  [ -n "$token" ] || return 0
+  [ -n "$report_ca" ] || report_ca="$(pinned_ca)" || return 0
+  error="$(printf '%s' "${2:-}" | tr -d '"\' | tr -c '[:print:]' ' ' | cut -c1-300)"
+  if [ -n "$error" ]; then error="\"$error\""; else error=null; fi
+  printf '{"token":"%s","step":"%s","error":%s}' "$token" "$1" "$error" |
+    curl -fsS -m 10 --cacert "$report_ca" -H 'Content-Type: application/json' \
+      --data-binary @- "${api%/}/api/enroll/progress" >/dev/null 2>&1 || true
+}
+
+on_exit() {
+  local status=$?
+  if [ "$status" -ne 0 ] && ! $installed_reported; then
+    report installed "${last_error:-exit $status during: $last_step}"
+  fi
+  rm -rf "$work"
 }
 
 while [ $# -gt 0 ]; do
@@ -804,6 +856,10 @@ EOF
 
 # --- Déroulé -------------------------------------------------------------------------------------
 
+work="$(mktemp -d)"
+trap on_exit EXIT
+report install_started
+
 if $full; then
   prepare_system
   configure_firewall
@@ -814,8 +870,6 @@ if $docker_needed; then
 fi
 install_minisign
 resolve_version
-work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT
 
 if has_role api; then
   install_api
@@ -826,6 +880,8 @@ fi
 if has_role node; then
   tune_docker_for_node
   install_node
+  report installed
+  installed_reported=true
 fi
 
 if has_role api && $api_first_install; then

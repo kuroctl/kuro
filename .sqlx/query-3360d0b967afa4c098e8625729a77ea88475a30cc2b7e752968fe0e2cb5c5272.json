@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO machine_progress (machine_id, step, at)\n         SELECT $1, 'enrolled', max(used_at) FROM enrollment_tokens\n          WHERE node_id = $2 AND used_at IS NOT NULL HAVING max(used_at) IS NOT NULL\n         ON CONFLICT (machine_id, step) DO UPDATE SET at = EXCLUDED.at, error = NULL\n          WHERE machine_progress.error IS NOT NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3360d0b967afa4c098e8625729a77ea88475a30cc2b7e752968fe0e2cb5c5272"
+}

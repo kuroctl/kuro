@@ -46,6 +46,7 @@ const machine: Schemas['MachineView'] = {
   server_id: null,
   flag: null,
   created_at: '2026-11-06T10:00:00Z',
+  progress: [],
 }
 
 const sweep: Schemas['TaskStatus'] = {
@@ -102,6 +103,25 @@ describe('machines page', () => {
     await user.click(screen.getByRole('button', { name: 'Louer' }))
 
     await waitFor(() => expect(body).toEqual({ region_id: REGION_ID, offer: 'cpx31' }))
+  })
+
+  it('shows the installation step of a machine, its timeline and its error', async () => {
+    const installing: Schemas['MachineView'] = {
+      ...machine,
+      node_status: 'pending',
+      progress: [
+        { step: 'vm_requested', at: '2026-11-06T10:00:00Z' },
+        { step: 'vm_started', at: '2026-11-06T10:00:20Z' },
+        { step: 'install_started', at: '2026-11-06T10:11:00Z', error: 'no_news' },
+      ],
+    }
+    server.use(page({ machines: [installing] }), ...signedIn())
+    const { user } = await renderApp('/servers/machines')
+
+    await user.click(await screen.findByRole('button', { name: /Installation commencée — en échec/ }))
+
+    expect(screen.getByText('VM démarrée')).toBeTruthy()
+    expect(screen.getByRole('alert').textContent).toContain('Aucune nouvelle de la machine depuis 10 min')
   })
 
   it('releases a machine after naming it', async () => {

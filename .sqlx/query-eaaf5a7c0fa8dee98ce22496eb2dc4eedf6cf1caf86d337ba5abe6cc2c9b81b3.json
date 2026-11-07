@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO machine_progress (machine_id, step, error) VALUES ($1, $2, $3)\n             ON CONFLICT (machine_id, step) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "eaaf5a7c0fa8dee98ce22496eb2dc4eedf6cf1caf86d337ba5abe6cc2c9b81b3"
+}

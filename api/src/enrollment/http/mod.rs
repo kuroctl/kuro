@@ -4,6 +4,7 @@
 
 pub mod admin;
 mod enroll;
+mod progress;
 
 use std::sync::Arc;
 
@@ -31,7 +32,8 @@ pub use admin::EnrollmentSettings;
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(enroll::enroll, admin::create, admin::reissue),
+    paths(enroll::enroll, progress::announce, admin::create, admin::reissue),
+    components(schemas(progress::ProgressRequest)),
     tags((name = "enrollment", description = "Enrôlement des nœuds, sur le listener daemon (port 8443, TLS de la CA privée)"))
 )]
 pub struct EnrollmentApi;
@@ -43,6 +45,7 @@ where
 {
     Router::new()
         .route(ENROLL_PATH, post(enroll::enroll))
+        .route(progress::PROGRESS_PATH, post(progress::announce))
         .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
         // Sans authentification (le token est dans le corps) : débit limité par adresse.
         .route_layer(axum::middleware::from_fn(

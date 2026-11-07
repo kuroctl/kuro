@@ -20,6 +20,18 @@ export const machines = {
     releasing: 'Rendue en cours',
     deleted: 'Rendue',
   },
+  progress: {
+    steps: {
+      vm_requested: 'VM demandée',
+      vm_started: 'VM démarrée',
+      install_started: 'Installation commencée',
+      enrolled: 'Inscription reçue',
+      installed: 'Daemon installé',
+      online: 'Nœud en ligne',
+    },
+    failedStep: '{step} — en échec',
+    noNews: 'Aucune nouvelle de la machine depuis 10 min : l’adresse de l’API (Paramètres › Machines) est-elle joignable depuis la VM ?',
+  },
   flag: {
     stalled: 'Nœud jamais en ligne',
     lost: 'Disparue chez le fournisseur',

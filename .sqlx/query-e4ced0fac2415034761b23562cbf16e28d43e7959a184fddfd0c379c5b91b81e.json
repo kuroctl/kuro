@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT m.id FROM enrollment_tokens t\n           JOIN machines m ON m.node_id = t.node_id AND m.state <> 'deleted'\n          WHERE t.token_hash = $1 AND t.expires_at > now()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "machines",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e4ced0fac2415034761b23562cbf16e28d43e7959a184fddfd0c379c5b91b81e"
+}

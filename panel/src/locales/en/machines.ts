@@ -22,6 +22,18 @@ export const machines = {
     releasing: 'Being released',
     deleted: 'Released',
   },
+  progress: {
+    steps: {
+      vm_requested: 'VM requested',
+      vm_started: 'VM started',
+      install_started: 'Installation started',
+      enrolled: 'Enrollment received',
+      installed: 'Daemon installed',
+      online: 'Node online',
+    },
+    failedStep: '{step} — failed',
+    noNews: 'No news from the machine for 10 min: is the API address (Settings › Machines) reachable from the VM?',
+  },
   flag: {
     stalled: 'Node never online',
     lost: 'Gone at the provider',

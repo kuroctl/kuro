@@ -940,3 +940,126 @@ async fn node_capacity_counts_every_server_including_those_waiting_for_their_nod
         (150, 1024, 1)
     );
 }
+
+/// Étapes notées d'une machine, dans l'ordre, avec leur erreur.
+async fn progress(platform: &Platform, id: &str) -> Vec<(String, Option<String>)> {
+    machine(platform, id).await["progress"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| {
+            (
+                p["step"].as_str().unwrap().to_owned(),
+                p["error"].as_str().map(str::to_owned),
+            )
+        })
+        .collect()
+}
+
+async fn announce(platform: &Platform, token: &str, step: &str, error: Option<&str>) -> StatusCode {
+    let body = json!({ "token": token, "step": step, "error": error });
+    platform
+        .api
+        .post_listener("/api/enroll/progress", body, None)
+        .await
+        .0
+}
+
+#[tokio::test]
+async fn the_installation_is_announced_step_by_step_and_a_silent_machine_is_flagged() {
+    let platform = Platform::start().await;
+    let region_id = configured(&platform).await;
+    let step = |name: &str| (name.to_owned(), None);
+
+    let rented = rent(
+        &platform,
+        json!({ "region_id": region_id, "offer": "small" }),
+    )
+    .await;
+    assert_eq!(rented.status, StatusCode::CREATED, "{}", rented.json);
+    let machine = rented.json;
+    let id = machine["id"].as_str().unwrap();
+    let token = enrollment_token(&platform);
+    assert_eq!(
+        progress(&platform, id).await,
+        [step("vm_requested"), step("vm_started")]
+    );
+
+    // Jeton inconnu ou étape que l'installeur n'annonce pas : refusés, rien n'est noté.
+    let unknown = announce(
+        &platform,
+        "kuro_enr_not-a-real-token",
+        "install_started",
+        None,
+    );
+    assert_eq!(unknown.await, StatusCode::UNAUTHORIZED);
+    let invalid = announce(&platform, &token, "online", None).await;
+    assert_eq!(invalid, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(progress(&platform, id).await.len(), 2);
+
+    // Une erreur annoncée est gardée, puis effacée quand l'étape réussit.
+    let failed = announce(
+        &platform,
+        &token,
+        "install_started",
+        Some("curl: (7)\nrefused"),
+    );
+    assert_eq!(failed.await, StatusCode::NO_CONTENT);
+    assert_eq!(
+        progress(&platform, id).await[2],
+        (
+            "install_started".to_owned(),
+            Some("curl: (7) refused".to_owned())
+        )
+    );
+    let started = announce(&platform, &token, "install_started", None).await;
+    assert_eq!(started, StatusCode::NO_CONTENT);
+
+    // Le jeton déjà utilisé par l'inscription sert encore aux annonces.
+    let _daemon = machine_comes_online(&platform, &machine).await;
+    let installed = announce(&platform, &token, "installed", None).await;
+    assert_eq!(installed, StatusCode::NO_CONTENT);
+    sweep(&platform.admin.machines, OffsetDateTime::now_utc(), true)
+        .await
+        .unwrap();
+    assert_eq!(
+        progress(&platform, id).await,
+        [
+            step("vm_requested"),
+            step("vm_started"),
+            step("install_started"),
+            step("enrolled"),
+            step("installed"),
+            step("online"),
+        ]
+    );
+
+    // Jeton expiré : refusé.
+    sqlx::query("UPDATE enrollment_tokens SET expires_at = now() - interval '1 second'")
+        .execute(&platform.api.pool)
+        .await
+        .unwrap();
+    let expired = announce(&platform, &token, "installed", None).await;
+    assert_eq!(expired, StatusCode::UNAUTHORIZED);
+
+    // Une machine qui ne donne aucune nouvelle (API injoignable depuis la VM) : l'étape
+    // attendue passe en erreur, une seule fois.
+    let silent = rent(
+        &platform,
+        json!({ "region_id": region_id, "offer": "small" }),
+    )
+    .await;
+    let silent_id = silent.json["id"].as_str().unwrap();
+    let later = OffsetDateTime::now_utc() + time::Duration::minutes(11);
+    for _ in 0..2 {
+        sweep(&platform.admin.machines, later, true).await.unwrap();
+    }
+    assert_eq!(
+        progress(&platform, silent_id).await,
+        [
+            step("vm_requested"),
+            step("vm_started"),
+            ("install_started".to_owned(), Some("no_news".to_owned())),
+        ]
+    );
+}
