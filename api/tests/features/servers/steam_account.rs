@@ -273,8 +273,11 @@ async fn an_anonymous_prefab_never_receives_the_account() {
     let mut daemon = platform.online_node("node-1", "2456-2460").await;
     set_account(&platform).await;
 
+    // Project Zomboid : SteamCMD anonyme et version publiée (Valheim est en brouillon).
+    let mut body = server(&daemon, "project-zomboid");
+    body["settings"] = json!({});
     let (created, deploy) = tokio::join!(
-        platform.call(Method::POST, "/servers", Some(server(&daemon, "valheim"))),
+        platform.call(Method::POST, "/servers", Some(body)),
         daemon.accept(),
     );
 

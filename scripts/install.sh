@@ -141,7 +141,7 @@ report() {
   [ -n "$token_file" ] && token="$(cat "$token_file" 2>/dev/null || true)"
   [ -n "$token" ] || return 0
   [ -n "$report_ca" ] || report_ca="$(pinned_ca)" || return 0
-  error="$(printf '%s' "${2:-}" | tr -d '"\' | tr -c '[:print:]' ' ' | cut -c1-300)"
+  error="$(printf '%s' "${2:-}" | tr -d '"\\' | tr -c '[:print:]' ' ' | cut -c1-300)"
   if [ -n "$error" ]; then error="\"$error\""; else error=null; fi
   printf '{"token":"%s","step":"%s","error":%s}' "$token" "$1" "$error" |
     curl -fsS -m 10 --cacert "$report_ca" -H 'Content-Type: application/json' \

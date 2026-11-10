@@ -64,7 +64,7 @@ uuid = { version = "1.29.0", features = ["v7", "serde"] }
 
 # TLS : rustls uniquement, fournisseur crypto `ring` (aws-lc-rs exige CMake/NASM).
 # Serveur MCP (ADR-0023) : SDK Rust officiel, transport Streamable HTTP monté dans axum.
-rmcp = { version = "3.8.0", default-features = false, features = ["server", "macros", "transport-streamable-http-server"] }
+rmcp = { version = "3.9.0", default-features = false, features = ["server", "macros", "transport-streamable-http-server"] }
 rcgen = { version = "0.14.10", default-features = false, features = ["crypto", "pem", "ring", "x509-parser"] }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "logging", "std", "tls12"] }
 tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "logging", "tls12"] }
